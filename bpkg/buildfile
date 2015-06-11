@@ -3,4 +3,4 @@
 # license   : MIT; see accompanying LICENSE file
 
 import libs += libhello
-lib{bpkg}: cxx{manifest-parser manifest-serializer} $libs
+lib{bpkg}: cxx{manifest-parser manifest-serializer manifest} $libs

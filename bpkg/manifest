@@ -1,0 +1,129 @@
+// file      : bpkg/manifest -*- C++ -*-
+// copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+#ifndef BPKG_MANIFEST
+#define BPKG_MANIFEST
+
+#include <string>
+#include <vector>
+
+#include <butl/optional>
+
+namespace bpkg
+{
+  using strings = std::vector<std::string>;
+
+  // priority
+  //
+  class priority
+  {
+  public:
+    enum value_type {low, medium, high, security};
+
+    std::string comment;
+
+    priority (value_type v = low): value (v) {}
+    operator value_type () const {return value;}
+
+  private:
+    value_type value; // Shouldn't be necessary to access directly.
+  };
+
+  // description
+  // description-file
+  //
+  struct description: std::string
+  {
+    bool file;
+    std::string comment;
+  };
+
+  // license
+  //
+  struct licenses: strings
+  {
+    std::string comment;
+  };
+
+  // change
+  // change-file
+  //
+  struct change: std::string
+  {
+    bool file;
+    std::string comment;
+  };
+
+  // url
+  // package-url
+  //
+  struct url: std::string
+  {
+    std::string comment;
+  };
+
+  // email
+  // package-email
+  //
+  struct email: std::string
+  {
+    std::string comment;
+  };
+
+  // depends
+  //
+  enum class comparison {eq, lt, gt, le, ge};
+
+  struct version_comparison
+  {
+    std::string value;
+    comparison operation;
+  };
+
+  struct dependency
+  {
+    std::string name;
+    butl::optional<version_comparison> version;
+  };
+
+  struct dependency_alternatives: std::vector<dependency>
+  {
+    bool conditional;
+    std::string comment;
+  };
+
+  // requires
+  //
+  struct requirement_alternatives: strings
+  {
+    bool conditional;
+    std::string comment;
+  };
+
+  struct manifest
+  {
+    using priority_type = bpkg::priority;
+    using url_type = bpkg::url;
+    using email_type = bpkg::email;
+
+    std::string name;
+    std::string version;
+    priority_type priority;
+    std::string summary;
+    std::vector<licenses> license_alternatives;
+    strings tags;
+    std::vector<description> descriptions;
+    std::vector<change> changes;
+    url_type url;
+    butl::optional<url_type> package_url;
+    email_type email;
+    butl::optional<email_type> package_email;
+    std::vector<dependency_alternatives> dependencies;
+    std::vector<requirement_alternatives> requirements;
+  };
+
+  using manifests = std::vector<manifest>;
+}
+
+#endif // BPKG_MANIFEST
