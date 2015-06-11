@@ -2,5 +2,5 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs += libhello
+import libs += libbutl
 lib{bpkg}: cxx{manifest-parser manifest-serializer manifest} $libs
