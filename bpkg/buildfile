@@ -4,3 +4,4 @@
 
 import libs += libbutl
 lib{bpkg}: cxx{manifest-parser manifest-serializer manifest} $libs
+lib{bpkg}: cxx.export.poptions = -I$src_root

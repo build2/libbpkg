@@ -1,0 +1,6 @@
+$out_root/:
+{
+  include bpkg/
+}
+
+export $out_root/butl/lib{bpkg}
