@@ -17,7 +17,7 @@ using namespace bpkg;
 using pairs = vector<pair<string, string>>;
 
 static bool
-parse (const char* manifest, const pairs& expected);
+test (const char* manifest, const pairs& expected);
 
 static bool
 fail (const char* manifest);
@@ -27,17 +27,17 @@ main ()
 {
   // Whitespaces and comments.
   //
-  assert (parse (" \t", {{"",""}}));
-  assert (parse (" \t\n \n\n", {{"",""}}));
-  assert (parse ("# one\n  #two", {{"",""}}));
+  assert (test (" \t", {{"",""}}));
+  assert (test (" \t\n \n\n", {{"",""}}));
+  assert (test ("# one\n  #two", {{"",""}}));
 
   // Test encountering eos at various points.
   //
-  assert (parse ("", {{"",""}}));
-  assert (parse (" ", {{"",""}}));
-  assert (parse ("\n", {{"",""}}));
+  assert (test ("", {{"",""}}));
+  assert (test (" ", {{"",""}}));
+  assert (test ("\n", {{"",""}}));
   assert (fail ("a"));
-  assert (parse (":1\na:", {{"","1"},{"a", ""},{"",""},{"",""}}));
+  assert (test (":1\na:", {{"","1"},{"a", ""},{"",""},{"",""}}));
 
   // Invalid manifests.
   //
@@ -52,87 +52,84 @@ main ()
 
   // Empty manifest.
   //
-  assert (parse (":1", {{"","1"},{"",""},{"",""}}));
-  assert (parse (" \t :1", {{"","1"},{"",""},{"",""}}));
-  assert (parse (" \t : 1", {{"","1"},{"",""},{"",""}}));
-  assert (parse (" \t : 1 ", {{"","1"},{"",""},{"",""}}));
-  assert (parse (":1\n", {{"","1"},{"",""},{"",""}}));
-  assert (parse (":1 \n", {{"","1"},{"",""},{"",""}}));
+  assert (test (":1", {{"","1"},{"",""},{"",""}}));
+  assert (test (" \t :1", {{"","1"},{"",""},{"",""}}));
+  assert (test (" \t : 1", {{"","1"},{"",""},{"",""}}));
+  assert (test (" \t : 1 ", {{"","1"},{"",""},{"",""}}));
+  assert (test (":1\n", {{"","1"},{"",""},{"",""}}));
+  assert (test (":1 \n", {{"","1"},{"",""},{"",""}}));
 
   // Single manifest.
   //
-  assert (parse (":1\na:x", {{"","1"},{"a", "x"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\n", {{"","1"},{"a","x"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\nb:y",
-                 {{"","1"},{"a","x"},{"b","y"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\n\tb : y\n  #comment",
-                 {{"","1"},{"a","x"},{"b","y"},{"",""},{"",""}}));
+  assert (test (":1\na:x", {{"","1"},{"a", "x"},{"",""},{"",""}}));
+  assert (test (":1\na:x\n", {{"","1"},{"a","x"},{"",""},{"",""}}));
+  assert (test (":1\na:x\nb:y",
+                {{"","1"},{"a","x"},{"b","y"},{"",""},{"",""}}));
+  assert (test (":1\na:x\n\tb : y\n  #comment",
+                {{"","1"},{"a","x"},{"b","y"},{"",""},{"",""}}));
 
   // Multiple manifests.
   //
-  assert (parse (":1\na:x\n:\nb:y",
-                 {{"","1"},{"a", "x"},{"",""},
-                  {"","1"},{"b", "y"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\n:1\nb:y",
-                 {{"","1"},{"a", "x"},{"",""},
-                  {"","1"},{"b", "y"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\n:\nb:y\n:\nc:z\n",
-                 {{"","1"},{"a", "x"},{"",""},
-                  {"","1"},{"b", "y"},{"",""},
-                  {"","1"},{"c", "z"},{"",""},{"",""}}));
+  assert (test (":1\na:x\n:\nb:y",
+                {{"","1"},{"a", "x"},{"",""},
+                 {"","1"},{"b", "y"},{"",""},{"",""}}));
+  assert (test (":1\na:x\n:1\nb:y",
+                {{"","1"},{"a", "x"},{"",""},
+                 {"","1"},{"b", "y"},{"",""},{"",""}}));
+  assert (test (":1\na:x\n:\nb:y\n:\nc:z\n",
+                {{"","1"},{"a", "x"},{"",""},
+                 {"","1"},{"b", "y"},{"",""},
+                 {"","1"},{"c", "z"},{"",""},{"",""}}));
 
   // Name parsing.
   //
-  assert (parse (":1\nabc:", {{"","1"},{"abc",""},{"",""},{"",""}}));
-  assert (parse (":1\nabc :", {{"","1"},{"abc",""},{"",""},{"",""}}));
-  assert (parse (":1\nabc\t:", {{"","1"},{"abc",""},{"",""},{"",""}}));
+  assert (test (":1\nabc:", {{"","1"},{"abc",""},{"",""},{"",""}}));
+  assert (test (":1\nabc :", {{"","1"},{"abc",""},{"",""},{"",""}}));
+  assert (test (":1\nabc\t:", {{"","1"},{"abc",""},{"",""},{"",""}}));
 
   // Simple value parsing.
   //
-  assert (parse (":1\na: \t xyz \t ", {{"","1"},{"a","xyz"},{"",""},{"",""}}));
+  assert (test (":1\na: \t xyz \t ", {{"","1"},{"a","xyz"},{"",""},{"",""}}));
 
   // Simple value escaping.
   //
-  assert (parse (":1\na:x\\", {{"","1"},{"a","x"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\\\ny", {{"","1"},{"a","xy"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\\\\\nb:",
-                 {{"","1"},{"a","x\\"},{"b",""},{"",""},{"",""}}));
-  assert (parse (":1\na:x\\\\\\\nb:",
-                 {{"","1"},{"a","x\\\\"},{"b",""},{"",""},{"",""}}));
+  assert (test (":1\na:x\\", {{"","1"},{"a","x"},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\ny", {{"","1"},{"a","xy"},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\\\nb:",
+                {{"","1"},{"a","x\\"},{"b",""},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\\\\\nb:",
+                {{"","1"},{"a","x\\\\"},{"b",""},{"",""},{"",""}}));
 
   // Simple value literal newline.
   //
-  assert (parse (":1\na:x\\\n\\",
-                 {{"","1"},{"a","x\n"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\\\n\\\ny",
-                 {{"","1"},{"a","x\ny"},{"",""},{"",""}}));
-  assert (parse (":1\na:x\\\n\\\ny\\\n\\\nz",
-                 {{"","1"},{"a","x\ny\nz"},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\n\\", {{"","1"},{"a","x\n"},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\n\\\ny", {{"","1"},{"a","x\ny"},{"",""},{"",""}}));
+  assert (test (":1\na:x\\\n\\\ny\\\n\\\nz",
+                {{"","1"},{"a","x\ny\nz"},{"",""},{"",""}}));
 
   // Multi-line value parsing.
   //
-  assert (parse (":1\na:\\", {{"","1"},{"a", ""},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n", {{"","1"},{"a", ""},{"",""},{"",""}}));
-  assert (parse (":1\na:\\x", {{"","1"},{"a", "\\x"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n\\", {{"","1"},{"a", ""},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n\\\n", {{"","1"},{"a", ""},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n\\x\n\\",
-                 {{"","1"},{"a", "\\x"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\nx\ny", {{"","1"},{"a", "x\ny"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n \n#\t\n\\",
-                 {{"","1"},{"a", " \n#\t"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\n\n\n\\", {{"","1"},{"a", "\n"},{"",""},{"",""}}));
+  assert (test (":1\na:\\", {{"","1"},{"a", ""},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n", {{"","1"},{"a", ""},{"",""},{"",""}}));
+  assert (test (":1\na:\\x", {{"","1"},{"a", "\\x"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n\\", {{"","1"},{"a", ""},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n\\\n", {{"","1"},{"a", ""},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n\\x\n\\",
+                {{"","1"},{"a", "\\x"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\nx\ny", {{"","1"},{"a", "x\ny"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n \n#\t\n\\",
+                {{"","1"},{"a", " \n#\t"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\n\n\n\\", {{"","1"},{"a", "\n"},{"",""},{"",""}}));
 
   // Multi-line value escaping.
   //
-  assert (parse (":1\na:\\\nx\\",
-                 {{"","1"},{"a","x"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\nx\\\ny\n\\",
-                 {{"","1"},{"a","xy"},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\nx\\\\\n\\\nb:",
-                 {{"","1"},{"a","x\\"},{"b",""},{"",""},{"",""}}));
-  assert (parse (":1\na:\\\nx\\\\\\\n\\\nb:",
-                 {{"","1"},{"a","x\\\\"},{"b",""},{"",""},{"",""}}));
+  assert (test (":1\na:\\\nx\\", {{"","1"},{"a","x"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\nx\\\ny\n\\",
+                {{"","1"},{"a","xy"},{"",""},{"",""}}));
+  assert (test (":1\na:\\\nx\\\\\n\\\nb:",
+                {{"","1"},{"a","x\\"},{"b",""},{"",""},{"",""}}));
+  assert (test (":1\na:\\\nx\\\\\\\n\\\nb:",
+                {{"","1"},{"a","x\\\\"},{"b",""},{"",""},{"",""}}));
 }
 
 static std::ostream&
@@ -162,7 +159,7 @@ parse (const char* m)
   {
     auto nv (p.next ());
 
-    if (nv.name.empty () && nv.value.empty ()) // End pair.
+    if (nv.empty ()) // End pair.
     {
       eos = eom;
       eom = true;
@@ -177,7 +174,7 @@ parse (const char* m)
 }
 
 static bool
-parse (const char* m, const pairs& e)
+test (const char* m, const pairs& e)
 {
   pairs r (parse (m));
 
@@ -203,7 +200,7 @@ fail (const char* m)
   }
   catch (const manifest_parsing& e)
   {
-    cerr << e.what () << endl;
+    //cerr << e.what () << endl;
   }
 
   return true;

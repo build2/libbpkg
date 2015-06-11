@@ -11,12 +11,13 @@ using namespace std;
 
 namespace bpkg
 {
+  using parsing = manifest_parsing;
   using name_value = manifest_parser::name_value_type;
 
   name_value manifest_parser::
   next ()
   {
-    if (s_ == eos)
+    if (s_ == end)
       return name_value {"", "", l_, c_, l_, c_};
 
     xchar c (skip_spaces ());
@@ -53,10 +54,10 @@ namespace bpkg
       // This is ok as long as the name is empty.
       //
       if (!r.name.empty ())
-        throw manifest_parsing (name_, c.line (), c.column (),
-                                "':' expected after name");
+        throw parsing (name_, c.line (), c.column (),
+                       "':' expected after name");
 
-      s_ = eos;
+      s_ = end;
 
       // The "end" pair.
       //
@@ -66,8 +67,7 @@ namespace bpkg
     }
 
     if (c != ':')
-      throw manifest_parsing (name_, c.line (), c.column (),
-                              "':' expected after name");
+      throw parsing (name_, c.line (), c.column (), "':' expected after name");
 
     skip_spaces ();
     parse_value (r);
@@ -90,8 +90,8 @@ namespace bpkg
       // special empty name/format version.
       //
       if (!r.name.empty ())
-        throw manifest_parsing (name_, r.name_line, r.name_column,
-                                "format version pair expected");
+        throw parsing (name_, r.name_line, r.name_column,
+                       "format version pair expected");
 
       // The version value is only mandatory for the first manifest in
       // a sequence.
@@ -99,8 +99,8 @@ namespace bpkg
       if (r.value.empty ())
       {
         if (version_.empty ())
-          throw manifest_parsing (name_, r.value_line, r.value_column,
-                                  "format version value expected");
+          throw parsing (name_, r.value_line, r.value_column,
+                         "format version value expected");
         r.value = version_;
       }
       else
@@ -108,8 +108,8 @@ namespace bpkg
         version_ = r.value; // Update with the latest.
 
         if (version_ != "1")
-          throw manifest_parsing (name_, r.value_line, r.value_column,
-                                  "unsupported format version " + version_);
+          throw parsing (name_, r.value_line, r.value_column,
+                         "unsupported format version " + version_);
       }
 
       s_ = body;

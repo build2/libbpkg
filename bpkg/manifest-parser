@@ -35,8 +35,9 @@ namespace bpkg
     const std::string&
     name () const {return name_;}
 
-    struct name_value_type
+    class name_value_type
     {
+    public:
       std::string name;
       std::string value;
 
@@ -45,6 +46,9 @@ namespace bpkg
 
       std::uint64_t value_line;
       std::uint64_t value_column;
+
+      bool
+      empty () const {return name.empty () && value.empty ();}
     };
 
     // The first returned pair is special "start-of-manifest" with
@@ -121,7 +125,7 @@ namespace bpkg
     }
 
   private:
-    enum {start, body, eos} s_ = start;
+    enum {start, body, end} s_ = start;
     std::string version_; // Current format version.
 
   private:
