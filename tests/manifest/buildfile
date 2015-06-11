@@ -1,0 +1,11 @@
+# file      : tests/manifest/buildfile
+# copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+import libs += libbutl #@@ hack to get -I
+
+exe{driver}: cxx{driver} ../../bpkg/lib{bpkg} $libs
+
+include ../../bpkg/
+
+# test: ./driver manifest | diff -u manifest -

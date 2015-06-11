@@ -1,10 +1,11 @@
-// file      : tests/manifest-roundtrip/driver.cxx -*- C++ -*-
+// file      : tests/manifest/driver.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <fstream>
 #include <iostream>
 
+#include <bpkg/manifest>
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
 
@@ -27,22 +28,10 @@ main (int argc, char* argv[])
     ifs.open (argv[1], ifstream::in | ifstream::binary);
 
     manifest_parser p (ifs, argv[1]);
+    manifests ms (p);
+
     manifest_serializer s (cout, "stdout");
-
-    for (bool eom (true), eos (false); !eos; )
-    {
-      manifest_name_value nv (p.next ());
-
-      if (nv.empty ()) // End pair.
-      {
-        eos = eom;
-        eom = true;
-      }
-      else
-        eom = false;
-
-      s.next (nv.name, nv.value);
-    }
+    ms.serialize (s);
   }
   catch (const ios_base::failure&)
   {

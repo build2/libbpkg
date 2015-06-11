@@ -12,7 +12,7 @@ using namespace std;
 namespace bpkg
 {
   using parsing = manifest_parsing;
-  using name_value = manifest_parser::name_value_type;
+  using name_value = manifest_name_value;
 
   name_value manifest_parser::
   next ()

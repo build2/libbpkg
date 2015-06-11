@@ -12,6 +12,10 @@
 
 namespace bpkg
 {
+  class manifest_parser;
+  class manifest_serializer;
+  class manifest_name_value;
+
   using strings = std::vector<std::string>;
 
   // priority
@@ -101,8 +105,9 @@ namespace bpkg
     std::string comment;
   };
 
-  struct manifest
+  class manifest
   {
+  public:
     using priority_type = bpkg::priority;
     using url_type = bpkg::url;
     using email_type = bpkg::email;
@@ -121,9 +126,23 @@ namespace bpkg
     butl::optional<email_type> package_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
+
+  public:
+    manifest (manifest_parser&);
+    manifest (manifest_parser&, const manifest_name_value& start);
+
+    void
+    serialize (manifest_serializer&) const;
   };
 
-  using manifests = std::vector<manifest>;
+  class manifests: public std::vector<manifest>
+  {
+  public:
+    manifests (manifest_parser&);
+
+    void
+    serialize (manifest_serializer&) const;
+  };
 }
 
 #endif // BPKG_MANIFEST

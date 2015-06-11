@@ -26,6 +26,22 @@ namespace bpkg
     std::string description;
   };
 
+  class manifest_name_value
+  {
+  public:
+    std::string name;
+    std::string value;
+
+    std::uint64_t name_line;
+    std::uint64_t name_column;
+
+    std::uint64_t value_line;
+    std::uint64_t value_column;
+
+    bool
+    empty () const {return name.empty () && value.empty ();}
+  };
+
   class manifest_parser
   {
   public:
@@ -34,22 +50,6 @@ namespace bpkg
 
     const std::string&
     name () const {return name_;}
-
-    class name_value_type
-    {
-    public:
-      std::string name;
-      std::string value;
-
-      std::uint64_t name_line;
-      std::uint64_t name_column;
-
-      std::uint64_t value_line;
-      std::uint64_t value_column;
-
-      bool
-      empty () const {return name.empty () && value.empty ();}
-    };
 
     // The first returned pair is special "start-of-manifest" with
     // empty name and value being the format version: {"", "<ver>"}.
@@ -64,7 +64,7 @@ namespace bpkg
     //
     // ({"", "<ver>"} {"<name>", "<value>"}* {"", ""})* {"", ""}
     //
-    name_value_type
+    manifest_name_value
     next ();
 
   private:
@@ -94,10 +94,10 @@ namespace bpkg
 
   private:
     void
-    parse_name (name_value_type&);
+    parse_name (manifest_name_value&);
 
     void
-    parse_value (name_value_type&);
+    parse_value (manifest_name_value&);
 
     // Skip spaces and return the first peeked non-space character.
     //

@@ -157,7 +157,7 @@ parse (const char* m)
 
   for (bool eom (true), eos (false); !eos; )
   {
-    auto nv (p.next ());
+    manifest_name_value nv (p.next ());
 
     if (nv.empty ()) // End pair.
     {
