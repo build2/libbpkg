@@ -154,7 +154,7 @@ namespace bpkg
     r.value_column = c.column ();
 
     string& v (r.value);
-    string::size_type n (0); // Size of last non-space character (simpel mode).
+    string::size_type n (0); // Size of last non-space character (simple mode).
 
     // Detect the multi-line mode introductor.
     //
@@ -219,7 +219,7 @@ namespace bpkg
                 get ();
 
               v += '\n'; // Literal newline.
-              n++;
+              n = v.size ();
               continue; // Restart from the next character.
             }
           }
@@ -281,13 +281,13 @@ namespace bpkg
           if (c2 == '\n' || is_eos (c1))
           {
             v += '\\';
-            n++;
+            n = v.size ();
             // Restart from c2 (newline/eos).
           }
           else
           {
             v += '\\';
-            n++;
+            n = v.size ();
             unget (c1); // Restart from c1 (second slash).
           }
 
@@ -300,11 +300,8 @@ namespace bpkg
       get ();
       v += c;
 
-      if (!ml)
-      {
-        if (c != ' ' && c != '\t')
-          n++;
-      }
+      if (!ml && c != ' ' && c != '\t')
+        n = v.size ();
     }
 
     // Cut off trailing whitespaces.
