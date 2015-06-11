@@ -2,4 +2,5 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-lib{bpkg}: cxx{manifest-parser}
+import libs += libhello
+lib{bpkg}: cxx{manifest-parser manifest-serializer} $libs
