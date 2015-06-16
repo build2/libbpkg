@@ -105,7 +105,7 @@ namespace bpkg
     std::string comment;
   };
 
-  class manifest
+  class package_manifest
   {
   public:
     using priority_type = bpkg::priority;
@@ -128,15 +128,32 @@ namespace bpkg
     std::vector<requirement_alternatives> requirements;
 
   public:
-    manifest (manifest_parser&);
-    manifest (manifest_parser&, const manifest_name_value& start);
+    package_manifest (manifest_parser&);
+    package_manifest (manifest_parser&, const manifest_name_value& start);
 
     void
     serialize (manifest_serializer&) const;
   };
 
-  class manifests: public std::vector<manifest>
+  class repository_manifest
   {
+  public:
+    std::string location;
+
+  public:
+    repository_manifest (manifest_parser&);
+    repository_manifest (manifest_parser&, const manifest_name_value& start);
+
+    void
+    serialize (manifest_serializer&) const;
+  };
+
+  class manifests
+  {
+  public:
+    std::vector<repository_manifest> repositories;
+    std::vector<package_manifest> packages;
+
   public:
     manifests (manifest_parser&);
 
