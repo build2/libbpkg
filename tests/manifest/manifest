@@ -3,5 +3,45 @@ location: http://pkg.example.org/1/math
 :
 :
 name: libfoo
+version: 1.2.3-2
+priority: high; Due to critical bug fix.
+summary: Modern XML parser
+license: LGPLv2, MIT; Both required.
+license: BSD
+tags: c++, xml, parser, serializer, pull, streaming, modern
+description: libfoo is a very modern C++ XML parser.
+changes: 1.2.3-2: applied upstream patch for critical bug bar
+changes: 1.2.3-1: applied upstream patch for critical bug foo
+changes-file: NEWS
+url: http://www.example.org/projects/libfoo/; libfoo project page url
+package-url: http://www.example.org/projects/libbar/1.2.3-2; package url
+email: libfoo-users@example.org; Public mailing list, posts by non-members\
+ are allowed but moderated.
+package-email: libfoo-1.2.3-2@example.org; Bug reports are welcome.
+depends: libz
+depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
+depends: ? libboost-regex >= 1.52.0; Only if C++ compiler doesn't support\
+ C++11 <regex>.
+depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
+requires: linux | windows | macosx; symbian is coming.
+requires: c++11
+requires: ? ; VC++ 12.0 or later if targeting Windows.
+requires: ? ; libc++ standard library if using Clang on Mac OS X.
+requires: zlib; Most Linux/UNIX systems already have one; or get it at\
+ www.zlib.net.
 :
 name: libbar
+version: 3.4A.5-a6
+summary: Modern bar management framework
+license: LGPLv2
+tags: c++, xml, modern
+description-file: README; Comprehensive description
+url: http://www.example.org/projects/libbar/
+email: libbar-users@example.org
+:
+name: libbaz
+version: 3.4A.5-a6
+summary: Modern baz system
+license: LGPLv2
+url: http://www.example.org/projects/libbar/
+email: libbaz-users@example.org

@@ -4,7 +4,12 @@
 
 #include <bpkg/manifest>
 
-#include <utility> // move()
+#include <ostream>
+#include <sstream>
+#include <cassert>
+#include <cstring>   // strncmp()
+#include <utility>   // move()
+#include <algorithm> // find()
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
@@ -18,6 +23,136 @@ namespace bpkg
   using serializer = manifest_serializer;
   using serialization = manifest_serialization;
   using name_value = manifest_name_value;
+
+  // Utility functions
+  //
+  static const strings priority_names ({"low", "medium", "high", "security"});
+  static const string spaces (" \t");
+
+  inline static bool
+  space (char c)
+  {
+    return c == ' ' || c == '\t';
+  }
+
+  static ostream&
+  operator<< (ostream& o, const dependency& d)
+  {
+    o << d.name;
+
+    if (d.version)
+    {
+      static const char* operations[] = {"==", "<", ">", "<=", ">="};
+
+      o << " " << operations[static_cast<size_t> (d.version->operation)]
+        << " " << d.version->value;
+    }
+
+    return o;
+  }
+
+  // Resize v up to ';', return what goes after ';'.
+  //
+  static string
+  add_comment (const string& v, const string& c)
+  {
+    return c.empty () ? v : (v + "; " + c);
+  }
+
+  static string
+  split_comment (string& v)
+  {
+    using iterator = string::const_iterator;
+
+    iterator b (v.begin ());
+    iterator i (b);
+    iterator ve (b); // End of value
+    iterator e (v.end ());
+
+    // Find end of value (ve).
+    //
+    for (char c; i != e && (c = *i) != ';'; ++i)
+      if (!space (c))
+        ve = i + 1;
+
+    // Find beginning of a comment (i).
+    //
+    if (i != e)
+    {
+      // Skip spaces.
+      //
+      for (++i; i != e && space (*i); ++i);
+    }
+
+    string c(i, e);
+    v.resize (ve - b);
+    return c;
+  }
+
+  template<typename T>
+  static string
+  concatenate (const T& s, const char* delim = ", ")
+  {
+    ostringstream o;
+    for (auto b (s.begin ()), i (b), e (s.end ()); i != e; ++i)
+    {
+      if (i != b)
+        o << delim;
+
+      o << *i;
+    }
+
+    return o.str ();
+  }
+
+  // list_parser
+  //
+  class list_parser
+  {
+  public:
+    using iterator = string::const_iterator;
+
+  public:
+    list_parser (iterator b, iterator e, char d = ',')
+        : pos_ (b), end_ (e), delim_ (d) {}
+
+    string
+    next ();
+
+  private:
+    iterator pos_;
+    iterator end_;
+    char delim_;
+  };
+
+  string list_parser::
+  next ()
+  {
+    string r;
+
+    // Continue until get non empty list item.
+    //
+    while (pos_ != end_ && r.empty ())
+    {
+      // Skip spaces.
+      //
+      for (; pos_ != end_ && space (*pos_); ++pos_);
+
+      iterator i (pos_);
+      iterator e (pos_); // End of list item.
+
+      for (char c; i != end_ && (c = *i) != delim_; ++i)
+        if (!space (c))
+          e = i + 1;
+
+      if (e - pos_ > 0)
+        r.assign (pos_, e);
+
+      pos_ = i == end_ ? i : i + 1;
+    }
+
+    return r;
+  }
 
   // package_manifest
   //
@@ -34,33 +169,345 @@ namespace bpkg
   }
 
   package_manifest::
-  package_manifest (parser& p, const name_value& s)
+  package_manifest (parser& p, name_value nv)
   {
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
     // Make sure this is the start and we support the version.
     //
-    if (!s.name.empty ())
-      throw parsing (p.name (), s.name_line, s.name_column,
-                     "start of package manifest expected");
+    if (!nv.name.empty ())
+      bad_name ("start of package manifest expected");
 
-    if (s.value != "1")
-      throw parsing (p.name (), s.value_line, s.value_column,
-                     "unsupported format version");
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
 
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
       string& v (nv.value);
 
       if (n == "name")
+      {
+        if (!name.empty ())
+          bad_name ("package name redefinition");
+
+        if (v.empty ())
+          bad_value ("empty package name");
+
         name = move (v);
-      // ...
+      }
+      else if (n == "version")
+      {
+        if (!version.empty ())
+          bad_name ("package version redefinition");
+
+        // Think about using class other then string which does value
+        // verification, proper collation and maybe provides normalized
+        // representation.
+        //
+        if (v.empty ())
+          bad_value ("empty package version");
+
+        version = move (v);
+      }
+      else if (n == "summary")
+      {
+        if (!summary.empty ())
+          bad_name ("package summary redefinition");
+
+        if (v.empty ())
+          bad_value ("empty package summary");
+
+        summary = move (v);
+      }
+      else if (n == "tags")
+      {
+        if (!tags.empty ())
+          bad_name ("package tags redefinition");
+
+        list_parser lp (v.begin (), v.end ());
+        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+        {
+          if (lv.find_first_of (spaces) != string::npos)
+            bad_value ("only single-word tags allowed");
+
+          tags.push_back (move (lv));
+        }
+
+        if (tags.empty ())
+          bad_value ("empty package tags specification");
+      }
+      else if (n == "description")
+      {
+        if (description)
+        {
+          if (description->file)
+            bad_name ("package description and description-file are "
+                      "mutually exclusive");
+          else
+            bad_name ("package description redefinition");
+        }
+
+        if (v.empty ())
+          bad_value ("empty package description");
+
+        description = description_type (move (v));
+      }
+      else if (n == "description-file")
+      {
+        if (description)
+        {
+          if (description->file)
+            bad_name ("package description-file redefinition");
+          else
+            bad_name ("package description-file and description are "
+                      "mutually exclusive");
+        }
+
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("no path in package description-file");
+
+        description = description_type (move (v), move (c));
+      }
+      else if (n == "changes")
+      {
+        if (v.empty ())
+          bad_value ("empty package changes specification");
+
+        changes.emplace_back (move (v));
+      }
+      else if (n == "changes-file")
+      {
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("no path in package changes-file");
+
+        changes.emplace_back (move (v), move (c));
+      }
+      else if (n == "url")
+      {
+        if (!url.empty ())
+          bad_name ("project url redefinition");
+
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("empty project url");
+
+        url = url_type (move (v), move (c));
+      }
+      else if (n == "email")
+      {
+        if (!email.empty ())
+          bad_name ("project email redefinition");
+
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("empty project email");
+
+        email = email_type (move (v), move (c));
+      }
+      else if (n == "package-url")
+      {
+        if (package_url)
+          bad_name ("package url redefinition");
+
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("empty package url");
+
+        package_url = url_type (move (v), move (c));
+      }
+      else if (n == "package-email")
+      {
+        if (package_email)
+          bad_name ("package email redefinition");
+
+        string c (split_comment (v));
+
+        if (v.empty ())
+          bad_value ("empty package email");
+
+        package_email = email_type (move (v), move (c));
+      }
+      else if (n == "priority")
+      {
+        if (priority)
+          bad_name ("package priority redefinition");
+
+        string c (split_comment (v));
+        strings::const_iterator b (priority_names.begin ());
+        strings::const_iterator e (priority_names.end ());
+        strings::const_iterator i (find (b, e, v));
+
+        if (i == e)
+          bad_value ("invalid package priority");
+
+        priority =
+          priority_type (static_cast<priority_type::value_type> (i - b),
+                         move (c));
+      }
+      else if (n == "license")
+      {
+        licenses l (split_comment (v));
+
+        list_parser lp (v.begin (), v.end ());
+        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+        {
+          l.push_back (move (lv));
+        }
+
+        if (l.empty ())
+          bad_value ("empty package license specification");
+
+        license_alternatives.push_back (move (l));
+      }
+      else if (n == "requires")
+      {
+        bool cond (!v.empty () && v[0] == '?');
+        requirement_alternatives ra (cond, split_comment (v));
+        string::const_iterator b (v.begin ());
+        string::const_iterator e (v.end ());
+
+        if (ra.conditional)
+        {
+          string::size_type p (v.find_first_not_of (spaces, 1));
+          b = p == string::npos ? e : b + p;
+        }
+
+        list_parser lp (b, e, '|');
+        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+        {
+          ra.push_back (lv);
+        }
+
+        if (ra.empty () && ra.comment.empty ())
+          bad_value ("empty package requirement specification");
+
+        requirements.push_back (move (ra));
+      }
+      else if (n == "depends")
+      {
+        bool cond (!v.empty () && v[0] == '?');
+        dependency_alternatives da (cond, split_comment (v));
+        string::const_iterator b (v.begin ());
+        string::const_iterator e (v.end ());
+
+        if (da.conditional)
+        {
+          string::size_type p (v.find_first_not_of (spaces, 1));
+          b = p == string::npos ? e : b + p;
+        }
+
+        list_parser lp (b, e, '|');
+        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+        {
+          using iterator = string::const_iterator;
+
+          iterator b (lv.begin ());
+          iterator i (b);
+          iterator ne (b); // End of name
+          iterator e (lv.end ());
+
+          // Find end of name (ne).
+          //
+          for (char c; i != e && (c = *i) != '=' && c != '<' && c != '>'; ++i)
+            if (!space (c))
+              ne = i + 1;
+
+          if (i == e)
+          {
+            da.push_back (dependency {lv});
+          }
+          else
+          {
+            // Got to version comparison.
+            //
+            const char* op (&*i);
+            comparison operation;
+
+            if (strncmp (op, "==", 2) == 0)
+            {
+              operation = comparison::eq;
+              i += 2;
+            }
+            else if (strncmp (op, ">=", 2) == 0)
+            {
+              operation = comparison::ge;
+              i += 2;
+            }
+            else if (strncmp (op, "<=", 2) == 0)
+            {
+              operation = comparison::le;
+              i += 2;
+            }
+            else if (*op == '>')
+            {
+              operation = comparison::gt;
+              ++i;
+            }
+            else if (*op == '<')
+            {
+              operation = comparison::lt;
+              ++i;
+            }
+            else
+              bad_value ("invalid prerequisite package version comparison");
+
+            string::size_type pos = lv.find_first_not_of (spaces, i - b);
+
+            if (pos == string::npos)
+              bad_value ("no prerequisite package version specified");
+
+            // Still need to implement version verification.
+            //
+            dependency d
+            {
+              string (b, ne),
+              version_comparison {lv.c_str () + pos, operation}
+            };
+
+            if (d.name.empty ())
+            {
+              bad_value ("prerequisite package name not specified");
+            }
+
+            da.push_back (move (d));
+          }
+        }
+
+        if (da.empty ())
+          bad_value ("empty package dependency specification");
+
+        dependencies.push_back (da);
+      }
       else
-        throw parsing (p.name (), nv.value_line, nv.value_column,
-                       "unknown name '" + n + "' in package manifest");
+        bad_name ("unknown name '" + n + "' in package manifest");
     }
 
     // Verify all non-optional values were specified.
     //
+    if (name.empty ())
+      bad_value ("no package name specified");
+    else if (version.empty ())
+      bad_value ("no package version specified");
+    else if (summary.empty ())
+      bad_value ("no package summary specified");
+    else if (url.empty ())
+      bad_value ("no project url specified");
+    else if (email.empty ())
+      bad_value ("no project email specified");
+    else if (license_alternatives.empty ())
+      bad_value ("no project license specified");
   }
 
   void package_manifest::
@@ -68,7 +515,61 @@ namespace bpkg
   {
     s.next ("", "1"); // Start of manifest.
     s.next ("name", name);
-    // ...
+    s.next ("version", version);
+
+    if (priority)
+    {
+      priority::value_type v (*priority);
+      assert (v < priority_names.size ());
+      s.next ("priority", add_comment (priority_names[v], priority->comment));
+    }
+
+    s.next ("summary", summary);
+
+    for (const auto& la: license_alternatives)
+      s.next ("license", add_comment (concatenate (la), la.comment));
+
+    if (!tags.empty ())
+      s.next ("tags", concatenate (tags));
+
+    if (description)
+    {
+      if (description->file)
+        s.next ("description-file",
+                add_comment (*description, description->comment));
+      else
+        s.next ("description", *description);
+    }
+
+    for (const auto& c: changes)
+    {
+      if (c.file)
+        s.next ("changes-file", add_comment (c, c.comment));
+      else
+        s.next ("changes", c);
+    }
+
+    s.next ("url", add_comment (url, url.comment));
+
+    if (package_url)
+      s.next ("package-url", add_comment (*package_url, package_url->comment));
+
+    s.next ("email", add_comment (email, email.comment));
+
+    if (package_email)
+      s.next ("package-email",
+              add_comment (*package_email, package_email->comment));
+
+    for (const auto& d: dependencies)
+      s.next ("depends",
+              (d.conditional ? "? " : "") +
+              add_comment (concatenate (d, " | "), d.comment));
+
+    for (const auto& r: requirements)
+      s.next ("requires",
+              (r.conditional ? "? " : "") +
+              add_comment (concatenate (r, " | "), r.comment));
+
     s.next ("", ""); // End of manifest.
   }
 
@@ -87,19 +588,23 @@ namespace bpkg
   }
 
   repository_manifest::
-  repository_manifest (parser& p, const name_value& s)
+  repository_manifest (parser& p, name_value nv)
   {
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
     // Make sure this is the start and we support the version.
     //
-    if (!s.name.empty ())
-      throw parsing (p.name (), s.name_line, s.name_column,
-                     "start of repository manifest expected");
+    if (!nv.name.empty ())
+      bad_name ("start of repository manifest expected");
 
-    if (s.value != "1")
-      throw parsing (p.name (), s.value_line, s.value_column,
-                     "unsupported format version");
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
 
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
       string& v (nv.value);
@@ -107,8 +612,7 @@ namespace bpkg
       if (n == "location")
         location = move (v);
       else
-        throw parsing (p.name (), nv.value_line, nv.value_column,
-                       "unknown name '" + n + "' in repository manifest");
+        bad_name ("unknown name '" + n + "' in repository manifest");
     }
 
     // Verify all non-optional values were specified.

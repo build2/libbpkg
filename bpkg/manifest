@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm> // move()
 
 #include <butl/optional>
 
@@ -25,13 +26,13 @@ namespace bpkg
   public:
     enum value_type {low, medium, high, security};
 
+    value_type value; // Shouldn't be necessary to access directly.
     std::string comment;
 
-    priority (value_type v = low): value (v) {}
-    operator value_type () const {return value;}
+    priority (value_type v = low, std::string c = "")
+        : value (v), comment (std::move (c)) {}
 
-  private:
-    value_type value; // Shouldn't be necessary to access directly.
+    operator value_type () const {return value;}
   };
 
   // description
@@ -41,6 +42,17 @@ namespace bpkg
   {
     bool file;
     std::string comment;
+
+    // Description constructor.
+    //
+    explicit
+    description (std::string d = "")
+        : std::string (std::move (d)), file (false) {}
+
+    // Description file constructor.
+    //
+    description (std::string f, std::string c)
+        : std::string (std::move (f)), file (true), comment (std::move (c)) {}
   };
 
   // license
@@ -48,6 +60,9 @@ namespace bpkg
   struct licenses: strings
   {
     std::string comment;
+
+    explicit
+    licenses (std::string c = ""): comment (std::move (c)) {}
   };
 
   // change
@@ -57,6 +72,16 @@ namespace bpkg
   {
     bool file;
     std::string comment;
+
+    // Change constructor.
+    //
+    explicit
+    change (std::string c = ""): std::string (std::move (c)), file (false) {}
+
+    // Change file constructor.
+    //
+    change (std::string f, std::string c)
+        : std::string (std::move (f)), file (true), comment (std::move (c)) {}
   };
 
   // url
@@ -65,6 +90,10 @@ namespace bpkg
   struct url: std::string
   {
     std::string comment;
+
+    explicit
+    url (std::string u = "", std::string c = "")
+        : std::string (std::move (u)), comment (std::move (c)) {}
   };
 
   // email
@@ -73,6 +102,10 @@ namespace bpkg
   struct email: std::string
   {
     std::string comment;
+
+    explicit
+    email (std::string e = "", std::string c = "")
+        : std::string (std::move (e)), comment (std::move (c)) {}
   };
 
   // depends
@@ -95,6 +128,10 @@ namespace bpkg
   {
     bool conditional;
     std::string comment;
+
+    explicit
+    dependency_alternatives (bool d = false, std::string c = "")
+        : conditional (d), comment (std::move (c)) {}
   };
 
   // requires
@@ -103,6 +140,10 @@ namespace bpkg
   {
     bool conditional;
     std::string comment;
+
+    explicit
+    requirement_alternatives (bool d = false, std::string c = "")
+        : conditional (d), comment (std::move (c)) {}
   };
 
   class package_manifest
@@ -111,14 +152,15 @@ namespace bpkg
     using priority_type = bpkg::priority;
     using url_type = bpkg::url;
     using email_type = bpkg::email;
+    using description_type = bpkg::description;
 
     std::string name;
     std::string version;
-    priority_type priority;
+    butl::optional<priority_type> priority;
     std::string summary;
     std::vector<licenses> license_alternatives;
     strings tags;
-    std::vector<description> descriptions;
+    butl::optional<description_type> description;
     std::vector<change> changes;
     url_type url;
     butl::optional<url_type> package_url;
@@ -129,7 +171,7 @@ namespace bpkg
 
   public:
     package_manifest (manifest_parser&);
-    package_manifest (manifest_parser&, const manifest_name_value& start);
+    package_manifest (manifest_parser&, manifest_name_value start);
 
     void
     serialize (manifest_serializer&) const;
@@ -142,7 +184,7 @@ namespace bpkg
 
   public:
     repository_manifest (manifest_parser&);
-    repository_manifest (manifest_parser&, const manifest_name_value& start);
+    repository_manifest (manifest_parser&, manifest_name_value start);
 
     void
     serialize (manifest_serializer&) const;
