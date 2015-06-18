@@ -18,7 +18,7 @@ namespace bpkg
   next ()
   {
     if (s_ == end)
-      return name_value {"", "", l_, c_, l_, c_};
+      return name_value {"", "", line, column, line, column};
 
     xchar c (skip_spaces ());
 
@@ -36,8 +36,7 @@ namespace bpkg
     if (s_ == body && c == ':')
     {
       s_ = start;
-      uint64_t ln (c.line ()), cn (c.column ());
-      return name_value {"", "", ln, cn, ln, cn};
+      return name_value {"", "", c.line, c.column, c.line, c.column};
     }
 
     // Regardless of the state, what should come next is a name,
@@ -49,13 +48,12 @@ namespace bpkg
     skip_spaces ();
     c = get ();
 
-    if (is_eos (c))
+    if (eos (c))
     {
       // This is ok as long as the name is empty.
       //
       if (!r.name.empty ())
-        throw parsing (name_, c.line (), c.column (),
-                       "':' expected after name");
+        throw parsing (name_, c.line, c.column, "':' expected after name");
 
       s_ = end;
 
@@ -67,7 +65,7 @@ namespace bpkg
     }
 
     if (c != ':')
-      throw parsing (name_, c.line (), c.column (), "':' expected after name");
+      throw parsing (name_, c.line, c.column, "':' expected after name");
 
     skip_spaces ();
     parse_value (r);
@@ -76,7 +74,7 @@ namespace bpkg
 
     // The character after the value should be either a newline or eos.
     //
-    assert (c == '\n' || is_eos (c));
+    assert (c == '\n' || eos (c));
 
     if (c == '\n')
       get ();
@@ -132,10 +130,10 @@ namespace bpkg
   {
     xchar c (peek ());
 
-    r.name_line = c.line ();
-    r.name_column = c.column ();
+    r.name_line = c.line;
+    r.name_column = c.column;
 
-    for (; !is_eos (c); c = peek ())
+    for (; !eos (c); c = peek ())
     {
       if (c == ':' || c == ' ' || c == '\t' || c == '\n')
         break;
@@ -150,8 +148,8 @@ namespace bpkg
   {
     xchar c (peek ());
 
-    r.value_line = c.line ();
-    r.value_column = c.column ();
+    r.value_line = c.line;
+    r.value_column = c.column;
 
     string& v (r.value);
     string::size_type n (0); // Size of last non-space character (simple mode).
@@ -170,7 +168,7 @@ namespace bpkg
         c = peek ();
         ml = true;
       }
-      else if (is_eos (p))
+      else if (eos (p))
         ml = true;
       else
         unget (c);
@@ -180,7 +178,7 @@ namespace bpkg
     // newline", that is, a newline that was part of the milti-line mode
     // introductor or an escape sequence.
     //
-    for (bool nl (ml); !is_eos (c); c = peek ())
+    for (bool nl (ml); !eos (c); c = peek ())
     {
       // Detect the special "\n\\\n" sequence. In the multi-line mode,
       // this is a "terminator". In the simple mode, this is a way to
@@ -209,7 +207,7 @@ namespace bpkg
           get ();
           xchar c1 (peek ());
 
-          if (c1 == '\n' || is_eos (c1))
+          if (c1 == '\n' || eos (c1))
           {
             if (ml)
               break;
@@ -240,7 +238,7 @@ namespace bpkg
             get ();
             xchar c2 (peek ());
 
-            if (c2 == '\n' || is_eos (c2))
+            if (c2 == '\n' || eos (c2))
               break;
             else
             {
@@ -264,7 +262,7 @@ namespace bpkg
         get ();
         xchar c1 (peek ());
 
-        if (c1 == '\n' || is_eos (c1))
+        if (c1 == '\n' || eos (c1))
         {
           if (c1 == '\n')
           {
@@ -278,7 +276,7 @@ namespace bpkg
           get ();
           xchar c2 (peek ());
 
-          if (c2 == '\n' || is_eos (c1))
+          if (c2 == '\n' || eos (c1))
           {
             v += '\\';
             n = v.size ();
@@ -314,9 +312,9 @@ namespace bpkg
   skip_spaces ()
   {
     xchar c (peek ());
-    bool start (c.column () == 1);
+    bool start (c.column == 1);
 
-    for (; !is_eos (c); c = peek ())
+    for (; !eos (c); c = peek ())
     {
       switch (c)
       {
@@ -344,7 +342,7 @@ namespace bpkg
 
           // Read until newline or eos.
           //
-          for (c = peek (); !is_eos (c) && c != '\n'; c = peek ())
+          for (c = peek (); !eos (c) && c != '\n'; c = peek ())
             get ();
 
           continue;
@@ -357,75 +355,6 @@ namespace bpkg
     }
 
     return c;
-  }
-
-  // Character interface.
-  //
-
-  manifest_parser::xchar manifest_parser::
-  peek ()
-  {
-    if (unget_)
-      return buf_;
-    else
-    {
-      if (eos_)
-        return xchar (xchar::traits_type::eof (), l_, c_);
-      else
-      {
-        xchar::int_type v (is_.peek ());
-
-        if (v == xchar::traits_type::eof ())
-          eos_ = true;
-
-        return xchar (v, l_, c_);
-      }
-    }
-  }
-
-  manifest_parser::xchar manifest_parser::
-  get ()
-  {
-    if (unget_)
-    {
-      unget_ = false;
-      return buf_;
-    }
-    else
-    {
-      // When is_.get () returns eof, the failbit is also set (stupid,
-      // isn't?) which may trigger an exception. To work around this
-      // we will call peek() first and only call get() if it is not
-      // eof. But we can only call peek() on eof once; any subsequent
-      // calls will spoil the failbit (even more stupid).
-      //
-      xchar c (peek ());
-
-      if (!is_eos (c))
-      {
-        is_.get ();
-
-        if (c == '\n')
-        {
-          l_++;
-          c_ = 1;
-        }
-        else
-          c_++;
-      }
-
-      return c;
-    }
-  }
-
-  void manifest_parser::
-  unget (const xchar& c)
-  {
-    // Because iostream::unget cannot work once eos is reached,
-    // we have to provide our own implementation.
-    //
-    buf_ = c;
-    unget_ = true;
   }
 
   // manifest_parsing

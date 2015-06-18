@@ -10,6 +10,8 @@
 #include <cstdint>   // uint64_t
 #include <stdexcept> // runtime_error
 
+#include <butl/char-scanner>
+
 namespace bpkg
 {
   class manifest_parsing: public std::runtime_error
@@ -42,11 +44,11 @@ namespace bpkg
     empty () const {return name.empty () && value.empty ();}
   };
 
-  class manifest_parser
+  class manifest_parser: protected butl::char_scanner
   {
   public:
     manifest_parser (std::istream& is, const std::string& name)
-        : is_ (is), name_ (name) {}
+        : char_scanner (is), name_ (name) {}
 
     const std::string&
     name () const {return name_;}
@@ -68,31 +70,6 @@ namespace bpkg
     next ();
 
   private:
-    class xchar
-    {
-    public:
-      typedef std::char_traits<char> traits_type;
-      typedef traits_type::int_type int_type;
-      typedef traits_type::char_type char_type;
-
-      xchar (int_type v, std::uint64_t l, std::uint64_t c)
-          : v_ (v), l_ (l), c_ (c) {}
-
-      operator char_type () const {return static_cast<char_type> (v_);}
-
-      int_type
-      value () const {return v_;}
-
-      std::uint64_t line () const {return l_;}
-      std::uint64_t column () const {return c_;}
-
-    private:
-      int_type v_;
-      std::uint64_t l_;
-      std::uint64_t c_;
-    };
-
-  private:
     void
     parse_name (manifest_name_value&);
 
@@ -104,41 +81,11 @@ namespace bpkg
     xchar
     skip_spaces ();
 
-    // Character interface.
-    //
   private:
-    xchar
-    peek ();
-
-    xchar
-    get ();
-
-    void
-    unget (const xchar&);
-
-    // Tests.
-    //
-    bool
-    is_eos (const xchar& c) const
-    {
-      return c.value () == xchar::traits_type::eof ();
-    }
-
-  private:
-    enum {start, body, end} s_ = start;
-    std::string version_; // Current format version.
-
-  private:
-    std::istream& is_;
     const std::string name_;
 
-    std::uint64_t l_ {1};
-    std::uint64_t c_ {1};
-
-    bool unget_ {false};
-    xchar buf_ {0, 0, 0};
-
-    bool eos_ {false};
+    enum {start, body, end} s_ = start;
+    std::string version_; // Current format version.
   };
 }
 
