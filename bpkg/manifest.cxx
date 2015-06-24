@@ -4,12 +4,14 @@
 
 #include <bpkg/manifest>
 
+#include <string>
 #include <ostream>
 #include <sstream>
 #include <cassert>
 #include <cstring>   // strncmp()
 #include <utility>   // move()
 #include <algorithm> // find()
+#include <stdexcept> // invalid_argument
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
@@ -35,6 +37,18 @@ namespace bpkg
     return c == ' ' || c == '\t';
   }
 
+  inline static bool
+  digit (char c)
+  {
+    return c >= '0' && c <= '9';
+  }
+
+  inline static bool
+  alpha (char c)
+  {
+    return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z';
+  }
+
   static ostream&
   operator<< (ostream& o, const dependency& d)
   {
@@ -45,7 +59,7 @@ namespace bpkg
       static const char* operations[] = {"==", "<", ">", "<=", ">="};
 
       o << " " << operations[static_cast<size_t> (d.version->operation)]
-        << " " << d.version->value;
+        << " " << d.version->value.string ();
     }
 
     return o;
@@ -53,7 +67,7 @@ namespace bpkg
 
   // Resize v up to ';', return what goes after ';'.
   //
-  static string
+  inline static string
   add_comment (const string& v, const string& c)
   {
     return c.empty () ? v : (v + "; " + c);
@@ -66,7 +80,7 @@ namespace bpkg
 
     iterator b (v.begin ());
     iterator i (b);
-    iterator ve (b); // End of value
+    iterator ve (b); // End of value.
     iterator e (v.end ());
 
     // Find end of value (ve).
@@ -84,12 +98,12 @@ namespace bpkg
       for (++i; i != e && space (*i); ++i);
     }
 
-    string c(i, e);
+    string c (i, e);
     v.resize (ve - b);
     return c;
   }
 
-  template<typename T>
+  template <typename T>
   static string
   concatenate (const T& s, const char* delim = ", ")
   {
@@ -142,8 +156,10 @@ namespace bpkg
       iterator e (pos_); // End of list item.
 
       for (char c; i != end_ && (c = *i) != delim_; ++i)
+      {
         if (!space (c))
           e = i + 1;
+      }
 
       if (e - pos_ > 0)
         r.assign (pos_, e);
@@ -152,6 +168,141 @@ namespace bpkg
     }
 
     return r;
+  }
+
+  // version
+  //
+  version::
+  version (const char* v): version () // Delegate
+  {
+    using std::string; // Otherwise compiler get confused with string() member.
+
+    assert (v != nullptr);
+
+    auto bad_arg ([](const string& d) {throw invalid_argument (d);});
+
+    auto uint16 (
+      [&bad_arg](const string& s, const char* what) -> uint16_t
+      {
+        unsigned long long v (stoull (s));
+
+        if (v > UINT16_MAX) // From <cstdint>.
+          bad_arg (string (what) + " should be 2-byte unsigned integer");
+
+        return static_cast<uint16_t> (v);
+      });
+
+    auto add_canonical_component (
+      [this, &bad_arg](const char* b, const char* e, bool numeric) -> bool
+      {
+        if (!canonical_.empty ())
+          canonical_.append (1, '.');
+
+        if (numeric)
+        {
+          if (e - b > 8)
+            bad_arg ("8 digits maximum allowed in a component");
+
+          canonical_.append (8 - (e - b), '0'); // Add padding spaces.
+
+          string c (b, e);
+          canonical_.append (c);
+          return stoul (c) != 0;
+        }
+        else
+        {
+          // Don't use tolower to keep things locale independent.
+          //
+          static unsigned char shift ('a' - 'A');
+
+          for (const char* i (b); i != e; ++i)
+          {
+            char c (*i);
+            canonical_.append (1, c >= 'A' && c <='Z' ? c + shift : c);
+          }
+
+          return true;
+        }
+      });
+
+    enum {epoch, upstream, revision} mode (epoch);
+
+    const char* cb (v); // Begin of a component.
+    const char* ub (v); // Begin of upstream component.
+    const char* ue (v); // End of upstream component.
+    const char* lnn (v - 1); // Last non numeric char.
+
+    // Length of upstream version canonical representation without trailing
+    // digit-only zero components.
+    //
+    size_t cl (0);
+
+    const char* p (v);
+    for (char c; (c = *p) != '\0'; ++p)
+    {
+      switch (c)
+      {
+      case '+':
+        {
+          if (mode != epoch || p == v)
+            bad_arg ("unexpected '+' character position");
+
+          if (lnn >= cb) // Contains non-digits.
+            bad_arg ("epoch should be 2-byte unsigned integer");
+
+          epoch_ = uint16 (string (cb, p), "epoch");
+          mode = upstream;
+          cb = p + 1;
+          ub = cb;
+          break;
+        }
+
+      case '-':
+      case '.':
+        {
+          if (mode != epoch && mode != upstream || p == cb)
+            bad_arg (string ("unexpected '") + c + "' character position");
+
+          if (add_canonical_component (cb, p, lnn < cb))
+            cl = canonical_.size ();
+
+          ue = p;
+          mode = c == '-' ? revision : upstream;
+          cb = p + 1;
+          break;
+        }
+      default:
+        {
+          if (!digit (c) && !alpha (c))
+            bad_arg ("alpha-numeric characters expected in a component");
+        }
+      }
+
+      if (!digit (c))
+        lnn = p;
+    }
+
+    if (p == cb)
+      bad_arg ("unexpected end");
+
+    if (mode == revision)
+    {
+      if (lnn >= cb) // Contains non-digits.
+        bad_arg ("revision should be 2-byte unsigned integer");
+
+      revision_ = uint16 (cb, "revision");
+    }
+    else
+    {
+      if (add_canonical_component (cb, p, lnn < cb))
+        cl = canonical_.size ();
+
+      ue = p;
+    }
+
+    assert (ub != ue); // Can't happen if through all previous checks.
+    upstream_.assign (ub, ue);
+    canonical_.resize (cl);
   }
 
   // package_manifest
@@ -205,14 +356,14 @@ namespace bpkg
         if (!version.empty ())
           bad_name ("package version redefinition");
 
-        // Think about using class other then string which does value
-        // verification, proper collation and maybe provides normalized
-        // representation.
-        //
-        if (v.empty ())
-          bad_value ("empty package version");
-
-        version = move (v);
+        try
+        {
+          version = version_type (move (v));
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (string ("invalid package version: ") + e.what ());
+        }
       }
       else if (n == "summary")
       {
@@ -362,9 +513,7 @@ namespace bpkg
 
         list_parser lp (v.begin (), v.end ());
         for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-        {
           l.push_back (move (lv));
-        }
 
         if (l.empty ())
           bad_value ("empty package license specification");
@@ -386,9 +535,7 @@ namespace bpkg
 
         list_parser lp (b, e, '|');
         for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-        {
           ra.push_back (lv);
-        }
 
         if (ra.empty () && ra.comment.empty ())
           bad_value ("empty package requirement specification");
@@ -415,21 +562,26 @@ namespace bpkg
 
           iterator b (lv.begin ());
           iterator i (b);
-          iterator ne (b); // End of name
+          iterator ne (b); // End of name.
           iterator e (lv.end ());
 
           // Find end of name (ne).
           //
           for (char c; i != e && (c = *i) != '=' && c != '<' && c != '>'; ++i)
+          {
             if (!space (c))
               ne = i + 1;
+          }
 
           if (i == e)
-          {
             da.push_back (dependency {lv});
-          }
           else
           {
+            string nm (b, ne);
+
+            if (nm.empty ())
+              bad_value ("prerequisite package name not specified");
+
             // Got to version comparison.
             //
             const char* op (&*i);
@@ -468,19 +620,19 @@ namespace bpkg
             if (pos == string::npos)
               bad_value ("no prerequisite package version specified");
 
-            // Still need to implement version verification.
-            //
-            dependency d
-            {
-              string (b, ne),
-              version_comparison {lv.c_str () + pos, operation}
-            };
+            version_type v;
 
-            if (d.name.empty ())
+            try
             {
-              bad_value ("prerequisite package name not specified");
+              v = version_type (lv.c_str () + pos);
+            }
+            catch (const invalid_argument& e)
+            {
+              bad_value (
+                string ("invalid prerequisite package version: ") + e.what ());
             }
 
+            dependency d{move (nm), version_comparison {move (v), operation}};
             da.push_back (move (d));
           }
         }
@@ -515,7 +667,7 @@ namespace bpkg
   {
     s.next ("", "1"); // Start of manifest.
     s.next ("name", name);
-    s.next ("version", version);
+    s.next ("version", version.string ());
 
     if (priority)
     {

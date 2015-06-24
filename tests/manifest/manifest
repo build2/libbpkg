@@ -31,7 +31,7 @@ requires: zlib; Most Linux/UNIX systems already have one; or get it at\
  www.zlib.net.
 :
 name: libbar
-version: 3.4A.5-a6
+version: 3.4A.5-6
 summary: Modern bar management framework
 license: LGPLv2
 tags: c++, xml, modern
@@ -40,7 +40,7 @@ url: http://www.example.org/projects/libbar/
 email: libbar-users@example.org
 :
 name: libbaz
-version: 3.4A.5-a6
+version: 2+3.4A.5-3
 summary: Modern baz system
 license: LGPLv2
 url: http://www.example.org/projects/libbar/

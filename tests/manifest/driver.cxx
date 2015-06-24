@@ -38,7 +38,7 @@ main (int argc, char* argv[])
     cerr << "io failure" << endl;
     return 1;
   }
-  catch (const std::exception& e)
+  catch (const exception& e)
   {
     cerr << e.what () << endl;
     return 1;

@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>   // uint16
 #include <algorithm> // move()
 
 #include <butl/optional>
@@ -18,6 +19,90 @@ namespace bpkg
   class manifest_name_value;
 
   using strings = std::vector<std::string>;
+
+  struct version
+  {
+    // Create a special empty version.
+    //
+    version (): epoch_ (0), revision_ (0) {}
+
+    explicit
+    version (const char*);
+
+    explicit
+    version (const std::string& v): version (v.c_str ()) /* Delegate */ {}
+
+    std::uint16_t
+    epoch () const noexcept {return epoch_;}
+
+    std::uint16_t
+    revision () const noexcept {return revision_;}
+
+    const std::string&
+    upstream () const noexcept {return upstream_;}
+
+    const std::string&
+    canonical_upstream () const noexcept {return canonical_;}
+
+    std::string
+    string () const
+    {
+      const std::string& v (
+        epoch_ != 0 ? std::to_string (epoch_) + "+" + upstream_ : upstream_);
+
+      return revision_ != 0 ? v + "-" + std::to_string (revision_) : v;
+    }
+
+    bool
+    operator< (const version& v) const noexcept {return compare (v) < 0;}
+
+    bool
+    operator> (const version& v) const noexcept {return compare (v) > 0;}
+
+    bool
+    operator== (const version& v) const noexcept {return compare (v) == 0;}
+
+    bool
+    operator<= (const version& v) const noexcept {return compare (v) <= 0;}
+
+    bool
+    operator>= (const version& v) const noexcept {return compare (v) >= 0;}
+
+    bool
+    operator!= (const version& v) const noexcept {return compare (v) != 0;}
+
+    int
+    compare (const version& v, bool ignore_revision = false) const noexcept
+    {
+      if (epoch_ != v.epoch_)
+        return epoch_ < v.epoch_ ? -1 : 1;
+
+      if (int c = canonical_.compare (v.canonical_))
+        return c;
+
+      if (!ignore_revision && revision_ != v.revision_)
+        return revision_ < v.revision_ ? -1 : 1;
+
+      return 0;
+    }
+
+    bool
+    empty () const noexcept
+    {
+      // No sense to test epoch_ and revision_ for 0 as properly constructed
+      // version object can not have them different from 0 if upstream_ is
+      // empty. Returns true only for objects constructed with the default
+      // constructor.
+      //
+      return upstream_.empty ();
+    }
+
+  private:
+    std::uint16_t epoch_;
+    std::uint16_t revision_;
+    std::string upstream_;
+    std::string canonical_; // Upstream part canonical representation.
+  };
 
   // priority
   //
@@ -114,7 +199,7 @@ namespace bpkg
 
   struct version_comparison
   {
-    std::string value;
+    version value;
     comparison operation;
   };
 
@@ -149,13 +234,14 @@ namespace bpkg
   class package_manifest
   {
   public:
+    using version_type = bpkg::version;
     using priority_type = bpkg::priority;
     using url_type = bpkg::url;
     using email_type = bpkg::email;
     using description_type = bpkg::description;
 
     std::string name;
-    std::string version;
+    version_type version;
     butl::optional<priority_type> priority;
     std::string summary;
     std::vector<licenses> license_alternatives;
