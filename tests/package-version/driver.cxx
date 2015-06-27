@@ -4,6 +4,7 @@
 
 #include <string>
 #include <cassert>
+#include <cstdint>   // uint16
 #include <iostream>
 #include <exception>
 #include <stdexcept> // invalid_argument
@@ -25,6 +26,26 @@ bad_version (const string& v)
   {
     return true;
   }
+}
+
+static bool
+bad_version (uint16_t e, const string& u, uint16_t r)
+{
+  try
+  {
+    version bv (e, u, r);
+    return false;
+  }
+  catch (const invalid_argument&)
+  {
+    return true;
+  }
+}
+
+static bool
+test_constructor (const version& v)
+{
+  return v == version (v.epoch (), v.upstream (), v.revision ());
 }
 
 int
@@ -62,83 +83,98 @@ main (int argc, char* argv[])
     assert (bad_version ("a-3s"));          // Same.
     assert (bad_version ("a."));            // Not completed upstream.
     assert (bad_version ("a..b"));          // Empty upstream component.
+    assert (bad_version (1, "1+1.1", 2));   // Epoch in upstream.
+    assert (bad_version (1, "1.1-1", 2));   // Revision in upstream.
 
     {
       version v ("a");
       assert (v.string () == "a");
       assert (v.canonical_upstream () == "a");
+      assert (test_constructor (v));
     }
 
     {
       version v ("65535+ab-65535");
       assert (v.string () == "65535+ab-65535");
       assert (v.canonical_upstream () == "ab");
+      assert (test_constructor (v));
     }
 
     {
       version v ("1");
       assert (v.string () == "1");
       assert (v.canonical_upstream () == "00000001");
+      assert (test_constructor (v));
     }
 
     {
       version v ("0");
       assert (v.string () == "0");
       assert (v.canonical_upstream ().empty ());
+      assert (test_constructor (v));
     }
 
     {
       version v ("0.0.0");
       assert (v.string () == "0.0.0");
       assert (v.canonical_upstream ().empty ());
+      assert (test_constructor (v));
     }
 
     {
       version v ("1.0.0");
       assert (v.string () == "1.0.0");
       assert (v.canonical_upstream () == "00000001");
+      assert (test_constructor (v));
     }
 
     {
       version v ("0.1.00");
       assert (v.string () == "0.1.00");
       assert (v.canonical_upstream () == "00000000.00000001");
+      assert (test_constructor (v));
     }
 
     {
       version v ("0.0a.00");
       assert (v.string () == "0.0a.00");
       assert (v.canonical_upstream () == "00000000.0a");
+      assert (test_constructor (v));
     }
 
     {
       version v ("0.a00.00");
       assert (v.string () == "0.a00.00");
       assert (v.canonical_upstream () == "00000000.a00");
+      assert (test_constructor (v));
     }
 
     {
       version v ("1+0");
       assert (v.string () == "1+0");
       assert (v.canonical_upstream ().empty ());
+      assert (test_constructor (v));
     }
 
     {
       version v ("0+A-1");
       assert (v.string () == "A-1");
       assert (v.canonical_upstream () == "a");
+      assert (test_constructor (v));
     }
 
     {
       version v ("10+B-0");
       assert (v.string () == "10+B");
       assert (v.canonical_upstream () == "b");
+      assert (test_constructor (v));
     }
 
     {
       version v ("3+1A.31.0.4.0-7");
       assert (v.string () == "3+1A.31.0.4.0-7");
       assert (v.canonical_upstream () == "1a.00000031.00000000.00000004");
+      assert (test_constructor (v));
     }
 
     assert (version ("a") == version ("a"));

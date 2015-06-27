@@ -3,4 +3,4 @@ $out_root/:
   include bpkg/
 }
 
-export $out_root/butl/lib{bpkg}
+export $out_root/bpkg/lib{bpkg}

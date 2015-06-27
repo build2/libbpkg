@@ -27,10 +27,26 @@ namespace bpkg
     version (): epoch_ (0), revision_ (0) {}
 
     explicit
-    version (const char*);
+    version (const std::string& v): version (v.c_str ()) /* Delegate */ {}
 
     explicit
-    version (const std::string& v): version (v.c_str ()) /* Delegate */ {}
+    version (const char* v): version (v, false) /* Delegate */ {}
+
+    // Create the version object from separate epoch, upstream, and
+    // revision parts.
+    //
+    version (std::uint16_t epoch,
+             std::string upstream,
+             std::uint16_t revision)
+        : version (upstream.c_str (), true)  // Delegate
+
+    {
+      // Can't initialize in member initializer list due to construction
+      // delegation.
+      //
+      epoch_ = epoch;
+      revision_ = revision;
+    }
 
     std::uint16_t
     epoch () const noexcept {return epoch_;}
@@ -42,7 +58,7 @@ namespace bpkg
     upstream () const noexcept {return upstream_;}
 
     const std::string&
-    canonical_upstream () const noexcept {return canonical_;}
+    canonical_upstream () const noexcept {return canonical_upstream_;}
 
     std::string
     string () const
@@ -77,7 +93,7 @@ namespace bpkg
       if (epoch_ != v.epoch_)
         return epoch_ < v.epoch_ ? -1 : 1;
 
-      if (int c = canonical_.compare (v.canonical_))
+      if (int c = canonical_upstream_.compare (v.canonical_upstream_))
         return c;
 
       if (!ignore_revision && revision_ != v.revision_)
@@ -89,8 +105,8 @@ namespace bpkg
     bool
     empty () const noexcept
     {
-      // No sense to test epoch_ and revision_ for 0 as properly constructed
-      // version object can not have them different from 0 if upstream_ is
+      // No sense to test epoch and revision for 0 as properly constructed
+      // version object can not have them different from 0 if upstream is
       // empty. Returns true only for objects constructed with the default
       // constructor.
       //
@@ -98,10 +114,16 @@ namespace bpkg
     }
 
   private:
+    version (const char*, bool upstream_only);
+
+  private:
+    // Let's keep the members in the order they appear in the string
+    // representation.
+    //
     std::uint16_t epoch_;
-    std::uint16_t revision_;
     std::string upstream_;
-    std::string canonical_; // Upstream part canonical representation.
+    std::uint16_t revision_;
+    std::string canonical_upstream_; // Upstream part canonical representation.
   };
 
   // priority
@@ -205,7 +227,7 @@ namespace bpkg
 
   struct dependency
   {
-    std::string name;
+    std::string package;
     butl::optional<version_comparison> version;
   };
 
@@ -261,6 +283,15 @@ namespace bpkg
 
     void
     serialize (manifest_serializer&) const;
+  };
+
+  class repository_location
+  {
+    // @@ Move all the location verification/canonical name calculation
+    //    here.
+    //
+
+    // ...
   };
 
   class repository_manifest

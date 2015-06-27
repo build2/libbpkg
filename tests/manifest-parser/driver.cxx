@@ -132,8 +132,8 @@ main ()
                 {{"","1"},{"a","x\\\\"},{"b",""},{"",""},{"",""}}));
 }
 
-static std::ostream&
-operator<< (std::ostream& os, const pairs& ps)
+static ostream&
+operator<< (ostream& os, const pairs& ps)
 {
   os << '{';
 

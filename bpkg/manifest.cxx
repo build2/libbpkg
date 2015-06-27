@@ -52,7 +52,7 @@ namespace bpkg
   static ostream&
   operator<< (ostream& o, const dependency& d)
   {
-    o << d.name;
+    o << d.package;
 
     if (d.version)
     {
@@ -173,7 +173,7 @@ namespace bpkg
   // version
   //
   version::
-  version (const char* v): version () // Delegate
+  version (const char* v, bool upstream_only): version () // Delegate
   {
     using std::string; // Otherwise compiler get confused with string() member.
 
@@ -195,18 +195,18 @@ namespace bpkg
     auto add_canonical_component (
       [this, &bad_arg](const char* b, const char* e, bool numeric) -> bool
       {
-        if (!canonical_.empty ())
-          canonical_.append (1, '.');
+        if (!canonical_upstream_.empty ())
+          canonical_upstream_.append (1, '.');
 
         if (numeric)
         {
           if (e - b > 8)
             bad_arg ("8 digits maximum allowed in a component");
 
-          canonical_.append (8 - (e - b), '0'); // Add padding spaces.
+          canonical_upstream_.append (8 - (e - b), '0'); // Add padding spaces.
 
           string c (b, e);
-          canonical_.append (c);
+          canonical_upstream_.append (c);
           return stoul (c) != 0;
         }
         else
@@ -218,7 +218,8 @@ namespace bpkg
           for (const char* i (b); i != e; ++i)
           {
             char c (*i);
-            canonical_.append (1, c >= 'A' && c <='Z' ? c + shift : c);
+            canonical_upstream_.append (
+              1, c >= 'A' && c <='Z' ? c + shift : c);
           }
 
           return true;
@@ -244,6 +245,9 @@ namespace bpkg
       {
       case '+':
         {
+          if (upstream_only)
+            bad_arg ("unexpected '+' character");
+
           if (mode != epoch || p == v)
             bad_arg ("unexpected '+' character position");
 
@@ -258,13 +262,20 @@ namespace bpkg
         }
 
       case '-':
+        {
+          if (upstream_only)
+            bad_arg ("unexpected '-' character");
+
+          // No break, go to the next case.
+        }
+
       case '.':
         {
           if (mode != epoch && mode != upstream || p == cb)
             bad_arg (string ("unexpected '") + c + "' character position");
 
           if (add_canonical_component (cb, p, lnn < cb))
-            cl = canonical_.size ();
+            cl = canonical_upstream_.size ();
 
           ue = p;
           mode = c == '-' ? revision : upstream;
@@ -295,14 +306,14 @@ namespace bpkg
     else
     {
       if (add_canonical_component (cb, p, lnn < cb))
-        cl = canonical_.size ();
+        cl = canonical_upstream_.size ();
 
       ue = p;
     }
 
     assert (ub != ue); // Can't happen if through all previous checks.
     upstream_.assign (ub, ue);
-    canonical_.resize (cl);
+    canonical_upstream_.resize (cl);
   }
 
   // package_manifest
