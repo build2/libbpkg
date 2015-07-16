@@ -7,9 +7,11 @@
 
 #include <string>
 #include <vector>
-#include <cstdint>   // uint16
+#include <cstdint>   // uint16_t
 #include <algorithm> // move()
+#include <stdexcept> // logic_error
 
+#include <butl/path>
 #include <butl/optional>
 
 namespace bpkg
@@ -20,8 +22,9 @@ namespace bpkg
 
   using strings = std::vector<std::string>;
 
-  struct version
+  class version
   {
+  public:
     // Create a special empty version.
     //
     version (): epoch_ (0), revision_ (0) {}
@@ -145,8 +148,9 @@ namespace bpkg
   // description
   // description-file
   //
-  struct description: std::string
+  class description: public std::string
   {
+  public:
     bool file;
     std::string comment;
 
@@ -164,8 +168,9 @@ namespace bpkg
 
   // license
   //
-  struct licenses: strings
+  class licenses: public strings
   {
+  public:
     std::string comment;
 
     explicit
@@ -175,8 +180,9 @@ namespace bpkg
   // change
   // change-file
   //
-  struct change: std::string
+  class change: public std::string
   {
+  public:
     bool file;
     std::string comment;
 
@@ -194,8 +200,9 @@ namespace bpkg
   // url
   // package-url
   //
-  struct url: std::string
+  class url: public std::string
   {
+  public:
     std::string comment;
 
     explicit
@@ -206,8 +213,9 @@ namespace bpkg
   // email
   // package-email
   //
-  struct email: std::string
+  class email: public std::string
   {
+  public:
     std::string comment;
 
     explicit
@@ -231,8 +239,9 @@ namespace bpkg
     butl::optional<version_comparison> version;
   };
 
-  struct dependency_alternatives: std::vector<dependency>
+  class dependency_alternatives: public std::vector<dependency>
   {
+  public:
     bool conditional;
     std::string comment;
 
@@ -243,8 +252,9 @@ namespace bpkg
 
   // requires
   //
-  struct requirement_alternatives: strings
+  class requirement_alternatives: public strings
   {
+  public:
     bool conditional;
     std::string comment;
 
@@ -287,17 +297,76 @@ namespace bpkg
 
   class repository_location
   {
-    // @@ Move all the location verification/canonical name calculation
-    //    here.
+  public:
+    // Create a special empty repository_location.
     //
+    repository_location () = default;
 
-    // ...
+    explicit
+    repository_location (const std::string&);
+
+    const std::string&
+    canonical_name () const noexcept {return canonical_name_;}
+
+    bool
+    empty () const noexcept {return canonical_name_.empty ();}
+
+    bool
+    local () const
+    {
+      if (empty ())
+        throw std::logic_error ("empty location");
+
+      return host_.empty ();
+    }
+
+    const butl::dir_path&
+    path () const
+    {
+      if (empty ())
+        throw std::logic_error ("empty location");
+
+      return path_;
+    }
+
+    const std::string&
+    host () const
+    {
+      if (local ())
+        throw std::logic_error ("local location");
+
+      return host_;
+    }
+
+    // Value 0 indicated that no port was specified explicitly.
+    //
+    std::uint16_t
+    port () const
+    {
+      if (local ())
+        throw std::logic_error ("local location");
+
+      return port_;
+    }
+
+    // Note that this is not necessarily syntactically the same
+    // string as what was used to initialize this location. But
+    // it should be semantically equivalent.
+    //
+    std::string
+    string () const;
+
+  private:
+    std::string canonical_name_;
+    std::string host_;
+    std::uint16_t port_;
+    butl::dir_path path_;
   };
 
   class repository_manifest
   {
   public:
-    std::string location;
+    repository_location location;
 
   public:
     repository_manifest (manifest_parser&);

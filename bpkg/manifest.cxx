@@ -4,19 +4,26 @@
 
 #include <bpkg/manifest>
 
+#include <strings.h> // strncasecmp()
+
 #include <string>
 #include <ostream>
 #include <sstream>
 #include <cassert>
 #include <cstring>   // strncmp()
 #include <utility>   // move()
-#include <algorithm> // find()
+#include <cstdint>   // uint64_t, uint16_t, UINT16_MAX
+#include <iterator>  // back_insert_iterator
+#include <algorithm> // find(), transform()
 #include <stdexcept> // invalid_argument
+
+#include <butl/path>
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
 
 using namespace std;
+using namespace butl;
 
 namespace bpkg
 {
@@ -32,21 +39,30 @@ namespace bpkg
   static const string spaces (" \t");
 
   inline static bool
-  space (char c)
+  space (char c) noexcept
   {
     return c == ' ' || c == '\t';
   }
 
   inline static bool
-  digit (char c)
+  digit (char c) noexcept
   {
     return c >= '0' && c <= '9';
   }
 
   inline static bool
-  alpha (char c)
+  alpha (char c) noexcept
   {
     return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z';
+  }
+
+  // Replace std::tolower to keep things locale independent.
+  //
+  inline static char
+  lowercase (char c) noexcept
+  {
+    const unsigned char shift ('a' - 'A');
+    return c >= 'A' && c <='Z' ? c + shift : c;
   }
 
   static ostream&
@@ -175,7 +191,9 @@ namespace bpkg
   version::
   version (const char* v, bool upstream_only): version () // Delegate
   {
-    using std::string; // Otherwise compiler get confused with string() member.
+    // Otherwise compiler gets confused with string() member.
+    //
+    using std::string;
 
     assert (v != nullptr);
 
@@ -211,16 +229,8 @@ namespace bpkg
         }
         else
         {
-          // Don't use tolower to keep things locale independent.
-          //
-          static unsigned char shift ('a' - 'A');
-
           for (const char* i (b); i != e; ++i)
-          {
-            char c (*i);
-            canonical_upstream_.append (
-              1, c >= 'A' && c <='Z' ? c + shift : c);
-          }
+            canonical_upstream_.append (1, lowercase (*i));
 
           return true;
         }
@@ -736,6 +746,204 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
+  // repository_location
+  //
+  repository_location::
+  repository_location (const std::string& l): port_ (0)
+  {
+    // Otherwise compiler gets confused with string() member. Same reason
+    // constructor parameter type is fully qualified.
+    //
+    using std::string;
+
+    if (::strncasecmp (l.c_str (), "http://", 7) == 0)
+    {
+      // Split location into host, port and path components. Calculate
+      // canonical name <host> part removing www. and pkg. prefixes.
+      //
+      auto p (l.find ('/', 7));
+
+      // Chop the path part. Note that we translate empty path to "/".
+      //
+      path_ = p != string::npos
+        ? dir_path (l, p, string::npos)
+        : dir_path ("/");
+
+      // Put the lower-cased version of the host part into host_.
+      // Chances are good it will stay unmodified.
+      //
+      transform (l.cbegin () + 7,
+                 p == string::npos ? l.cend () : l.cbegin () + p,
+                 back_inserter (host_),
+                 lowercase);
+
+      // Validate host name according to "2.3.1. Preferred name syntax" and
+      // "2.3.4. Size limits" of https://tools.ietf.org/html/rfc1035.
+      //
+      // Check that there is no empty labels and ones containing chars
+      // different from alpha-numeric and hyphen. Label should start from
+      // letter, do not end with hypen and be not longer than 63 chars.
+      // Total host name length should be not longer than 255 chars.
+      //
+      auto hb (host_.cbegin ());
+      auto he (host_.cend ());
+      auto ls (hb); // Host domain name label begin.
+      auto pt (he); // Port begin.
+
+      for (auto i (hb); i != he; ++i)
+      {
+        char c (*i);
+
+        if (pt == he) // Didn't reach port specification yet.
+        {
+          if (c == ':') // Port specification reached.
+            pt = i;
+          else
+          {
+            auto n (i + 1);
+
+            // Validate host name.
+            //
+
+            // Is first label char.
+            //
+            bool flc (i == ls);
+
+            // Is last label char.
+            //
+            bool llc (n == he || *n == '.' || *n == ':');
+
+            // Validate char.
+            //
+            bool valid (alpha (c) ||
+                        digit (c) && !flc ||
+                        (c == '-' || c == '.') && !flc && !llc);
+
+            // Validate length.
+            //
+            if (valid)
+              valid = i - ls < 64 && i - hb < 256;
+
+            if (!valid)
+              throw invalid_argument ("invalid host");
+
+            if (c == '.')
+              ls = n;
+          }
+        }
+        else
+        {
+          // Validate port.
+          //
+          if (!digit (c))
+            throw invalid_argument ("invalid port");
+        }
+      }
+
+      // Chop the port, if present.
+      //
+      if (pt != he)
+      {
+        unsigned long long n (++pt == he ? 0 : stoull (string (pt, he)));
+        if (n == 0 || n > UINT16_MAX)
+          throw invalid_argument ("invalid port");
+
+        port_ = static_cast<uint16_t> (n);
+        host_.resize (pt - hb - 1);
+      }
+
+      if (host_.empty ())
+        throw invalid_argument ("invalid host");
+
+      // Ok, the last thing we need to do is add the host and port
+      // parts to the canonical_name_ name. Here we also need to
+      // chop off the special "www" and "pkg" prefixes. Strictly
+      // speaking we can end up with comething bogus like "com"
+      // if the host is "pkg.com".
+      //
+      if (host_.compare (0, 4, "www.") == 0 ||
+          host_.compare (0, 4, "pkg.") == 0)
+        canonical_name_.assign (host_, 4, string::npos);
+      else
+        canonical_name_ = host_;
+
+      // For canonical name and for the HTTP protocol, treat a.com
+      // and a.com:80 as the same name.
+      //
+      if (port_ != 0 && port_ != 80)
+        canonical_name_ += ':' + to_string (port_);
+    }
+    else
+      path_ = dir_path (l);
+
+    // Normalize path to avoid different representations of the same location
+    // and canonical name. So a/b/../c/1/x/../y and a/c/1/y to be considered
+    // as same location.
+    //
+    try
+    {
+      path_.normalize ();
+    }
+    catch (const invalid_path&)
+    {
+      throw invalid_argument ("invalid path");
+    }
+
+    // Search for the version path component preceeding canonical name
+    // <path> component.
+    //
+    auto b (path_.rbegin ()), i (b), e (path_.rend ());
+
+    // Find the version component.
+    //
+    for (; i != e; ++i)
+    {
+      const string& c (*i);
+
+      if (!c.empty () && c.find_first_not_of ("1234567890") == string::npos)
+        break;
+    }
+
+    if (i == e)
+      throw invalid_argument ("missing repository version");
+
+    // Validate the version. At the moment the only valid value is 1.
+    //
+    if (stoul (*i) != 1)
+      throw invalid_argument ("unsupported repository version");
+
+    // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
+    //
+    string d (dir_path (b, i).posix_string ());
+
+    if (!canonical_name_.empty () && !d.empty ()) // If we have host and dir.
+      canonical_name_ += '/';
+
+    canonical_name_ += d;
+
+    // But don't allow empty canonical names.
+    //
+    if (canonical_name_.empty ())
+      throw invalid_argument ("empty repository name");
+  }
+
+  string repository_location::
+  string () const
+  {
+    if (empty ())
+      return "";
+
+    if (local ())
+      return path_.string ();
+
+    std::string p ("http://" + host_);
+
+    if (port_ != 0)
+      p += ":" + to_string (port_);
+
+    return p + path_.posix_string ();
+  }
+
   // repository_manifest
   //
   repository_manifest::
@@ -773,7 +981,19 @@ namespace bpkg
       string& v (nv.value);
 
       if (n == "location")
-        location = move (v);
+      {
+        if (!v.empty ())
+        {
+          try
+          {
+            location = repository_location (move (v));
+          }
+          catch (const invalid_argument& e)
+          {
+            bad_value (e.what ());
+          }
+        }
+      }
       else
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
@@ -789,7 +1009,7 @@ namespace bpkg
     s.next ("", "1"); // Start of manifest.
 
     if (!location.empty ())
-      s.next ("location", location);
+      s.next ("location", location.string ());
 
     s.next ("", ""); // End of manifest.
   }

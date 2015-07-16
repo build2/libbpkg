@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = manifest-parser/ manifest-serializer/ manifest-roundtrip/ manifest/ \
-    package-version/
+    package-version/ repository-location/
 
 .: $d
 include $d
