@@ -6,4 +6,3 @@ exe{driver}: cxx{driver} ../../bpkg/lib{bpkg}
 
 include ../../bpkg/
 
-# test: ./driver
