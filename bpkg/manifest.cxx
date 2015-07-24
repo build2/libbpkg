@@ -53,7 +53,7 @@ namespace bpkg
   inline static bool
   alpha (char c) noexcept
   {
-    return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z';
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
   }
 
   // Replace std::tolower to keep things locale independent.
@@ -281,7 +281,7 @@ namespace bpkg
 
       case '.':
         {
-          if (mode != epoch && mode != upstream || p == cb)
+          if ((mode != epoch && mode != upstream) || p == cb)
             bad_arg (string ("unexpected '") + c + "' character position");
 
           if (add_canonical_component (cb, p, lnn < cb))
@@ -595,7 +595,7 @@ namespace bpkg
           }
 
           if (i == e)
-            da.push_back (dependency {lv});
+            da.push_back (dependency {lv, optional<version_comparison> ()});
           else
           {
             string nm (b, ne);
@@ -816,8 +816,8 @@ namespace bpkg
             // Validate char.
             //
             bool valid (alpha (c) ||
-                        digit (c) && !flc ||
-                        (c == '-' || c == '.') && !flc && !llc);
+                        (digit (c) && !flc) ||
+                        ((c == '-' || c == '.') && !flc && !llc));
 
             // Validate length.
             //
