@@ -302,14 +302,32 @@ namespace bpkg
     //
     repository_location () = default;
 
+    // Creates remote/absolute repository location. Throws invalid_argument
+    // if the location is a relative path.
+    //
     explicit
     repository_location (const std::string&);
 
+    // Creates a potentially relative repository location. If base is not
+    // empty, use it to complete the relative location to remote/absolute.
+    // Throws invalid_argument if base itself is relative or the resulting
+    // completed location is invalid.
+    //
+    repository_location (const std::string&, const repository_location& base);
+
+    // Note that relative locations have no canonical name.
+    //
     const std::string&
     canonical_name () const noexcept {return canonical_name_;}
 
+    // There are 3 types of locations: remote, local absolute filesystem
+    // path and local relative filesystem path. Plus there is the special
+    // empty location. The following predicates can be used to determine
+    // what kind of location it is. Note that except for empty(), all the
+    // other predicates throw std::logic_error for an empty location.
+    //
     bool
-    empty () const noexcept {return canonical_name_.empty ();}
+    empty () const noexcept {return path_.empty ();}
 
     bool
     local () const
@@ -318,6 +336,29 @@ namespace bpkg
         throw std::logic_error ("empty location");
 
       return host_.empty ();
+    }
+
+    bool
+    remote () const
+    {
+      return !local ();
+    }
+
+    bool
+    absolute () const
+    {
+      return local () && path_.absolute ();
+    }
+
+    bool
+    relative () const
+    {
+      if (empty ())
+        throw std::logic_error ("empty location");
+
+      // Note that in remote locations path is always absolute.
+      //
+      return path_.relative ();
     }
 
     const butl::dir_path&

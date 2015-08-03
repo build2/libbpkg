@@ -748,13 +748,28 @@ namespace bpkg
 
   // repository_location
   //
+  // Location parameter type is fully qualified as compiler gets confused with
+  // string() member.
+  //
   repository_location::
-  repository_location (const std::string& l): port_ (0)
+  repository_location (const std::string& l)
+      : repository_location (l, repository_location ()) // Delegate.
   {
-    // Otherwise compiler gets confused with string() member. Same reason
-    // constructor parameter type is fully qualified.
+    if (relative ())
+      throw invalid_argument ("relative filesystem path");
+  }
+
+  repository_location::
+  repository_location (const std::string& l, const repository_location& b)
+  {
+    // Otherwise compiler gets confused with string() member.
     //
     using std::string;
+
+    // Base repository location can not be a relative path.
+    //
+    if (!b.empty () && b.relative ())
+      throw invalid_argument ("base relative filesystem path");
 
     if (::strncasecmp (l.c_str (), "http://", 7) == 0)
     {
@@ -842,7 +857,9 @@ namespace bpkg
 
       // Chop the port, if present.
       //
-      if (pt != he)
+      if (pt == he)
+        port_ = 0;
+      else
       {
         unsigned long long n (++pt == he ? 0 : stoull (string (pt, he)));
         if (n == 0 || n > UINT16_MAX)
@@ -874,7 +891,30 @@ namespace bpkg
         canonical_name_ += ':' + to_string (port_);
     }
     else
+    {
       path_ = dir_path (l);
+
+      if (path_.empty ())
+        throw invalid_argument ("empty location");
+
+      // Complete if we are relative and have base.
+      //
+      if (!b.empty () && path_.relative ())
+      {
+        // Convert the relative path location to an absolute or remote one.
+        //
+        host_ = b.host_;
+        port_ = b.port_;
+        path_ = b.path_ / path_;
+
+        // Set canonical name to the base location canonical name host
+        // part. The path part of the canonical name is calculated below.
+        //
+        if (b.remote ())
+          canonical_name_ =
+            b.canonical_name_.substr (0, b.canonical_name_.find ("/"));
+      }
+    }
 
     // Normalize path to avoid different representations of the same location
     // and canonical name. So a/b/../c/1/x/../y and a/c/1/y to be considered
@@ -889,14 +929,19 @@ namespace bpkg
       throw invalid_argument ("invalid path");
     }
 
+    // Finish calculating the canonical name, unless we are relative.
+    //
+    if (relative ())
+      return;
+
     // Search for the version path component preceeding canonical name
     // <path> component.
     //
-    auto b (path_.rbegin ()), i (b), e (path_.rend ());
+    auto rb (path_.rbegin ()), i (rb), re (path_.rend ());
 
     // Find the version component.
     //
-    for (; i != e; ++i)
+    for (; i != re; ++i)
     {
       const string& c (*i);
 
@@ -904,7 +949,7 @@ namespace bpkg
         break;
     }
 
-    if (i == e)
+    if (i == re)
       throw invalid_argument ("missing repository version");
 
     // Validate the version. At the moment the only valid value is 1.
@@ -914,7 +959,7 @@ namespace bpkg
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
-    string d (dir_path (b, i).posix_string ());
+    string d (dir_path (rb, i).posix_string ());
 
     if (!canonical_name_.empty () && !d.empty ()) // If we have host and dir.
       canonical_name_ += '/';
@@ -986,7 +1031,10 @@ namespace bpkg
         {
           try
           {
-            location = repository_location (move (v));
+            // Call prerequisite repository location constructor, do not
+            // ammend relative path.
+            //
+            location = repository_location (move (v), repository_location ());
           }
           catch (const invalid_argument& e)
           {

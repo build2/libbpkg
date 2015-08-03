@@ -27,6 +27,20 @@ bad_location (const string& l)
   }
 }
 
+static bool
+bad_location (const string& l, const repository_location& b)
+{
+  try
+  {
+    repository_location bl (l, b);
+    return false;
+  }
+  catch (const invalid_argument)
+  {
+    return true;
+  }
+}
+
 int
 main (int argc, char* argv[])
 {
@@ -88,22 +102,40 @@ main (int argc, char* argv[])
     //
     assert (bad_location ("3/aaa/bbb"));
 
+    // Invalid prerequisite repository location.
+    //
+    assert (bad_location ("a/c/1/bb"));
+
+    assert (bad_location ("a/c/1/bb",
+                          repository_location ("./var/1/stable",
+                                               repository_location ())));
+
+    assert (bad_location ("../../../1/math",
+                          repository_location (
+                            "http://stable.cppget.org/1/misc")));
+
+
     // Test valid locations.
     //
     {
-      repository_location l ("1/aa/bb");
+      repository_location l ("1/aa/bb", repository_location ());
       assert (l.string () == "1/aa/bb");
+      assert (l.canonical_name ().empty ());
+    }
+    {
+      repository_location l ("/1/aa/bb", repository_location ());
+      assert (l.string () == "/1/aa/bb");
       assert (l.canonical_name () == "aa/bb");
     }
     {
-      repository_location l ("/a/b/../c/1/aa/../bb");
+      repository_location l ("/a/b/../c/1/aa/../bb", repository_location ());
       assert (l.string () == "/a/c/1/bb");
       assert (l.canonical_name () == "bb");
     }
     {
-      repository_location l ("../c/../c/./1/aa/../bb");
+      repository_location l ("../c/../c/./1/aa/../bb", repository_location ());
       assert (l.string () == "../c/1/bb");
-      assert (l.canonical_name () == "bb");
+      assert (l.canonical_name ().empty ());
     }
     {
       repository_location l ("http://www.a.com:80/1/aa/bb");
@@ -143,6 +175,67 @@ main (int argc, char* argv[])
     {
       repository_location l ("http://stable.cppget.org/1/");
       assert (l.canonical_name () == "stable.cppget.org");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("../../1/math", l1);
+      assert (l2.string () == "http://stable.cppget.org/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org/math");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("../math", l1);
+      assert (l2.string () == "http://stable.cppget.org/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org/math");
+    }
+    {
+      repository_location l1 ("http://www.stable.cppget.org:8080/1");
+      repository_location l2 ("../1/math", l1);
+      assert (l2.string () == "http://www.stable.cppget.org:8080/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org:8080/math");
+    }
+    {
+      repository_location l1 ("/var/r1/1/misc");
+      repository_location l2 ("../../../r2/1/math", l1);
+      assert (l2.string () == "/var/r2/1/math");
+      assert (l2.canonical_name () == "math");
+    }
+    {
+      repository_location l1 ("/var/1/misc");
+      repository_location l2 ("../math", l1);
+      assert (l2.string () == "/var/1/math");
+      assert (l2.canonical_name () == "math");
+    }
+    {
+      repository_location l1 ("/var/1/stable");
+      repository_location l2 ("/var/1/test", l1);
+      assert (l2.string () == "/var/1/test");
+      assert (l2.canonical_name () == "test");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("/var/1/test", l1);
+      assert (l2.string () == "/var/1/test");
+      assert (l2.canonical_name () == "test");
+    }
+    {
+      repository_location l1 ("http://www.cppget.org/1/stable");
+      repository_location l2 ("http://abc.com/1/test", l1);
+      assert (l2.string () == "http://abc.com/1/test");
+      assert (l2.canonical_name () == "abc.com/test");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/");
+      repository_location l2 ("http://stable.cppget.org/1/",
+                             repository_location ());
+      assert (l1.string () == l2.string ());
+      assert (l1.canonical_name () == l2.canonical_name ());
+    }
+    {
+      repository_location l1 ("/var/1/stable");
+      repository_location l2 ("/var/1/stable", repository_location ());
+      assert (l1.string () == l2.string ());
+      assert (l1.canonical_name () == l2.canonical_name ());
     }
   }
   catch (const exception& e)
