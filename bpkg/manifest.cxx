@@ -663,6 +663,30 @@ namespace bpkg
 
         dependencies.push_back (da);
       }
+      // Manifest list names. Currently we don't check it is indeed a list.
+      //
+      else if (n == "location")
+      {
+        if (location)
+          bad_name ("package location redefinition");
+
+        try
+        {
+          path l (v);
+
+          if (l.empty ())
+            bad_value ("empty package location");
+
+          if (l.absolute ())
+            bad_value ("absolute package location");
+
+          location = move (l);
+        }
+        catch (const invalid_path&)
+        {
+          bad_value ("invalid package location");
+        }
+      }
       else
         bad_name ("unknown name '" + n + "' in package manifest");
     }
@@ -742,6 +766,9 @@ namespace bpkg
       s.next ("requires",
               (r.conditional ? "? " : "") +
               add_comment (concatenate (r, " | "), r.comment));
+
+    if (location)
+      s.next ("location", location->posix_string ());
 
     s.next ("", ""); // End of manifest.
   }

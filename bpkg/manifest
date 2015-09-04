@@ -291,6 +291,10 @@ namespace bpkg
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
 
+    // The following values are only valid in the manifest list.
+    //
+    butl::optional<butl::path> location;
+
   public:
     package_manifest (manifest_parser&);
     package_manifest (manifest_parser&, manifest_name_value start);
