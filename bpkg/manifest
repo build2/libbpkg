@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>   // uint16_t
+#include <ostream>
 #include <algorithm> // move()
 #include <stdexcept> // logic_error
 
@@ -128,6 +129,9 @@ namespace bpkg
     std::uint16_t revision_;
     std::string canonical_upstream_; // Upstream part canonical representation.
   };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const version& v) {return os << v.string ();}
 
   // priority
   //
