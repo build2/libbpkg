@@ -25,10 +25,15 @@ main (int argc, char* argv[])
   {
     ifstream ifs;
     ifs.exceptions (ifstream::badbit | ifstream::failbit);
-    ifs.open (argv[1], ifstream::in | ifstream::binary);
+    ifs.open (argv[1]);
 
     manifest_parser p (ifs, argv[1]);
-    manifests ms (p);
+
+#ifdef TEST_PACKAGES
+    package_manifests ms (p);
+#else
+    repository_manifests ms (p);
+#endif
 
     manifest_serializer s (cout, "stdout");
     ms.serialize (s);

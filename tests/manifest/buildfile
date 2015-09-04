@@ -2,7 +2,23 @@
 # copyright : Copyright (c) 2014-2015 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-exe{driver}: cxx{driver} ../../bpkg/lib{bpkg}
-exe{driver}: test.roundtrip = manifest
+#exe{driver}: cxx{driver} ../../bpkg/lib{bpkg}
+#exe{driver}: test.roundtrip = manifest
+
+# @@ Hack until build2 supports multiple tests. Also remove .gitignore.
+#
+./: exe{pdriver} exe{rdriver}
+
+exe{pdriver}: obj{pdriver}
+exe{pdriver}: test.roundtrip = packages
+
+exe{rdriver}: obj{rdriver}
+exe{rdriver}: test.roundtrip = repositories
+
+obj{pdriver rdriver}: cxx{driver}
+exe{pdriver rdriver} obj{pdriver rdriver}: ../../bpkg/lib{bpkg}
+
+obj{pdriver}: cxx.poptions += -DTEST_PACKAGES
+obj{rdriver}: cxx.poptions += -DTEST_REPOSITORIES
 
 include ../../bpkg/

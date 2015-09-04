@@ -1,7 +1,4 @@
 : 1
-location: http://pkg.example.org/1/math
-:
-:
 name: libfoo
 version: 1.2.3-2
 priority: high; Due to critical bug fix.

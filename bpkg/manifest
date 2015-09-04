@@ -303,6 +303,19 @@ namespace bpkg
     serialize (manifest_serializer&) const;
   };
 
+  class package_manifests: public std::vector<package_manifest>
+  {
+  public:
+    using base_type = std::vector<package_manifest>;
+
+    using base_type::base_type;
+
+    package_manifests (manifest_parser&);
+
+    void
+    serialize (manifest_serializer&) const;
+  };
+
   class repository_location
   {
   public:
@@ -425,14 +438,14 @@ namespace bpkg
     serialize (manifest_serializer&) const;
   };
 
-  class manifests
+  class repository_manifests: public std::vector<repository_manifest>
   {
   public:
-    std::vector<repository_manifest> repositories;
-    std::vector<package_manifest> packages;
+    using base_type = std::vector<repository_manifest>;
 
-  public:
-    manifests (manifest_parser&);
+    using base_type::base_type;
+
+    repository_manifests (manifest_parser&);
 
     void
     serialize (manifest_serializer&) const;

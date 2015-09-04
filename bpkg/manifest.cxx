@@ -773,6 +773,24 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
+  // package_manifests
+  //
+  package_manifests::
+  package_manifests (parser& p)
+  {
+    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+      push_back (package_manifest (p, nv));
+  }
+
+  void package_manifests::
+  serialize (serializer& s) const
+  {
+    for (const package_manifest& p: *this)
+      p.serialize (s);
+
+    s.next ("", ""); // End of stream.
+  }
+
   // repository_location
   //
   // Location parameter type is fully qualified as compiler gets confused with
@@ -1089,41 +1107,37 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
-  // manifests
+  // repository_manifests
   //
-  manifests::
-  manifests (parser& p)
+  repository_manifests::
+  repository_manifests (parser& p)
   {
-    bool rep (true); // Parsing repository list.
-
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+    name_value nv (p.next ());
+    while (!nv.empty ())
     {
-      if (rep)
-      {
-        repositories.push_back (repository_manifest (p, nv));
+      push_back (repository_manifest (p, nv));
+      nv = p.next ();
 
-        // Manifest for local repository signals the end of the
-        // repository list.
-        //
-        if (repositories.back ().location.empty ())
-          rep = false;
-      }
-      else
-        packages.push_back (package_manifest (p, nv));
+      // Make sure there is location in all except the last entry.
+      //
+      if (back ().location.empty () && !nv.empty ())
+        throw parsing (p.name (), nv.name_line, nv.name_column,
+                       "repository location expected");
     }
+
+    if (empty () || !back ().location.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "base repository manifest expected");
   }
 
-  void manifests::
+  void repository_manifests::
   serialize (serializer& s) const
   {
-    if (repositories.empty () || !repositories.back ().location.empty ())
-      throw serialization (s.name (), "local repository manifest expected");
+    if (empty () || !back ().location.empty ())
+      throw serialization (s.name (), "base repository manifest expected");
 
-    for (const repository_manifest& r: repositories)
+    for (const repository_manifest& r: *this)
       r.serialize (s);
-
-    for (const package_manifest& p: packages)
-      p.serialize (s);
 
     s.next ("", ""); // End of stream.
   }

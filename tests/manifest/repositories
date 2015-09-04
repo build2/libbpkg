@@ -1,0 +1,5 @@
+: 1
+location: http://pkg.example.org/1/math
+:
+location: ../stable
+:
