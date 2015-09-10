@@ -778,15 +778,31 @@ namespace bpkg
   package_manifests::
   package_manifests (parser& p)
   {
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+    name_value nv (p.next ());
+    while (!nv.empty ())
+    {
       push_back (package_manifest (p, nv));
+      nv = p.next ();
+
+      if (!back ().location)
+        throw parsing (p.name (), nv.name_line, nv.name_column,
+                       "package location expected");
+    }
   }
 
   void package_manifests::
   serialize (serializer& s) const
   {
     for (const package_manifest& p: *this)
+    {
+      if (!p.location || p.location->empty ())
+        throw
+          serialization (
+            s.name (),
+            "no valid location for " + p.name + "-" + p.version.string ());
+
       p.serialize (s);
+    }
 
     s.next ("", ""); // End of stream.
   }
