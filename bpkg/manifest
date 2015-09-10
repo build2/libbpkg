@@ -310,6 +310,7 @@ namespace bpkg
 
     using base_type::base_type;
 
+    package_manifests () = default;
     package_manifests (manifest_parser&);
 
     void
@@ -445,6 +446,7 @@ namespace bpkg
 
     using base_type::base_type;
 
+    repository_manifests () = default;
     repository_manifests (manifest_parser&);
 
     void
