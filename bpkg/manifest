@@ -30,6 +30,9 @@ namespace bpkg
     //
     version (): epoch_ (0), revision_ (0) {}
 
+    // Throw std::invalid_argument if the passed string is not a valid
+    // version representation.
+    //
     explicit
     version (const std::string& v): version (v.c_str ()) /* Delegate */ {}
 
