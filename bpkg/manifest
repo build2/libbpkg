@@ -68,13 +68,7 @@ namespace bpkg
     canonical_upstream () const noexcept {return canonical_upstream_;}
 
     std::string
-    string () const
-    {
-      const std::string& v (
-        epoch_ != 0 ? std::to_string (epoch_) + "+" + upstream_ : upstream_);
-
-      return revision_ != 0 ? v + "-" + std::to_string (revision_) : v;
-    }
+    string (bool ignore_revision = false) const;
 
     bool
     operator< (const version& v) const noexcept {return compare (v) < 0;}

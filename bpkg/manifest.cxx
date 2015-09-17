@@ -326,6 +326,22 @@ namespace bpkg
     canonical_upstream_.resize (cl);
   }
 
+  string version::
+  string (bool ignore_revision) const
+  {
+    std::string v (epoch_ != 0
+                   ? to_string (epoch_) + "+" + upstream_
+                   : upstream_);
+
+    if (!ignore_revision && revision_ != 0)
+    {
+      v += '-';
+      v += to_string (revision_);
+    }
+
+    return v;
+  }
+
   // package_manifest
   //
   package_manifest::
