@@ -89,7 +89,10 @@ main (int argc, char* argv[])
 
     // Invalid path.
     //
-    assert (bad_location (""));
+    assert (
+      bad_location ("",
+                    repository_location ("http://stable.cppget.org/1/misc")));
+
     assert (bad_location ("1"));
     assert (bad_location ("1/"));
     assert (bad_location ("bbb"));
@@ -114,9 +117,13 @@ main (int argc, char* argv[])
                           repository_location (
                             "http://stable.cppget.org/1/misc")));
 
-
     // Test valid locations.
     //
+    {
+      repository_location l ("");
+      assert (l.string ().empty ());
+      assert (l.canonical_name ().empty ());
+    }
     {
       repository_location l ("1/aa/bb", repository_location ());
       assert (l.string () == "1/aa/bb");
