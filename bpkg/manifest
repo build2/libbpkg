@@ -321,20 +321,24 @@ namespace bpkg
     //
     repository_location () = default;
 
-    // Creates remote/absolute repository location. Throws invalid_argument
-    // if the location is a relative path.
+    // If the argument is not empty, creates remote/absolute repository
+    // location. Throws invalid_argument if the location is a relative
+    // path. If the argument is empty, then creates the special empty
+    // location.
     //
     explicit
     repository_location (const std::string&);
 
     // Creates a potentially relative repository location. If base is not
     // empty, use it to complete the relative location to remote/absolute.
-    // Throws invalid_argument if base itself is relative or the resulting
-    // completed location is invalid.
+    // Throws invalid_argument if base is not empty but the location is
+    // empty, base itself is relative, or the resulting completed location
+    // is invalid.
     //
     repository_location (const std::string&, const repository_location& base);
 
-    // Note that relative locations have no canonical name.
+    // Note that relative locations have no canonical name. Canonical
+    // name of an empty location is the empty name.
     //
     const std::string&
     canonical_name () const noexcept {return canonical_name_;}
@@ -409,9 +413,10 @@ namespace bpkg
       return port_;
     }
 
-    // Note that this is not necessarily syntactically the same
-    // string as what was used to initialize this location. But
-    // it should be semantically equivalent.
+    // Note that this is not necessarily syntactically the same string
+    // as what was used to initialize this location. But it should be
+    // semantically equivalent. String representation of an empty
+    // location is the empty string.
     //
     std::string
     string () const;

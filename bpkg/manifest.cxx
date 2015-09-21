@@ -832,7 +832,7 @@ namespace bpkg
   repository_location (const std::string& l)
       : repository_location (l, repository_location ()) // Delegate.
   {
-    if (relative ())
+    if (!empty () && relative ())
       throw invalid_argument ("relative filesystem path");
   }
 
@@ -842,6 +842,14 @@ namespace bpkg
     // Otherwise compiler gets confused with string() member.
     //
     using std::string;
+
+    if (l.empty ())
+    {
+      if (!b.empty ())
+        throw invalid_argument ("empty location");
+
+      return;
+    }
 
     // Base repository location can not be a relative path.
     //
@@ -971,9 +979,6 @@ namespace bpkg
     {
       path_ = dir_path (l);
 
-      if (path_.empty ())
-        throw invalid_argument ("empty location");
-
       // Complete if we are relative and have base.
       //
       if (!b.empty () && path_.relative ())
@@ -1052,13 +1057,15 @@ namespace bpkg
   string repository_location::
   string () const
   {
+    using std::string; // Also function name.
+
     if (empty ())
-      return "";
+      return string ();
 
     if (local ())
       return path_.string ();
 
-    std::string p ("http://" + host_);
+    string p ("http://" + host_);
 
     if (port_ != 0)
       p += ":" + to_string (port_);
