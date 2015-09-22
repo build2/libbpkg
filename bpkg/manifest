@@ -337,6 +337,10 @@ namespace bpkg
     //
     repository_location (const std::string&, const repository_location& base);
 
+    repository_location (const repository_location& l,
+                         const repository_location& base)
+        : repository_location (l.string (), base) {}
+
     // Note that relative locations have no canonical name. Canonical
     // name of an empty location is the empty name.
     //
@@ -427,6 +431,12 @@ namespace bpkg
     std::uint16_t port_;
     butl::dir_path path_;
   };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const repository_location& l)
+  {
+    return os << l.string ();
+  }
 
   class repository_manifest
   {

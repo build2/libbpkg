@@ -1111,19 +1111,19 @@ namespace bpkg
 
       if (n == "location")
       {
-        if (!v.empty ())
+        if (v.empty ())
+          bad_value ("empty location");
+
+        try
         {
-          try
-          {
-            // Call prerequisite repository location constructor, do not
-            // ammend relative path.
-            //
-            location = repository_location (move (v), repository_location ());
-          }
-          catch (const invalid_argument& e)
-          {
-            bad_value (e.what ());
-          }
+          // Call prerequisite repository location constructor, do not
+          // ammend relative path.
+          //
+          location = repository_location (move (v), repository_location ());
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (e.what ());
         }
       }
       else
