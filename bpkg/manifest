@@ -321,17 +321,17 @@ namespace bpkg
     //
     repository_location () = default;
 
-    // If the argument is not empty, creates remote/absolute repository
-    // location. Throws invalid_argument if the location is a relative
-    // path. If the argument is empty, then creates the special empty
+    // If the argument is not empty, create remote/absolute repository
+    // location. Throw invalid_argument if the location is a relative
+    // path. If the argument is empty, then create the special empty
     // location.
     //
     explicit
     repository_location (const std::string&);
 
-    // Creates a potentially relative repository location. If base is not
+    // Create a potentially relative repository location. If base is not
     // empty, use it to complete the relative location to remote/absolute.
-    // Throws invalid_argument if base is not empty but the location is
+    // Throw invalid_argument if base is not empty but the location is
     // empty, base itself is relative, or the resulting completed location
     // is invalid.
     //

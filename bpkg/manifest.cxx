@@ -729,6 +729,9 @@ namespace bpkg
   void package_manifest::
   serialize (serializer& s) const
   {
+    // @@ Should we check that all non-optional values are specified ?
+    //
+
     s.next ("", "1"); // Start of manifest.
     s.next ("name", name);
     s.next ("version", version.string ());
@@ -1114,6 +1117,9 @@ namespace bpkg
 
       if (n == "location")
       {
+        if (!location.empty ())
+          bad_name ("location redefinition");
+
         if (v.empty ())
           bad_value ("empty location");
 
