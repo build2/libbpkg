@@ -438,10 +438,18 @@ namespace bpkg
     return os << l.string ();
   }
 
+  enum class repository_role
+  {
+    base,
+    prerequisite,
+    complement
+  };
+
   class repository_manifest
   {
   public:
     repository_location location;
+    butl::optional<repository_role> role;
 
   public:
     repository_manifest (manifest_parser&);
@@ -449,6 +457,18 @@ namespace bpkg
 
     void
     serialize (manifest_serializer&) const;
+
+    // Return the effective role of the repository. If the role is not
+    // explicitly specified (see the role member above), then calculate
+    // the role based on the location. Specifically, if the location is
+    // empty, then the effective role is base. Otherwise -- prerequisite.
+    // If the role is specified, then verify that it is consistent with
+    // the location value (that is, base if the location is empty and
+    // prerequisite or complete if not) and return that. Otherwise,
+    // throw logic_error.
+    //
+    repository_role
+    effective_role () const;
   };
 
   class repository_manifests: public std::vector<repository_manifest>

@@ -36,6 +36,9 @@ namespace bpkg
   // Utility functions
   //
   static const strings priority_names ({"low", "medium", "high", "security"});
+  static const strings repository_role_names (
+    {"base", "prerequisite", "complement"});
+
   static const string spaces (" \t");
 
   inline static bool
@@ -1126,6 +1129,20 @@ namespace bpkg
           bad_value (e.what ());
         }
       }
+      else if (n == "role")
+      {
+        if (role)
+          bad_name ("role redefinition");
+
+        auto b (repository_role_names.cbegin ());
+        auto e (repository_role_names.cend ());
+        auto i (find (b, e, v));
+
+        if (i == e)
+          bad_value ("unrecognized role");
+
+        role = static_cast<repository_role> (i - b);
+      }
       else
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
@@ -1133,6 +1150,10 @@ namespace bpkg
     // Verify all non-optional values were specified.
     //
     // - location can be omitted
+    // - role can be omitted
+    //
+    if (role && location.empty () != (*role == repository_role::base))
+      bad_value ("invalid role");
   }
 
   void repository_manifest::
@@ -1143,7 +1164,32 @@ namespace bpkg
     if (!location.empty ())
       s.next ("location", location.string ());
 
+    if (role)
+    {
+      if (location.empty () != (*role == repository_role::base))
+        throw serialization (s.name (), "invalid role");
+
+      auto r (static_cast<size_t> (*role));
+      assert (r < repository_role_names.size ());
+      s.next ("role", repository_role_names[r]);
+    }
+
     s.next ("", ""); // End of manifest.
+  }
+
+  repository_role repository_manifest::
+  effective_role () const
+  {
+    if (role)
+    {
+      if (location.empty () != (*role == repository_role::base))
+        throw logic_error ("invalid role");
+
+      return *role;
+    }
+    else
+      return location.empty () ?
+        repository_role::base : repository_role::prerequisite;
   }
 
   // repository_manifests
@@ -1175,6 +1221,9 @@ namespace bpkg
     if (empty () || !back ().location.empty ())
       throw serialization (s.name (), "base repository manifest expected");
 
+    // @@ Should we check that there is location in all except the last
+    // entry?
+    //
     for (const repository_manifest& r: *this)
       r.serialize (s);
 

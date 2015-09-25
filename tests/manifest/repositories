@@ -1,5 +1,7 @@
 : 1
 location: http://pkg.example.org/1/math
+role: prerequisite
 :
 location: ../stable
+role: complement
 :
