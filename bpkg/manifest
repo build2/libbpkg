@@ -108,8 +108,7 @@ namespace bpkg
     {
       // No sense to test epoch and revision for 0 as properly constructed
       // version object can not have them different from 0 if upstream is
-      // empty. Returns true only for objects constructed with the default
-      // constructor.
+      // empty.
       //
       return upstream_.empty ();
     }
