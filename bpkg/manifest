@@ -227,17 +227,29 @@ namespace bpkg
   //
   enum class comparison {eq, lt, gt, le, ge};
 
-  struct version_comparison
+  std::string
+  to_string (comparison);
+
+  comparison
+  to_comparison (const std::string&); // May throw invalid_argument.
+
+  inline std::ostream&
+  operator<< (std::ostream& os, comparison c) {return os << to_string (c);}
+
+  struct dependency_condition
   {
-    version value;
     comparison operation;
+    bpkg::version version;
   };
 
   struct dependency
   {
-    std::string package;
-    butl::optional<version_comparison> version;
+    std::string name;
+    butl::optional<dependency_condition> condition;
   };
+
+  std::ostream&
+  operator<< (std::ostream&, const dependency&);
 
   class dependency_alternatives: public std::vector<dependency>
   {

@@ -27,6 +27,8 @@ using namespace butl;
 
 namespace bpkg
 {
+  using std::to_string; // Add to bpkg::to_string().
+
   using parser = manifest_parser;
   using parsing = manifest_parsing;
   using serializer = manifest_serializer;
@@ -66,22 +68,6 @@ namespace bpkg
   {
     const unsigned char shift ('a' - 'A');
     return c >= 'A' && c <='Z' ? c + shift : c;
-  }
-
-  static ostream&
-  operator<< (ostream& o, const dependency& d)
-  {
-    o << d.package;
-
-    if (d.version)
-    {
-      static const char* operations[] = {"==", "<", ">", "<=", ">="};
-
-      o << " " << operations[static_cast<size_t> (d.version->operation)]
-        << " " << d.version->value.string ();
-    }
-
-    return o;
   }
 
   // Resize v up to ';', return what goes after ';'.
@@ -343,6 +329,38 @@ namespace bpkg
     }
 
     return v;
+  }
+
+  // depends
+  //
+  static const char* comparison_str[] = {"==", "<", ">", "<=", ">="};
+
+  string
+  to_string (comparison c)
+  {
+    return comparison_str[static_cast<size_t> (c)];
+  }
+
+  comparison
+  to_comparison (const string& s)
+  {
+         if (s == "==") return comparison::eq;
+    else if (s == ">" ) return comparison::gt;
+    else if (s == "<" ) return comparison::lt;
+    else if (s == ">=") return comparison::ge;
+    else if (s == "<=") return comparison::le;
+    else throw invalid_argument ("invalid comparion operator '" + s + "'");
+  }
+
+  ostream&
+  operator<< (ostream& o, const dependency& d)
+  {
+    o << d.name;
+
+    if (d.condition)
+      o << " " << d.condition->operation << " " << d.condition->version;
+
+    return o;
   }
 
   // package_manifest
@@ -614,7 +632,7 @@ namespace bpkg
           }
 
           if (i == e)
-            da.push_back (dependency {lv, optional<version_comparison> ()});
+            da.push_back (dependency {lv, nullopt});
           else
           {
             string nm (b, ne);
@@ -627,6 +645,9 @@ namespace bpkg
             const char* op (&*i);
             comparison operation;
 
+            // While we have to_comparison(), using it in this situation
+            // won't save us anything.
+            //
             if (strncmp (op, "==", 2) == 0)
             {
               operation = comparison::eq;
@@ -672,7 +693,8 @@ namespace bpkg
                 string ("invalid prerequisite package version: ") + e.what ());
             }
 
-            dependency d{move (nm), version_comparison {move (v), operation}};
+            dependency d {move (nm),
+                          dependency_condition {operation, move (v)}};
             da.push_back (move (d));
           }
         }
