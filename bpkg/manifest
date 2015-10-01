@@ -26,46 +26,41 @@ namespace bpkg
   class version
   {
   public:
+    // Let's keep the members in the order they appear in the string
+    // representation.
+    //
+    const std::uint16_t epoch;
+    const std::string upstream;
+    const std::uint16_t revision;
+
+    // Upstream part canonical representation.
+    //
+    const std::string canonical_upstream;
+
     // Create a special empty version.
     //
-    version (): epoch_ (0), revision_ (0) {}
+    version (): epoch (0), revision (0) {}
 
     // Throw std::invalid_argument if the passed string is not a valid
     // version representation.
     //
     explicit
-    version (const std::string& v): version (v.c_str ()) /* Delegate */ {}
+    version (const std::string& v): version (v.c_str ()) {}
 
     explicit
-    version (const char* v): version (v, false) /* Delegate */ {}
+    version (const char* v): version (data_type (v, false)) {}
 
     // Create the version object from separate epoch, upstream, and
     // revision parts.
     //
     version (std::uint16_t epoch,
              std::string upstream,
-             std::uint16_t revision)
-        : version (upstream.c_str (), true)  // Delegate
+             std::uint16_t revision);
 
-    {
-      // Can't initialize in member initializer list due to construction
-      // delegation.
-      //
-      epoch_ = epoch;
-      revision_ = revision;
-    }
-
-    std::uint16_t
-    epoch () const noexcept {return epoch_;}
-
-    std::uint16_t
-    revision () const noexcept {return revision_;}
-
-    const std::string&
-    upstream () const noexcept {return upstream_;}
-
-    const std::string&
-    canonical_upstream () const noexcept {return canonical_upstream_;}
+    version (version&&) = default;
+    version (const version&) = default;
+    version& operator= (version&&);
+    version& operator= (const version&);
 
     std::string
     string (bool ignore_revision = false) const;
@@ -91,14 +86,14 @@ namespace bpkg
     int
     compare (const version& v, bool ignore_revision = false) const noexcept
     {
-      if (epoch_ != v.epoch_)
-        return epoch_ < v.epoch_ ? -1 : 1;
+      if (epoch != v.epoch)
+        return epoch < v.epoch ? -1 : 1;
 
-      if (int c = canonical_upstream_.compare (v.canonical_upstream_))
+      if (int c = canonical_upstream.compare (v.canonical_upstream))
         return c;
 
-      if (!ignore_revision && revision_ != v.revision_)
-        return revision_ < v.revision_ ? -1 : 1;
+      if (!ignore_revision && revision != v.revision)
+        return revision < v.revision ? -1 : 1;
 
       return 0;
     }
@@ -110,20 +105,26 @@ namespace bpkg
       // version object can not have them different from 0 if upstream is
       // empty.
       //
-      return upstream_.empty ();
+      return upstream.empty ();
     }
 
   private:
-    version (const char*, bool upstream_only);
+    struct data_type
+    {
+      data_type (const char*, bool upstream_only);
 
-  private:
-    // Let's keep the members in the order they appear in the string
-    // representation.
-    //
-    std::uint16_t epoch_;
-    std::string upstream_;
-    std::uint16_t revision_;
-    std::string canonical_upstream_; // Upstream part canonical representation.
+      std::uint16_t epoch;
+      std::string upstream;
+      std::uint16_t revision;
+      std::string canonical_upstream;
+    };
+
+    explicit
+    version (data_type&& d)
+        : epoch (d.epoch),
+          upstream (std::move (d.upstream)),
+          revision (d.revision),
+          canonical_upstream (std::move (d.canonical_upstream)) {}
   };
 
   inline std::ostream&

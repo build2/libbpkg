@@ -178,7 +178,17 @@ namespace bpkg
   // version
   //
   version::
-  version (const char* v, bool upstream_only): version () // Delegate
+  version (uint16_t e, std::string u, uint16_t r)
+      : epoch (e),
+        upstream (move (u)),
+        revision (r),
+        canonical_upstream (
+          data_type (upstream.c_str (), true).canonical_upstream)
+  {
+  }
+
+  version::data_type::
+  data_type (const char* v, bool upstream_only): epoch (0), revision (0)
   {
     // Otherwise compiler gets confused with string() member.
     //
@@ -202,30 +212,32 @@ namespace bpkg
     auto add_canonical_component (
       [this, &bad_arg](const char* b, const char* e, bool numeric) -> bool
       {
-        if (!canonical_upstream_.empty ())
-          canonical_upstream_.append (1, '.');
+        auto& cu (canonical_upstream);
+
+        if (!cu.empty ())
+          cu.append (1, '.');
 
         if (numeric)
         {
           if (e - b > 8)
             bad_arg ("8 digits maximum allowed in a component");
 
-          canonical_upstream_.append (8 - (e - b), '0'); // Add padding spaces.
+          cu.append (8 - (e - b), '0'); // Add padding spaces.
 
           string c (b, e);
-          canonical_upstream_.append (c);
+          cu.append (c);
           return stoul (c) != 0;
         }
         else
         {
           for (const char* i (b); i != e; ++i)
-            canonical_upstream_.append (1, lowercase (*i));
+            cu.append (1, lowercase (*i));
 
           return true;
         }
       });
 
-    enum {epoch, upstream, revision} mode (epoch);
+    enum class mode {epoch, upstream, revision} m (mode::epoch);
 
     const char* cb (v); // Begin of a component.
     const char* ub (v); // Begin of upstream component.
@@ -247,14 +259,14 @@ namespace bpkg
           if (upstream_only)
             bad_arg ("unexpected '+' character");
 
-          if (mode != epoch || p == v)
+          if (m != mode::epoch || p == v)
             bad_arg ("unexpected '+' character position");
 
           if (lnn >= cb) // Contains non-digits.
             bad_arg ("epoch should be 2-byte unsigned integer");
 
-          epoch_ = uint16 (string (cb, p), "epoch");
-          mode = upstream;
+          epoch = uint16 (string (cb, p), "epoch");
+          m = mode::upstream;
           cb = p + 1;
           ub = cb;
           break;
@@ -270,14 +282,14 @@ namespace bpkg
 
       case '.':
         {
-          if ((mode != epoch && mode != upstream) || p == cb)
+          if ((m != mode::epoch && m != mode::upstream) || p == cb)
             bad_arg (string ("unexpected '") + c + "' character position");
 
           if (add_canonical_component (cb, p, lnn < cb))
-            cl = canonical_upstream_.size ();
+            cl = canonical_upstream.size ();
 
           ue = p;
-          mode = c == '-' ? revision : upstream;
+          m = c == '-' ? mode::revision : mode::upstream;
           cb = p + 1;
           break;
         }
@@ -295,37 +307,57 @@ namespace bpkg
     if (p == cb)
       bad_arg ("unexpected end");
 
-    if (mode == revision)
+    if (m == mode::revision)
     {
       if (lnn >= cb) // Contains non-digits.
         bad_arg ("revision should be 2-byte unsigned integer");
 
-      revision_ = uint16 (cb, "revision");
+      revision = uint16 (cb, "revision");
     }
     else
     {
       if (add_canonical_component (cb, p, lnn < cb))
-        cl = canonical_upstream_.size ();
+        cl = canonical_upstream.size ();
 
       ue = p;
     }
 
     assert (ub != ue); // Can't happen if through all previous checks.
-    upstream_.assign (ub, ue);
-    canonical_upstream_.resize (cl);
+
+    if (!upstream_only)
+      upstream.assign (ub, ue);
+
+    canonical_upstream.resize (cl);
+  }
+
+  version& version::
+  operator= (const version& v)
+  {
+    if (this != &v)
+      *this = version (v); // Reduce to move-assignment.
+    return *this;
+  }
+
+  version& version::
+  operator= (version&& v)
+  {
+    if (this != &v)
+    {
+      this->~version ();
+      new (this) version (move (v)); // Assume noexcept move-construction.
+    }
+    return *this;
   }
 
   string version::
   string (bool ignore_revision) const
   {
-    std::string v (epoch_ != 0
-                   ? to_string (epoch_) + "+" + upstream_
-                   : upstream_);
+    std::string v (epoch != 0 ? to_string (epoch) + "+" + upstream : upstream);
 
-    if (!ignore_revision && revision_ != 0)
+    if (!ignore_revision && revision != 0)
     {
       v += '-';
-      v += to_string (revision_);
+      v += to_string (revision);
     }
 
     return v;
