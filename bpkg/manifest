@@ -237,16 +237,19 @@ namespace bpkg
   inline std::ostream&
   operator<< (std::ostream& os, comparison c) {return os << to_string (c);}
 
-  struct dependency_condition
+  struct dependency_constraint
   {
     comparison operation;
     bpkg::version version;
   };
 
+  std::ostream&
+  operator<< (std::ostream&, const dependency_constraint&);
+
   struct dependency
   {
     std::string name;
-    butl::optional<dependency_condition> condition;
+    butl::optional<dependency_constraint> constraint;
   };
 
   std::ostream&
@@ -262,6 +265,9 @@ namespace bpkg
     dependency_alternatives (bool d = false, std::string c = "")
         : conditional (d), comment (std::move (c)) {}
   };
+
+  std::ostream&
+  operator<< (std::ostream&, const dependency_alternatives&);
 
   // requires
   //

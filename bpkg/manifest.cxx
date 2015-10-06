@@ -384,13 +384,35 @@ namespace bpkg
     else throw invalid_argument ("invalid comparion operator '" + s + "'");
   }
 
+  inline ostream&
+  operator<< (ostream& o, const dependency_constraint& c)
+  {
+    return o << c.operation << ' ' << c.version;
+  }
+
   ostream&
   operator<< (ostream& o, const dependency& d)
   {
     o << d.name;
 
-    if (d.condition)
-      o << " " << d.condition->operation << " " << d.condition->version;
+    if (d.constraint)
+      o << ' ' << *d.constraint;
+
+    return o;
+  }
+
+  ostream&
+  operator<< (ostream& o, const dependency_alternatives& as)
+  {
+    if (as.conditional)
+      o << "? ";
+
+    bool f (true);
+    for (const dependency& a: as)
+      o << (f ? (f = false, "") : " | ") << a;
+
+    if (!as.comment.empty ())
+      o << "; " << as.comment;
 
     return o;
   }
@@ -726,7 +748,7 @@ namespace bpkg
             }
 
             dependency d {move (nm),
-                          dependency_condition {operation, move (v)}};
+                          dependency_constraint {operation, move (v)}};
             da.push_back (move (d));
           }
         }
