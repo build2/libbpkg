@@ -392,18 +392,18 @@ namespace bpkg
     bool
     absolute () const
     {
-      return local () && path_.absolute ();
+      if (empty ())
+        throw std::logic_error ("empty location");
+
+      // Note that in remote locations path is always relative.
+      //
+      return path_.absolute ();
     }
 
     bool
     relative () const
     {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      // Note that in remote locations path is always absolute.
-      //
-      return path_.relative ();
+      return local () && path_.relative ();
     }
 
     const butl::dir_path&

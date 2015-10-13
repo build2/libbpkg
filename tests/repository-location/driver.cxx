@@ -54,7 +54,6 @@ main (int argc, char* argv[])
   {
     // Test invalid locations.
     //
-
     // Invalid host.
     //
     assert (bad_location ("http:///aa/bb"));
@@ -95,11 +94,17 @@ main (int argc, char* argv[])
 
     assert (bad_location ("1"));
     assert (bad_location ("1/"));
+    assert (bad_location ("1/.."));
     assert (bad_location ("bbb"));
     assert (bad_location ("aaa/bbb"));
     assert (bad_location ("/aaa/bbb"));
+    assert (bad_location ("http://aa"));
+    assert (bad_location ("http://aa/"));
+    assert (bad_location ("http://aa/b/.."));
+    assert (bad_location ("http://aa/."));
     assert (bad_location ("http://aa/bb"));
     assert (bad_location ("http://a.com/../c/1/aa"));
+    assert (bad_location ("http://a.com/a/b/../../../c/1/aa"));
 
     // Invalid version.
     //

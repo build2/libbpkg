@@ -945,11 +945,15 @@ namespace bpkg
       //
       auto p (l.find ('/', 7));
 
-      // Chop the path part. Note that we translate empty path to "/".
+      // The remote repository location with no path specified is not a valid
+      // one. Keep the path_ member empty so the later check for emptiness
+      // will throw invalid_argument exception.
       //
-      path_ = p != string::npos
-        ? dir_path (l, p, string::npos)
-        : dir_path ("/");
+      if (p != string::npos)
+        // Chop the path part. Path is saved as a relative one to be of the
+        // same type on different operating systems including Windows.
+        //
+        path_ = dir_path (l, p + 1, string::npos);
 
       // Put the lower-cased version of the host part into host_.
       // Chances are good it will stay unmodified.
@@ -1093,6 +1097,22 @@ namespace bpkg
       throw invalid_argument ("invalid path");
     }
 
+    // Need to check path for emptiness before proceeding further as a valid
+    // non empty location can not have an empty path_ member. Note that path
+    // can become empty as a result of normalize () call. Example of such a
+    // path is 'a/..'.
+    //
+    if (path_.empty ())
+      throw invalid_argument ("empty path");
+
+    // Need to check that URL path do not go past the root directory of a WEB
+    // server. We can not rely on the above normalize() function call doing
+    // this check as soon as path_ member contains a relative directory for the
+    // remote location.
+    //
+    if (remote () && *path_.begin () == "..")
+      throw invalid_argument ("invalid path");
+
     // Finish calculating the canonical name, unless we are relative.
     //
     if (relative ())
@@ -1152,7 +1172,7 @@ namespace bpkg
     if (port_ != 0)
       p += ":" + to_string (port_);
 
-    return p + path_.posix_string ();
+    return p + "/" + path_.posix_string ();
   }
 
   // repository_manifest
