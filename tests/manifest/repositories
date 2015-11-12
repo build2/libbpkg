@@ -5,3 +5,8 @@ role: prerequisite
 location: ../stable
 role: complement
 :
+url: http://cppget.org
+email: repoman@cppget.org
+summary: General C++ package repository
+description: This is the awesome C++ package repository full of exciting\
+ stuff.

@@ -1245,6 +1245,46 @@ namespace bpkg
 
         role = static_cast<repository_role> (i - b);
       }
+      else if (n == "url")
+      {
+        if (url)
+          bad_name ("url redefinition");
+
+        if (v.empty ())
+          bad_value ("empty url");
+
+        url = move (v);
+      }
+      else if (n == "email")
+      {
+        if (email)
+          bad_name ("email redefinition");
+
+        if (v.empty ())
+          bad_value ("empty email");
+
+        email = move (v);
+      }
+      else if (n == "summary")
+      {
+        if (summary)
+          bad_name ("summary redefinition");
+
+        if (v.empty ())
+          bad_value ("empty summary");
+
+        summary = move (v);
+      }
+      else if (n == "description")
+      {
+        if (description)
+          bad_name ("description redefinition");
+
+        if (v.empty ())
+          bad_value ("empty description");
+
+        description = move (v);
+      }
       else
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
@@ -1256,11 +1296,29 @@ namespace bpkg
     //
     if (role && location.empty () != (*role == repository_role::base))
       bad_value ("invalid role");
+
+    if (effective_role () != repository_role::base)
+    {
+      if (url)
+        bad_value ("url not allowed");
+
+      if (email)
+        bad_value ("email not allowed");
+
+      if (summary)
+        bad_value ("summary not allowed");
+
+      if (description)
+        bad_value ("description not allowed");
+    }
   }
 
   void repository_manifest::
   serialize (serializer& s) const
   {
+    auto bad_value ([&s](const string& d) {
+        throw serialization (s.name (), d);});
+
     s.next ("", "1"); // Start of manifest.
 
     if (!location.empty ())
@@ -1269,11 +1327,45 @@ namespace bpkg
     if (role)
     {
       if (location.empty () != (*role == repository_role::base))
-        throw serialization (s.name (), "invalid role");
+        bad_value ("invalid role");
 
       auto r (static_cast<size_t> (*role));
       assert (r < repository_role_names.size ());
       s.next ("role", repository_role_names[r]);
+    }
+
+    bool b (effective_role () == repository_role::base);
+
+    if (url)
+    {
+      if (!b)
+        bad_value ("url not allowed");
+
+      s.next ("url", *url);
+    }
+
+    if (email)
+    {
+      if (!b)
+        bad_value ("email not allowed");
+
+      s.next ("email", *email);
+    }
+
+    if (summary)
+    {
+      if (!b)
+        bad_value ("summary not allowed");
+
+      s.next ("summary", *summary);
+    }
+
+    if (description)
+    {
+      if (!b)
+        bad_value ("description not allowed");
+
+      s.next ("description", *description);
     }
 
     s.next ("", ""); // End of manifest.

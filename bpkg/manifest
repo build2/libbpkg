@@ -469,6 +469,13 @@ namespace bpkg
     repository_location location;
     butl::optional<repository_role> role;
 
+    // The following values may only be present for the base repository.
+    //
+    butl::optional<std::string> url;
+    butl::optional<std::string> email;
+    butl::optional<std::string> summary;
+    butl::optional<std::string> description;
+
   public:
     repository_manifest (manifest_parser&);
     repository_manifest (manifest_parser&, manifest_name_value start);
