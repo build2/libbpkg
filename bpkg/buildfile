@@ -13,3 +13,7 @@ $libs
 
 cxx.poptions += -I$src_root
 lib{bpkg}: cxx.export.poptions = -I$src_root
+
+# Install into the bpkg/ subdirectory of, say, /usr/include/.
+#
+install.include = $install.include/bpkg
