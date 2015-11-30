@@ -4,11 +4,11 @@
 
 import libs += libbutl%lib{butl}
 
-lib{bpkg}:                                 \
-{ hxx         cxx }{ manifest            } \
-{ hxx         cxx }{ manifest-parser     } \
-{ hxx         cxx }{ manifest-serializer } \
-{ hxx             }{ version             } \
+lib{bpkg}:                               \
+{hxx         cxx}{ manifest            } \
+{hxx         cxx}{ manifest-parser     } \
+{hxx         cxx}{ manifest-serializer } \
+{hxx            }{ version             } \
 $libs
 
 cxx.poptions += -I$src_root
