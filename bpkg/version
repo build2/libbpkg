@@ -22,7 +22,7 @@
 //
 
 //                          AABBCCDD
-#define LIBBPKG_VERSION        10000
-#define LIBBPKG_VERSION_STR "0.1.0"
+#define LIBBPKG_VERSION         9901
+#define LIBBPKG_VERSION_STR "0.1.0.a1"
 
 #endif // LIBBPKG_VERSION
