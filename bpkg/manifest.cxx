@@ -420,8 +420,8 @@ namespace bpkg
   // package_manifest
   //
   package_manifest::
-  package_manifest (parser& p)
-      : package_manifest (p, p.next ()) // Delegate
+  package_manifest (parser& p, bool iu)
+      : package_manifest (p, p.next (), iu) // Delegate
   {
     // Make sure this is the end.
     //
@@ -432,7 +432,7 @@ namespace bpkg
   }
 
   package_manifest::
-  package_manifest (parser& p, name_value nv)
+  package_manifest (parser& p, name_value nv, bool iu)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -782,7 +782,7 @@ namespace bpkg
           bad_value ("invalid package location");
         }
       }
-      else
+      else if (!iu)
         bad_name ("unknown name '" + n + "' in package manifest");
     }
 
@@ -874,12 +874,12 @@ namespace bpkg
   // package_manifests
   //
   package_manifests::
-  package_manifests (parser& p)
+  package_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
     while (!nv.empty ())
     {
-      push_back (package_manifest (p, nv));
+      push_back (package_manifest (p, nv, iu));
       nv = p.next ();
 
       if (!back ().location)
@@ -1178,8 +1178,8 @@ namespace bpkg
   // repository_manifest
   //
   repository_manifest::
-  repository_manifest (parser& p)
-      : repository_manifest (p, p.next ()) // Delegate
+  repository_manifest (parser& p, bool iu)
+      : repository_manifest (p, p.next (), iu) // Delegate
   {
     // Make sure this is the end.
     //
@@ -1190,7 +1190,7 @@ namespace bpkg
   }
 
   repository_manifest::
-  repository_manifest (parser& p, name_value nv)
+  repository_manifest (parser& p, name_value nv, bool iu)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -1285,7 +1285,7 @@ namespace bpkg
 
         description = move (v);
       }
-      else
+      else if (!iu)
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
 
@@ -1389,12 +1389,12 @@ namespace bpkg
   // repository_manifests
   //
   repository_manifests::
-  repository_manifests (parser& p)
+  repository_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
     while (!nv.empty ())
     {
-      push_back (repository_manifest (p, nv));
+      push_back (repository_manifest (p, nv, iu));
       nv = p.next ();
 
       // Make sure there is location in all except the last entry.

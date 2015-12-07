@@ -311,8 +311,10 @@ namespace bpkg
     butl::optional<butl::path> location;
 
   public:
-    package_manifest (manifest_parser&);
-    package_manifest (manifest_parser&, manifest_name_value start);
+    package_manifest (manifest_parser&, bool ignore_unknown = false);
+    package_manifest (manifest_parser&,
+                      manifest_name_value start,
+                      bool ignore_unknown = false);
 
     void
     serialize (manifest_serializer&) const;
@@ -326,7 +328,7 @@ namespace bpkg
     using base_type::base_type;
 
     package_manifests () = default;
-    package_manifests (manifest_parser&);
+    package_manifests (manifest_parser&, bool ignore_unknown = false);
 
     void
     serialize (manifest_serializer&) const;
@@ -477,8 +479,10 @@ namespace bpkg
     butl::optional<std::string> description;
 
   public:
-    repository_manifest (manifest_parser&);
-    repository_manifest (manifest_parser&, manifest_name_value start);
+    repository_manifest (manifest_parser&, bool ignore_unknown = false);
+    repository_manifest (manifest_parser&,
+                         manifest_name_value start,
+                         bool ignore_unknown = false);
 
     void
     serialize (manifest_serializer&) const;
@@ -504,7 +508,7 @@ namespace bpkg
     using base_type::base_type;
 
     repository_manifests () = default;
-    repository_manifests (manifest_parser&);
+    repository_manifests (manifest_parser&, bool ignore_unknown = false);
 
     void
     serialize (manifest_serializer&) const;
