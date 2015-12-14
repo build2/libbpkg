@@ -11,7 +11,7 @@ lib{bpkg}:                               \
 {hxx            }{ version             } \
 $libs
 
-cxx.poptions += -I$src_root
+cxx.poptions =+ -I$src_root
 lib{bpkg}: cxx.export.poptions = -I$src_root
 
 # Install into the bpkg/ subdirectory of, say, /usr/include/.
