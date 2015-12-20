@@ -697,7 +697,7 @@ namespace bpkg
             // Got to version comparison.
             //
             const char* op (&*i);
-            comparison operation;
+            comparison operation (comparison::eq); // Uninitialized warning.
 
             // While we have to_comparison(), using it in this situation
             // won't save us anything.
