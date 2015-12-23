@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <cassert>
 #include <cstdint>   // uint16_t
 #include <ostream>
 #include <algorithm> // move()
@@ -31,11 +32,16 @@ namespace bpkg
     //
     const std::uint16_t epoch;
     const std::string upstream;
+    const std::string release;
     const std::uint16_t revision;
 
     // Upstream part canonical representation.
     //
     const std::string canonical_upstream;
+
+    // Release part canonical representation.
+    //
+    const std::string canonical_release;
 
     // Create a special empty version.
     //
@@ -48,13 +54,14 @@ namespace bpkg
     version (const std::string& v): version (v.c_str ()) {}
 
     explicit
-    version (const char* v): version (data_type (v, false)) {}
+    version (const char* v): version (data_type (v, data_type::parse::full)) {}
 
-    // Create the version object from separate epoch, upstream, and
+    // Create the version object from separate epoch, upstream, release, and
     // revision parts.
     //
     version (std::uint16_t epoch,
              std::string upstream,
+             std::string release,
              std::uint16_t revision);
 
     version (version&&) = default;
@@ -92,6 +99,9 @@ namespace bpkg
       if (int c = canonical_upstream.compare (v.canonical_upstream))
         return c;
 
+      if (int c = canonical_release.compare (v.canonical_release))
+        return c;
+
       if (!ignore_revision && revision != v.revision)
         return revision < v.revision ? -1 : 1;
 
@@ -101,30 +111,34 @@ namespace bpkg
     bool
     empty () const noexcept
     {
-      // No sense to test epoch and revision for 0 as properly constructed
-      // version object can not have them different from 0 if upstream is
-      // empty.
-      //
-      return upstream.empty ();
+      bool e (upstream.empty ());
+      assert (!e || (epoch == 0 && release.empty () && revision == 0));
+      return e;
     }
 
   private:
     struct data_type
     {
-      data_type (const char*, bool upstream_only);
+      enum class parse {full, upstream, release};
+
+      data_type (const char*, parse);
 
       std::uint16_t epoch;
       std::string upstream;
+      std::string release;
       std::uint16_t revision;
       std::string canonical_upstream;
+      std::string canonical_release;
     };
 
     explicit
     version (data_type&& d)
         : epoch (d.epoch),
           upstream (std::move (d.upstream)),
+          release (std::move (d.release)),
           revision (d.revision),
-          canonical_upstream (std::move (d.canonical_upstream)) {}
+          canonical_upstream (std::move (d.canonical_upstream)),
+          canonical_release (std::move (d.canonical_release)) {}
   };
 
   inline std::ostream&

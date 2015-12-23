@@ -29,11 +29,11 @@ bad_version (const string& v)
 }
 
 static bool
-bad_version (uint16_t e, const string& u, uint16_t r)
+bad_version (uint16_t e, const string& u, const string& l, uint16_t r)
 {
   try
   {
-    version bv (e, u, r);
+    version bv (e, u, l, r);
     return false;
   }
   catch (const invalid_argument&)
@@ -45,7 +45,7 @@ bad_version (uint16_t e, const string& u, uint16_t r)
 static bool
 test_constructor (const version& v)
 {
-  return v == version (v.epoch, v.upstream, v.revision);
+  return v == version (v.epoch, v.upstream, v.release, v.revision);
 }
 
 int
@@ -60,31 +60,58 @@ main (int argc, char* argv[])
   try
   {
     assert (bad_version (""));              // Empty upstream.
-    assert (bad_version ("1+"));            // Same.
-    assert (bad_version ("1+-3"));          // Same.
-    assert (bad_version ("-3"));            // Same.
-    assert (bad_version ("+3.5"));          // Empty epoch.
-    assert (bad_version ("a-"));            // Empty revision.
-    assert (bad_version ("1+2+4.1-3"));     // Extra epoch.
-    assert (bad_version ("3.5-1-4"));       // Extra revision.
-    assert (bad_version ("1++2-3"));        // Duplicated epoch separator.
-    assert (bad_version ("1+2--3"));        // Duplicated revision separator.
+    assert (bad_version ("1~"));            // Same.
+    assert (bad_version ("1~+3"));          // Same.
+    assert (bad_version ("+3"));            // Same.
+    assert (bad_version ("1~-a"));          // Same.
+    assert (bad_version ("1~-a+3"));        // Same.
+    assert (bad_version ("-a+3"));          // Same.
+    assert (bad_version ("~3.5"));          // Empty epoch.
+    assert (bad_version ("a+"));            // Empty revision.
+    assert (bad_version ("1~2~4.1+3"));     // Extra epoch.
+    assert (bad_version ("3.5+1+4"));       // Extra revision.
+    assert (bad_version ("1~~2+3"));        // Duplicated epoch separator.
+    assert (bad_version ("1~2++3"));        // Duplicated revision separator.
     assert (bad_version ("a.394857391.3")); // Too long numeric component.
     assert (bad_version ("a.000000000.3")); // Too long numeric zero component.
-    assert (bad_version ("65536+q.3"));     // Too big epoch.
-    assert (bad_version ("1+q-65536"));     // Too big revision.
-    assert (bad_version ("3.5+1.4"));       // Components in epoch.
-    assert (bad_version ("3.5-1.4"));       // Components in revision.
-    assert (bad_version ("3 5-1"));         // Non alpha-numeric in upstream.
-    assert (bad_version ("1+ -3"));         // Same.
-    assert (bad_version ("3 5+4-1"));       // Non alpha-numeric in epoch.
-    assert (bad_version ("2b+a"));          // Same.
-    assert (bad_version ("1+34.1-3 5"));    // Non alpha-numeric in revision.
-    assert (bad_version ("a-3s"));          // Same.
+    assert (bad_version ("1-a.000000000")); // Same.
+    assert (bad_version ("65536~q.3"));     // Too big epoch.
+    assert (bad_version ("1+q+65536"));     // Too big revision.
+    assert (bad_version ("3.5~1.4"));       // Components in epoch.
+    assert (bad_version ("3.5+1.4"));       // Components in revision.
+    assert (bad_version ("3 5+1"));         // Non alpha-numeric in upstream.
+    assert (bad_version ("1~ +3"));         // Same.
+    assert (bad_version ("1-3 5+1"));       // Non alpha-numeric in release.
+    assert (bad_version ("1~1- +3"));       // Same.
+    assert (bad_version ("3 5~4+1"));       // Non alpha-numeric in epoch.
+    assert (bad_version ("2b~a"));          // Same.
+    assert (bad_version ("1~34.1+3 5"));    // Non numeric in revision.
+    assert (bad_version ("a+3s"));          // Same.
     assert (bad_version ("a."));            // Not completed upstream.
     assert (bad_version ("a..b"));          // Empty upstream component.
-    assert (bad_version (1, "1+1.1", 2));   // Epoch in upstream.
-    assert (bad_version (1, "1.1-1", 2));   // Revision in upstream.
+    assert (bad_version ("a.b-+1"));        // Revision for empty release.
+
+    assert (bad_version (0, "", "", 0));       // Empty upstream.
+    assert (bad_version (0, "1", "", 1));      // Revision for empty release.
+    assert (bad_version (1, "1~1.1", "~", 2)); // Epoch in upstream.
+    assert (bad_version (1, "1.1-1", "~", 2)); // Release in upstream.
+    assert (bad_version (1, "1.1+1", "~", 2)); // Revision in upstream.
+    assert (bad_version (1, "1", "1~1.1", 2)); // Epoch in release.
+    assert (bad_version (1, "1", "1.1-1", 2)); // Release in release.
+    assert (bad_version (1, "1", "1.1+1", 2)); // Revision in release.
+
+    {
+      version v1;
+      assert (v1.empty ());
+      assert (v1.string ().empty ());
+
+      version v2 ("0.0.0");
+      assert (!v2.empty ());
+
+      // @@ It doesn't look nice.
+      //
+      assert (v1.canonical_upstream == v2.canonical_upstream);
+    }
 
     {
       version v ("a");
@@ -94,8 +121,8 @@ main (int argc, char* argv[])
     }
 
     {
-      version v ("65535+ab-65535");
-      assert (v.string () == "65535+ab-65535");
+      version v ("65535~ab+65535");
+      assert (v.string () == "65535~ab+65535");
       assert (v.canonical_upstream == "ab");
       assert (test_constructor (v));
     }
@@ -150,30 +177,78 @@ main (int argc, char* argv[])
     }
 
     {
-      version v ("1+0");
-      assert (v.string () == "1+0");
+      version v ("1~0");
+      assert (v.string () == "1~0");
       assert (v.canonical_upstream.empty ());
       assert (test_constructor (v));
     }
 
     {
-      version v ("0+A-1");
-      assert (v.string () == "A-1");
+      version v ("0~A+1");
+      assert (v.string () == "A+1");
       assert (v.canonical_upstream == "a");
       assert (test_constructor (v));
     }
 
     {
-      version v ("10+B-0");
-      assert (v.string () == "10+B");
+      version v ("10~B+0");
+      assert (v.string () == "10~B");
       assert (v.canonical_upstream == "b");
       assert (test_constructor (v));
     }
 
     {
-      version v ("3+1A.31.0.4.0-7");
-      assert (v.string () == "3+1A.31.0.4.0-7");
+      version v ("3~1A.31.0.4.0+7");
+      assert (v.string () == "3~1A.31.0.4.0+7");
       assert (v.canonical_upstream == "1a.00000031.00000000.00000004");
+      assert (test_constructor (v));
+    }
+
+    {
+      version v ("1.2.3");
+      assert (v.string () == "1.2.3");
+      assert (v.release == "~");
+      assert (v.canonical_release == "~");
+      assert (test_constructor (v));
+    }
+
+    {
+      version v ("1.2.3+1");
+      assert (v.string () == "1.2.3+1");
+      assert (v.release == "~");
+      assert (v.canonical_release == "~");
+      assert (test_constructor (v));
+    }
+
+    {
+      version v ("1.2.3-");
+      assert (v.string () == "1.2.3-");
+      assert (v.release.empty ());
+      assert (v.canonical_release.empty ());
+      assert (test_constructor (v));
+    }
+
+    {
+      version v ("1~A-1.2.3B.00+0");
+      assert (v.string () == "1~A-1.2.3B.00");
+      assert (v.release == "1.2.3B.00");
+      assert (v.canonical_release == "00000001.00000002.3b");
+      assert (test_constructor (v));
+    }
+
+    {
+      version v (1, "1", "~", 2);
+      assert (v.string () == "1~1+2");
+      assert (v.release == "~");
+      assert (v.canonical_release == "~");
+      assert (test_constructor (v));
+    }
+
+    {
+      version v (1, "1", "", 0);
+      assert (v.string () == "1~1-");
+      assert (v.release.empty ());
+      assert (v.canonical_release.empty ());
       assert (test_constructor (v));
     }
 
@@ -184,13 +259,13 @@ main (int argc, char* argv[])
     assert (version ("a") < version ("a.a"));
     assert (version ("ab") == version ("ab"));
     assert (version ("ac") < version ("bc"));
-    assert (version ("ab-0") == version ("ab"));
-    assert (version ("a.1-1") > version ("a.1"));
-    assert (version ("0+ab") == version ("ab"));
+    assert (version ("ab+0") == version ("ab"));
+    assert (version ("a.1+1") > version ("a.1"));
+    assert (version ("0~ab") == version ("ab"));
     assert (version ("1.2") > version ("1.1"));
-    assert (version ("1+1.0") > version ("2.0"));
-    assert (version ("0+ab-1") == version ("ab-1"));
-    assert (version ("0+ab-1").compare (version ("0+ab-2"), true) == 0);
+    assert (version ("1~1.0") > version ("2.0"));
+    assert (version ("0~ab+1") == version ("ab+1"));
+    assert (version ("0~ab+1").compare (version ("0~ab+2"), true) == 0);
     assert (version ("12") > version ("2"));
     assert (version ("2") < version ("12"));
     assert (version ("1") == version ("01"));
@@ -208,6 +283,16 @@ main (int argc, char* argv[])
     assert (version ("1.0.0") == version ("01"));
     assert (version ("0.1.00") == version ("00.1"));
     assert (version ("0.0a.00") == version ("00.0a"));
+    assert (version ("1.0-alpha") < version ("1.0"));
+    assert (version ("1.0-") < version ("1.0"));
+    assert (version ("1.0-") < version ("1.0-alpha"));
+    assert (version ("1.0-alpha") < version ("1.1"));
+    assert (version ("1.0-alpha+1") < version ("1.0"));
+    assert (version ("1.0-alpha+1") < version ("1.1"));
+    assert (version ("1.0-alpha") > version ("1.0-1"));
+    assert (version ("1.0-alpha") == version ("1.0-alpha.0"));
+    assert (version (1, "2.0", "~", 3) == version ("1~2+3"));
+    assert (version (1, "2.0", "", 0) == version ("1~2-"));
   }
   catch (const exception& e)
   {

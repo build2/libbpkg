@@ -10,7 +10,7 @@
 #include <ostream>
 #include <sstream>
 #include <cassert>
-#include <cstring>   // strncmp()
+#include <cstring>   // strncmp(), strcmp()
 #include <utility>   // move()
 #include <cstdint>   // uint64_t, uint16_t, UINT16_MAX
 #include <iterator>  // back_insert_iterator
@@ -178,23 +178,82 @@ namespace bpkg
   // version
   //
   version::
-  version (uint16_t e, std::string u, uint16_t r)
+  version (uint16_t e, std::string u, std::string l, uint16_t r)
       : epoch (e),
         upstream (move (u)),
+        release (move (l)),
         revision (r),
         canonical_upstream (
-          data_type (upstream.c_str (), true).canonical_upstream)
+          data_type (upstream.c_str (), data_type::parse::upstream).
+            canonical_upstream),
+        canonical_release (
+          data_type (release.c_str (), data_type::parse::release).
+            canonical_release)
   {
+    if (release.empty () && r != 0)
+      // Empty release signifies the earliest possible release. Revision is
+      // meaningless in such a context.
+      //
+      throw invalid_argument ("revision for earliest possible release");
   }
 
+  // Builder of the upstream or release version part canonical representation.
+  //
+  struct canonical_part: string
+  {
+    string
+    final () const {return substr (0, len_);}
+
+    void
+    add (const char* begin, const char* end, bool numeric)
+    {
+      if (!empty ())
+        append (1, '.');
+
+      bool zo (false); // Digit-only zero component.
+      if (numeric)
+      {
+        if (end - begin > 8)
+          throw invalid_argument ("8 digits maximum allowed in a component");
+
+        append (8 - (end - begin), '0'); // Add padding spaces.
+
+        string c (begin, end);
+        append (c);
+        zo = stoul (c) == 0;
+      }
+      else
+      {
+        for (const char* i (begin); i != end; ++i)
+          append (1, lowercase (*i));
+      }
+
+      if (!zo)
+        len_ = size ();
+    }
+
+  private:
+    // Length without trailing digit-only zero components.
+    //
+    size_t len_{0};
+  };
+
   version::data_type::
-  data_type (const char* v, bool upstream_only): epoch (0), revision (0)
+  data_type (const char* v,  parse pr): epoch (0), revision (0)
   {
     // Otherwise compiler gets confused with string() member.
     //
     using std::string;
 
     assert (v != nullptr);
+
+    if (pr == parse::release && strcmp (v, "~") == 0)
+    {
+      // Special case: composing final version release part.
+      //
+      canonical_release = v;
+      return;
+    }
 
     auto bad_arg ([](const string& d) {throw invalid_argument (d);});
 
@@ -209,58 +268,40 @@ namespace bpkg
         return static_cast<uint16_t> (v);
       });
 
-    auto add_canonical_component (
-      [this, &bad_arg](const char* b, const char* e, bool numeric) -> bool
-      {
-        auto& cu (canonical_upstream);
+    enum class mode {epoch, upstream, release, revision};
+    mode m (pr == parse::full
+            ? mode::epoch
+            : pr == parse::upstream
+              ? mode::upstream
+              : mode::release);
 
-        if (!cu.empty ())
-          cu.append (1, '.');
+    canonical_part canon_upstream;
+    canonical_part canon_release;
 
-        if (numeric)
-        {
-          if (e - b > 8)
-            bad_arg ("8 digits maximum allowed in a component");
-
-          cu.append (8 - (e - b), '0'); // Add padding spaces.
-
-          string c (b, e);
-          cu.append (c);
-          return stoul (c) != 0;
-        }
-        else
-        {
-          for (const char* i (b); i != e; ++i)
-            cu.append (1, lowercase (*i));
-
-          return true;
-        }
-      });
-
-    enum class mode {epoch, upstream, revision} m (mode::epoch);
+    canonical_part* canon_part (
+      pr == parse::release ? &canon_release : &canon_upstream);
 
     const char* cb (v); // Begin of a component.
-    const char* ub (v); // Begin of upstream component.
-    const char* ue (v); // End of upstream component.
+    const char* ub (v); // Begin of upstream part.
+    const char* ue (v); // End of upstream part.
+    const char* rb (v); // Begin of release part.
+    const char* re (v); // End of release part.
     const char* lnn (v - 1); // Last non numeric char.
-
-    // Length of upstream version canonical representation without trailing
-    // digit-only zero components.
-    //
-    size_t cl (0);
 
     const char* p (v);
     for (char c; (c = *p) != '\0'; ++p)
     {
       switch (c)
       {
-      case '+':
+      case '~':
         {
-          if (upstream_only)
-            bad_arg ("unexpected '+' character");
+          if (pr != parse::full)
+            bad_arg ("unexpected '~' character");
 
+          // Process the epoch part.
+          //
           if (m != mode::epoch || p == v)
-            bad_arg ("unexpected '+' character position");
+            bad_arg ("unexpected '~' character position");
 
           if (lnn >= cb) // Contains non-digits.
             bad_arg ("epoch should be 2-byte unsigned integer");
@@ -272,25 +313,52 @@ namespace bpkg
           break;
         }
 
+      case '+':
       case '-':
-        {
-          if (upstream_only)
-            bad_arg ("unexpected '-' character");
-
-          // No break, go to the next case.
-        }
-
       case '.':
         {
-          if ((m != mode::epoch && m != mode::upstream) || p == cb)
+          // Process the upsteam or release part component.
+          //
+
+          // Characters '+', '-' are only valid for the full version parsing.
+          //
+          if (c != '.' && pr != parse::full)
+            bad_arg (string ("unexpected '") + c + "' character");
+
+          // Check if the component ending is valid for the current parsing
+          // state.
+          //
+          if (m == mode::revision || (c == '-' && m == mode::release) ||
+              p == cb)
             bad_arg (string ("unexpected '") + c + "' character position");
 
-          if (add_canonical_component (cb, p, lnn < cb))
-            cl = canonical_upstream.size ();
+          // Append the component to the current canonical part.
+          //
+          canon_part->add (cb, p, lnn < cb);
 
-          ue = p;
-          m = c == '-' ? mode::revision : mode::upstream;
+          // Update the parsing state.
+          //
           cb = p + 1;
+
+          if (m == mode::upstream || m == mode::epoch)
+            ue = p;
+          else if (m == mode::release)
+            re = p;
+          else
+            assert (false);
+
+          if (c == '+')
+            m = mode::revision;
+          else if (c == '-')
+          {
+            m = mode::release;
+            canon_part = &canon_release;
+            rb = cb;
+            re = cb;
+          }
+          else if (m == mode::epoch)
+            m = mode::upstream;
+
           break;
         }
       default:
@@ -304,9 +372,15 @@ namespace bpkg
         lnn = p;
     }
 
-    if (p == cb)
+    assert (p >= cb); // 'p' denotes the end of the last component.
+
+    // An empty component is valid for the release part only.
+    //
+    if (p == cb && m != mode::release)
       bad_arg ("unexpected end");
 
+    // Parse the last component.
+    //
     if (m == mode::revision)
     {
       if (lnn >= cb) // Contains non-digits.
@@ -314,20 +388,64 @@ namespace bpkg
 
       revision = uint16 (cb, "revision");
     }
-    else
+    else if (cb != p)
     {
-      if (add_canonical_component (cb, p, lnn < cb))
-        cl = canonical_upstream.size ();
+      canon_part->add (cb, p, lnn < cb);
 
-      ue = p;
+      if (m == mode::epoch || m == mode::upstream)
+        ue = p;
+      else if (m == mode::release)
+        re = p;
     }
 
-    assert (ub != ue); // Can't happen if through all previous checks.
+    // Upstream and release pointer ranges are valid at the and of the day.
+    //
+    assert (ub <= ue && rb <= re);
 
-    if (!upstream_only)
-      upstream.assign (ub, ue);
+    if (pr != parse::release)
+    {
+      // Fill upstream original and canonical parts.
+      //
+      assert (ub != ue); // Can't happen if through all previous checks.
+      canonical_upstream = canon_upstream.final ();
 
-    canonical_upstream.resize (cl);
+      if (pr == parse::full)
+        upstream.assign (ub, ue);
+    }
+
+    if (pr != parse::upstream)
+    {
+      // Fill release original and canonical parts.
+      //
+      if (!canon_release.empty ())
+      {
+        assert (rb != re); // Can't happen if through all previous checks.
+        canonical_release = canon_release.final ();
+
+        if (pr == parse::full)
+          release.assign (rb, re);
+      }
+      else
+      {
+        if (m == mode::release)
+        {
+          // Empty release part signifies the earliest possible version
+          // release. Do nothing, keep original and canonical representations
+          // empty.
+          //
+        }
+        else
+        {
+          // Absent release part signifies the final (max) version release.
+          // Assign the special value to canonical and original representations.
+          //
+          canonical_release = "~";
+
+          if (pr == parse::full)
+            release = "~";
+        }
+      }
+    }
   }
 
   version& version::
@@ -352,11 +470,19 @@ namespace bpkg
   string version::
   string (bool ignore_revision) const
   {
-    std::string v (epoch != 0 ? to_string (epoch) + "+" + upstream : upstream);
+    std::string v (epoch != 0 ? to_string (epoch) + "~" + upstream : upstream);
+
+    // The empty version represented as an empty string.
+    //
+    if (!empty () && release != "~")
+    {
+      v += '-';
+      v += release;
+    }
 
     if (!ignore_revision && revision != 0)
     {
-      v += '-';
+      v += '+';
       v += to_string (revision);
     }
 
@@ -476,6 +602,12 @@ namespace bpkg
         {
           bad_value (string ("invalid package version: ") + e.what ());
         }
+
+        // Versions like 1.2.3- are forbidden in manifest as intended to be
+        // used for version constrains rather than actual releases.
+        //
+        if (version.release.empty ())
+          bad_name ("invalid package version release");
       }
       else if (n == "summary")
       {
@@ -806,6 +938,7 @@ namespace bpkg
   serialize (serializer& s) const
   {
     // @@ Should we check that all non-optional values are specified ?
+    // @@ Should we check the version release is not empty ?
     //
 
     s.next ("", "1"); // Start of manifest.
@@ -1382,8 +1515,9 @@ namespace bpkg
       return *role;
     }
     else
-      return location.empty () ?
-        repository_role::base : repository_role::prerequisite;
+      return location.empty ()
+        ? repository_role::base
+        : repository_role::prerequisite;
   }
 
   // repository_manifests
