@@ -32,7 +32,7 @@ namespace bpkg
     //
     const std::uint16_t epoch;
     const std::string upstream;
-    const std::string release;
+    const butl::optional<std::string> release;
     const std::uint16_t revision;
 
     // Upstream part canonical representation.
@@ -43,9 +43,10 @@ namespace bpkg
     //
     const std::string canonical_release;
 
-    // Create a special empty version.
+    // Create a special empty version. It is less than any other valid
+    // version (and is conceptually equivalent to 0-).
     //
-    version (): epoch (0), revision (0) {}
+    version (): epoch (0), release (""), revision (0) {}
 
     // Throw std::invalid_argument if the passed string is not a valid
     // version representation.
@@ -59,9 +60,12 @@ namespace bpkg
     // Create the version object from separate epoch, upstream, release, and
     // revision parts.
     //
+    // Note that it is possible (and legal) to create the special empty
+    // version via this interface as version(0, string(), string(), 0).
+    //
     version (std::uint16_t epoch,
              std::string upstream,
-             std::string release,
+             butl::optional<std::string> release,
              std::uint16_t revision);
 
     version (version&&) = default;
@@ -112,7 +116,8 @@ namespace bpkg
     empty () const noexcept
     {
       bool e (upstream.empty ());
-      assert (!e || (epoch == 0 && release.empty () && revision == 0));
+      assert (!e ||
+              (epoch == 0 && release && release->empty () && revision == 0));
       return e;
     }
 
@@ -125,7 +130,7 @@ namespace bpkg
 
       std::uint16_t epoch;
       std::string upstream;
-      std::string release;
+      butl::optional<std::string> release;
       std::uint16_t revision;
       std::string canonical_upstream;
       std::string canonical_release;
@@ -240,21 +245,23 @@ namespace bpkg
 
   // depends
   //
-  enum class comparison {eq, lt, gt, le, ge};
-
-  std::string
-  to_string (comparison);
-
-  comparison
-  to_comparison (const std::string&); // May throw invalid_argument.
-
-  inline std::ostream&
-  operator<< (std::ostream& os, comparison c) {return os << to_string (c);}
-
   struct dependency_constraint
   {
-    comparison operation;
-    bpkg::version version;
+    butl::optional<version> min_version;
+    butl::optional<version> max_version;
+    bool min_open;
+    bool max_open;
+
+    dependency_constraint (butl::optional<version> min_version, bool min_open,
+                           butl::optional<version> max_version, bool max_open);
+
+    dependency_constraint (const version& v)
+        : dependency_constraint (v, false, v, false) {}
+
+    dependency_constraint () = default;
+
+    bool
+    empty () const noexcept {return !min_version && !max_version;}
   };
 
   std::ostream&

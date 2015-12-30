@@ -36,6 +36,7 @@ tags: c++, xml, modern
 description-file: README; Comprehensive description
 url: http://www.example.org/projects/libbar/
 email: libbar-users@example.org
+depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
 location: bar/libbar-3.4A.5+6.tbz
 :
 name: libbaz

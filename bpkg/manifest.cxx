@@ -27,8 +27,6 @@ using namespace butl;
 
 namespace bpkg
 {
-  using std::to_string; // Add to bpkg::to_string().
-
   using parser = manifest_parser;
   using parsing = manifest_parsing;
   using serializer = manifest_serializer;
@@ -178,7 +176,7 @@ namespace bpkg
   // version
   //
   version::
-  version (uint16_t e, std::string u, std::string l, uint16_t r)
+  version (uint16_t e, std::string u, optional<std::string> l, uint16_t r)
       : epoch (e),
         upstream (move (u)),
         release (move (l)),
@@ -187,10 +185,24 @@ namespace bpkg
           data_type (upstream.c_str (), data_type::parse::upstream).
             canonical_upstream),
         canonical_release (
-          data_type (release.c_str (), data_type::parse::release).
+          data_type (release ? release->c_str () : nullptr,
+                     data_type::parse::release).
             canonical_release)
   {
-    if (release.empty () && r != 0)
+    // Check members constrains.
+    //
+    if (upstream.empty ()) // Constructing empty version.
+    {
+      if (epoch != 0)
+        throw invalid_argument ("epoch for empty version");
+
+      if (!release || !release->empty ())
+        throw invalid_argument ("not-empty release for empty version");
+
+      if (revision != 0)
+        throw invalid_argument ("revision for empty version");
+    }
+    else if (release && release->empty () && revision != 0)
       // Empty release signifies the earliest possible release. Revision is
       // meaningless in such a context.
       //
@@ -216,7 +228,7 @@ namespace bpkg
         if (end - begin > 8)
           throw invalid_argument ("8 digits maximum allowed in a component");
 
-        append (8 - (end - begin), '0'); // Add padding spaces.
+        append (8 - (end - begin), '0'); // Add padding zeros.
 
         string c (begin, end);
         append (c);
@@ -233,27 +245,25 @@ namespace bpkg
     }
 
   private:
-    // Length without trailing digit-only zero components.
-    //
-    size_t len_{0};
+    size_t len_ = 0; // Length without the trailing digit-only zero components.
   };
 
   version::data_type::
-  data_type (const char* v,  parse pr): epoch (0), revision (0)
+  data_type (const char* v, parse pr): epoch (0), revision (0)
   {
     // Otherwise compiler gets confused with string() member.
     //
     using std::string;
 
-    assert (v != nullptr);
-
-    if (pr == parse::release && strcmp (v, "~") == 0)
+    if (pr == parse::release && v == nullptr)
     {
-      // Special case: composing final version release part.
+      // Special case: final version release part.
       //
-      canonical_release = v;
+      canonical_release = "~";
       return;
     }
+
+    assert (v != nullptr);
 
     auto bad_arg ([](const string& d) {throw invalid_argument (d);});
 
@@ -307,6 +317,7 @@ namespace bpkg
             bad_arg ("epoch should be 2-byte unsigned integer");
 
           epoch = uint16 (string (cb, p), "epoch");
+
           m = mode::upstream;
           cb = p + 1;
           ub = cb;
@@ -374,9 +385,10 @@ namespace bpkg
 
     assert (p >= cb); // 'p' denotes the end of the last component.
 
-    // An empty component is valid for the release part only.
+    // An empty component is valid for the release part, and for the upstream
+    // part when constructing empty or max limit version.
     //
-    if (p == cb && m != mode::release)
+    if (p == cb && m != mode::release && pr != parse::upstream)
       bad_arg ("unexpected end");
 
     // Parse the last component.
@@ -398,7 +410,7 @@ namespace bpkg
         re = p;
     }
 
-    // Upstream and release pointer ranges are valid at the and of the day.
+    // Upstream and release pointer ranges are valid at the end of the day.
     //
     assert (ub <= ue && rb <= re);
 
@@ -406,11 +418,14 @@ namespace bpkg
     {
       // Fill upstream original and canonical parts.
       //
-      assert (ub != ue); // Can't happen if through all previous checks.
-      canonical_upstream = canon_upstream.final ();
+      if (!canon_upstream.empty ())
+      {
+        assert (ub != ue); // Can't happen if through all previous checks.
+        canonical_upstream = canon_upstream.final ();
 
-      if (pr == parse::full)
-        upstream.assign (ub, ue);
+        if (pr == parse::full)
+          upstream.assign (ub, ue);
+      }
     }
 
     if (pr != parse::upstream)
@@ -423,28 +438,34 @@ namespace bpkg
         canonical_release = canon_release.final ();
 
         if (pr == parse::full)
-          release.assign (rb, re);
+          release = string (rb, re);
       }
       else
       {
         if (m == mode::release)
         {
           // Empty release part signifies the earliest possible version
-          // release. Do nothing, keep original and canonical representations
-          // empty.
+          // release. Make original, and keep canonical representations empty.
           //
+          if (pr == parse::full)
+            release = "";
         }
         else
         {
           // Absent release part signifies the final (max) version release.
-          // Assign the special value to canonical and original representations.
+          // Assign the special value to the canonical representation, keep
+          // the original one nullopt.
           //
           canonical_release = "~";
-
-          if (pr == parse::full)
-            release = "~";
         }
       }
+    }
+
+    if (pr == parse::full && epoch == 0 && canonical_upstream.empty () &&
+        canonical_release.empty ())
+    {
+      assert (revision == 0); // Can't happen if through all previous checks.
+      bad_arg ("empty version");
     }
   }
 
@@ -470,14 +491,15 @@ namespace bpkg
   string version::
   string (bool ignore_revision) const
   {
+    if (empty ())
+      throw logic_error ("empty version");
+
     std::string v (epoch != 0 ? to_string (epoch) + "~" + upstream : upstream);
 
-    // The empty version represented as an empty string.
-    //
-    if (!empty () && release != "~")
+    if (release)
     {
       v += '-';
-      v += release;
+      v += *release;
     }
 
     if (!ignore_revision && revision != 0)
@@ -491,29 +513,55 @@ namespace bpkg
 
   // depends
   //
-  static const char* comparison_str[] = {"==", "<", ">", "<=", ">="};
 
-  string
-  to_string (comparison c)
+  dependency_constraint::
+  dependency_constraint (optional<version> mnv, bool mno,
+                         optional<version> mxv, bool mxo)
+      : min_version (move (mnv)),
+        max_version (move (mxv)),
+        min_open (mno),
+        max_open (mxo)
   {
-    return comparison_str[static_cast<size_t> (c)];
+    assert (
+      // Min and max versions can't both be absent.
+      //
+      (min_version || max_version) &&
+
+      // Version should be non-empty.
+      //
+      (!min_version || !min_version->empty ()) &&
+      (!max_version || !max_version->empty ()) &&
+
+      // Absent version endpoint (infinity) should be open.
+      //
+      (min_version || min_open) && (max_version || max_open));
+
+    if (min_version && max_version)
+    {
+      if (*min_version > *max_version)
+        throw invalid_argument ("min version is greater than max version");
+
+      if (*min_version == *max_version && (min_open || max_open))
+        throw invalid_argument ("equal version endpoints not closed");
+    }
   }
 
-  comparison
-  to_comparison (const string& s)
-  {
-         if (s == "==") return comparison::eq;
-    else if (s == ">" ) return comparison::gt;
-    else if (s == "<" ) return comparison::lt;
-    else if (s == ">=") return comparison::ge;
-    else if (s == "<=") return comparison::le;
-    else throw invalid_argument ("invalid comparion operator '" + s + "'");
-  }
-
-  inline ostream&
+  ostream&
   operator<< (ostream& o, const dependency_constraint& c)
   {
-    return o << c.operation << ' ' << c.version;
+    assert (!c.empty ());
+
+    if (!c.min_version)
+      return o << (c.max_open ? "< " : "<= ") << *c.max_version;
+
+    if (!c.max_version)
+      return o << (c.min_open ? "> " : ">= ") << *c.min_version;
+
+    if (*c.min_version == *c.max_version)
+        return o << "== " << *c.min_version;
+
+    return o << (c.min_open ? '(' : '[') << *c.min_version << " "
+             << *c.max_version << (c.max_open ? ')' : ']');
   }
 
   ostream&
@@ -606,7 +654,7 @@ namespace bpkg
         // Versions like 1.2.3- are forbidden in manifest as intended to be
         // used for version constrains rather than actual releases.
         //
-        if (version.release.empty ())
+        if (version.release && version.release->empty ())
           bad_name ("invalid package version release");
       }
       else if (n == "summary")
@@ -811,7 +859,8 @@ namespace bpkg
 
           // Find end of name (ne).
           //
-          for (char c; i != e && (c = *i) != '=' && c != '<' && c != '>'; ++i)
+          static const string cb ("=<>([");
+          for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
           {
             if (!space (c))
               ne = i + 1;
@@ -826,61 +875,162 @@ namespace bpkg
             if (nm.empty ())
               bad_value ("prerequisite package name not specified");
 
-            // Got to version comparison.
+            // Got to version range.
             //
+            dependency_constraint dc;
             const char* op (&*i);
-            comparison operation (comparison::eq); // Uninitialized warning.
+            char mnv (*op);
+            if (mnv == '(' || mnv == '[')
+            {
+              bool min_open (mnv == '(');
 
-            // While we have to_comparison(), using it in this situation
-            // won't save us anything.
-            //
-            if (strncmp (op, "==", 2) == 0)
-            {
-              operation = comparison::eq;
-              i += 2;
-            }
-            else if (strncmp (op, ">=", 2) == 0)
-            {
-              operation = comparison::ge;
-              i += 2;
-            }
-            else if (strncmp (op, "<=", 2) == 0)
-            {
-              operation = comparison::le;
-              i += 2;
-            }
-            else if (*op == '>')
-            {
-              operation = comparison::gt;
-              ++i;
-            }
-            else if (*op == '<')
-            {
-              operation = comparison::lt;
-              ++i;
+              string::size_type pos (lv.find_first_not_of (spaces, ++i - b));
+              if (pos == string::npos)
+                bad_value ("no prerequisite package min version specified");
+
+              i = b + pos;
+              pos = lv.find_first_of (spaces, pos);
+
+              static const char* no_max_version (
+                "no prerequisite package max version specified");
+
+              if (pos == string::npos)
+                bad_value (no_max_version);
+
+              version_type min_version;
+
+              try
+              {
+                min_version = version_type (string (i, b + pos));
+              }
+              catch (const invalid_argument& e)
+              {
+                bad_value (
+                  string ("invalid prerequisite package min version: ") +
+                  e.what ());
+              }
+
+              pos = lv.find_first_not_of (spaces, pos);
+              if (pos == string::npos)
+                bad_value (no_max_version);
+
+              i = b + pos;
+              static const string mve (spaces + "])");
+              pos = lv.find_first_of (mve, pos);
+
+              static const char* invalid_range (
+                "invalid prerequisite package version range");
+
+              if (pos == string::npos)
+                bad_value (invalid_range);
+
+              version_type max_version;
+
+              try
+              {
+                max_version = version_type (string (i, b + pos));
+              }
+              catch (const invalid_argument& e)
+              {
+                bad_value (
+                  string ("invalid prerequisite package max version: ") +
+                  e.what ());
+              }
+
+              pos = lv.find_first_of ("])", pos); // Might be a space.
+              if (pos == string::npos)
+                bad_value (invalid_range);
+
+              try
+              {
+                dc = dependency_constraint (move (min_version),
+                                            min_open,
+                                            move (max_version),
+                                            lv[pos] == ')');
+              }
+              catch (const invalid_argument& e)
+              {
+                bad_value (
+                  string ("invalid dependency constraint: ") + e.what ());
+              }
+
+              if (lv[pos + 1] != '\0')
+                bad_value (
+                  "unexpected text after prerequisite package version range");
             }
             else
-              bad_value ("invalid prerequisite package version comparison");
-
-            string::size_type pos = lv.find_first_not_of (spaces, i - b);
-
-            if (pos == string::npos)
-              bad_value ("no prerequisite package version specified");
-
-            version_type v;
-
-            try
             {
-              v = version_type (lv.c_str () + pos);
-            }
-            catch (const invalid_argument& e)
-            {
-              bad_value (
-                string ("invalid prerequisite package version: ") + e.what ());
+              // Version comparison notation.
+              //
+              enum comparison {eq, lt, gt, le, ge};
+              comparison operation (eq); // Uninitialized warning.
+
+              if (strncmp (op, "==", 2) == 0)
+              {
+                operation = eq;
+                i += 2;
+              }
+              else if (strncmp (op, ">=", 2) == 0)
+              {
+                operation = ge;
+                i += 2;
+              }
+              else if (strncmp (op, "<=", 2) == 0)
+              {
+                operation = le;
+                i += 2;
+              }
+              else if (*op == '>')
+              {
+                operation = gt;
+                ++i;
+              }
+              else if (*op == '<')
+              {
+                operation = lt;
+                ++i;
+              }
+              else
+                bad_value ("invalid prerequisite package version comparison");
+
+              string::size_type pos (lv.find_first_not_of (spaces, i - b));
+
+              if (pos == string::npos)
+                bad_value ("no prerequisite package version specified");
+
+              version_type v;
+
+              try
+              {
+                v = version_type (lv.c_str () + pos);
+              }
+              catch (const invalid_argument& e)
+              {
+                bad_value (string ("invalid prerequisite package version: ") +
+                           e.what ());
+              }
+
+              switch (operation)
+              {
+              case comparison::eq:
+                dc = dependency_constraint (v);
+                break;
+              case comparison::lt:
+                dc = dependency_constraint (nullopt, true, move (v), true);
+                break;
+              case comparison::le:
+                dc = dependency_constraint (nullopt, true, move (v), false);
+                break;
+              case comparison::gt:
+                dc = dependency_constraint (move (v), true, nullopt, true);
+                break;
+              case comparison::ge:
+                dc = dependency_constraint (move (v), false, nullopt, true);
+                break;
+              }
             }
 
-            dependency d {move (nm),
-                          dependency_constraint {operation, move (v)}};
+            dependency d {move (nm), move (dc)};
             da.push_back (move (d));
           }
         }
