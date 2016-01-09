@@ -1221,12 +1221,16 @@ namespace bpkg
     if (!b.empty () && b.relative ())
       throw invalid_argument ("base relative filesystem path");
 
-    if (::strncasecmp (l.c_str (), "http://", 7) == 0)
+    secure_ = false;
+
+    if (::strncasecmp (l.c_str (), "http://", 7) == 0 ||
+        (secure_ = ::strncasecmp (l.c_str (), "https://", 8) == 0))
     {
       // Split location into host, port and path components. Calculate
       // canonical name <host> part removing www. and pkg. prefixes.
       //
-      auto p (l.find ('/', 7));
+      size_t host_offset (secure_ ? 8 : 7);
+      auto p (l.find ('/', host_offset));
 
       // The remote repository location with no path specified is not a valid
       // one. Keep the path_ member empty so the later check for emptiness
@@ -1241,7 +1245,7 @@ namespace bpkg
       // Put the lower-cased version of the host part into host_.
       // Chances are good it will stay unmodified.
       //
-      transform (l.cbegin () + 7,
+      transform (l.cbegin () + host_offset,
                  p == string::npos ? l.cend () : l.cbegin () + p,
                  back_inserter (host_),
                  lowercase);
@@ -1332,16 +1336,19 @@ namespace bpkg
       // speaking we can end up with comething bogus like "com"
       // if the host is "pkg.com".
       //
+      bool bpkg (false);
       if (host_.compare (0, 4, "www.") == 0 ||
-          host_.compare (0, 4, "pkg.") == 0)
-        canonical_name_.assign (host_, 4, string::npos);
+          host_.compare (0, 4, "pkg.") == 0 ||
+          (bpkg = host_.compare (0, 5, "bpkg.") == 0))
+        canonical_name_.assign (host_, bpkg ? 5 : 4, string::npos);
       else
         canonical_name_ = host_;
 
       // For canonical name and for the HTTP protocol, treat a.com
-      // and a.com:80 as the same name.
+      // and a.com:80 as the same name. The same rule apply the HTTPS protocol
+      // and the port 443.
       //
-      if (port_ != 0 && port_ != 80)
+      if (port_ != 0 && port_ != (secure_ ? 443 : 80))
         canonical_name_ += ':' + to_string (port_);
     }
     else
@@ -1357,6 +1364,7 @@ namespace bpkg
         host_ = b.host_;
         port_ = b.port_;
         path_ = b.path_ / path_;
+        secure_ = b.secure_;
 
         // Set canonical name to the base location canonical name host
         // part. The path part of the canonical name is calculated below.
@@ -1450,7 +1458,7 @@ namespace bpkg
     if (local ())
       return path_.string ();
 
-    string p ("http://" + host_);
+    string p ((secure_ ? "https://" : "http://") + host_);
 
     if (port_ != 0)
       p += ":" + to_string (port_);

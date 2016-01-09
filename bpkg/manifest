@@ -458,6 +458,15 @@ namespace bpkg
       return port_;
     }
 
+    bool
+    secure () const
+    {
+      if (local ())
+        throw std::logic_error ("local location");
+
+      return secure_;
+    }
+
     // Note that this is not necessarily syntactically the same string
     // as what was used to initialize this location. But it should be
     // semantically equivalent. String representation of an empty
@@ -471,6 +480,7 @@ namespace bpkg
     std::string host_;
     std::uint16_t port_;
     butl::dir_path path_;
+    bool secure_;
   };
 
   inline std::ostream&

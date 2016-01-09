@@ -99,6 +99,7 @@ main (int argc, char* argv[])
     assert (bad_location ("aaa/bbb"));
     assert (bad_location ("/aaa/bbb"));
     assert (bad_location ("http://aa"));
+    assert (bad_location ("https://aa"));
     assert (bad_location ("http://aa/"));
     assert (bad_location ("http://aa/b/.."));
     assert (bad_location ("http://aa/."));
@@ -153,11 +154,25 @@ main (int argc, char* argv[])
       repository_location l ("http://www.a.com:80/1/aa/bb");
       assert (l.string () == "http://www.a.com:80/1/aa/bb");
       assert (l.canonical_name () == "a.com/aa/bb");
+      assert (!l.secure ());
+    }
+    {
+      repository_location l ("https://www.a.com:443/1/aa/bb");
+      assert (l.string () == "https://www.a.com:443/1/aa/bb");
+      assert (l.canonical_name () == "a.com/aa/bb");
+      assert (l.secure ());
     }
     {
       repository_location l ("http://www.a.com:8080/dd/1/aa/bb");
       assert (l.string () == "http://www.a.com:8080/dd/1/aa/bb");
       assert (l.canonical_name () == "a.com:8080/aa/bb");
+      assert (!l.secure ());
+    }
+    {
+      repository_location l ("https://www.a.com:444/dd/1/aa/bb");
+      assert (l.string () == "https://www.a.com:444/dd/1/aa/bb");
+      assert (l.canonical_name () == "a.com:444/aa/bb");
+      assert (l.secure ());
     }
     {
       repository_location l ("http://a.com/a/b/../c/1/aa/../bb");
@@ -165,8 +180,23 @@ main (int argc, char* argv[])
       assert (l.canonical_name () == "a.com/bb");
     }
     {
+      repository_location l ("https://a.com/a/b/../c/1/aa/../bb");
+      assert (l.string () == "https://a.com/a/c/1/bb");
+      assert (l.canonical_name () == "a.com/bb");
+    }
+    {
       repository_location l ("http://www.CPPget.org/qw/1/a/b/");
       assert (l.string () == "http://www.cppget.org/qw/1/a/b");
+      assert (l.canonical_name () == "cppget.org/a/b");
+    }
+    {
+      repository_location l ("http://pkg.CPPget.org/qw/1/a/b/");
+      assert (l.string () == "http://pkg.cppget.org/qw/1/a/b");
+      assert (l.canonical_name () == "cppget.org/a/b");
+    }
+    {
+      repository_location l ("http://bpkg.CPPget.org/qw/1/a/b/");
+      assert (l.string () == "http://bpkg.cppget.org/qw/1/a/b");
       assert (l.canonical_name () == "cppget.org/a/b");
     }
     {
@@ -177,6 +207,11 @@ main (int argc, char* argv[])
     {
       repository_location l ("http://pkg.www.cppget.org/qw/1/a/b/");
       assert (l.string () == "http://pkg.www.cppget.org/qw/1/a/b");
+      assert (l.canonical_name () == "www.cppget.org/a/b");
+    }
+    {
+      repository_location l ("http://bpkg.www.cppget.org/qw/1/a/b/");
+      assert (l.string () == "http://bpkg.www.cppget.org/qw/1/a/b");
       assert (l.canonical_name () == "www.cppget.org/a/b");
     }
     {
@@ -195,6 +230,12 @@ main (int argc, char* argv[])
       assert (l2.canonical_name () == "stable.cppget.org/math");
     }
     {
+      repository_location l1 ("https://stable.cppget.org/1/misc");
+      repository_location l2 ("../../1/math", l1);
+      assert (l2.string () == "https://stable.cppget.org/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org/math");
+    }
+    {
       repository_location l1 ("http://stable.cppget.org/1/misc");
       repository_location l2 ("../math", l1);
       assert (l2.string () == "http://stable.cppget.org/1/math");
@@ -205,6 +246,14 @@ main (int argc, char* argv[])
       repository_location l2 ("../1/math", l1);
       assert (l2.string () == "http://www.stable.cppget.org:8080/1/math");
       assert (l2.canonical_name () == "stable.cppget.org:8080/math");
+      assert (!l2.secure ());
+    }
+    {
+      repository_location l1 ("https://www.stable.cppget.org:444/1");
+      repository_location l2 ("../1/math", l1);
+      assert (l2.string () == "https://www.stable.cppget.org:444/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org:444/math");
+      assert (l2.secure ());
     }
     {
       repository_location l1 ("/var/r1/1/misc");
