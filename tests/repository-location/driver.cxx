@@ -133,16 +133,51 @@ main (int argc, char* argv[])
     {
       repository_location l ("1/aa/bb", repository_location ());
       assert (l.string () == "1/aa/bb");
+      // Relative locations have no canonical name.
+      //
+      assert (l.canonical_name ().empty ());
+    }
+    {
+      repository_location l ("bpkg/1/aa/bb", repository_location ());
+      assert (l.string () == "bpkg/1/aa/bb");
+      assert (l.canonical_name ().empty ());
+    }
+    {
+      repository_location l ("b/pkg/1/aa/bb", repository_location ());
+      assert (l.string () == "b/pkg/1/aa/bb");
       assert (l.canonical_name ().empty ());
     }
     {
       repository_location l ("/1/aa/bb", repository_location ());
       assert (l.string () == "/1/aa/bb");
+      assert (l.canonical_name () == "/aa/bb");
+    }
+    {
+      repository_location l ("/pkg/1/aa/bb", repository_location ());
+      assert (l.string () == "/pkg/1/aa/bb");
       assert (l.canonical_name () == "aa/bb");
+    }
+    {
+      repository_location l ("/var/pkg/1/example.org/math/testing",
+                             repository_location ());
+      assert (l.string () == "/var/pkg/1/example.org/math/testing");
+      assert (l.canonical_name () == "example.org/math/testing");
+    }
+    {
+      repository_location l ("/var/pkg/example.org/1/math/testing",
+                             repository_location ());
+      assert (l.string () == "/var/pkg/example.org/1/math/testing");
+      assert (l.canonical_name () == "/var/pkg/example.org/math/testing");
     }
     {
       repository_location l ("/a/b/../c/1/aa/../bb", repository_location ());
       assert (l.string () == "/a/c/1/bb");
+      assert (l.canonical_name () == "/a/c/bb");
+    }
+    {
+      repository_location l ("/a/b/../c/pkg/1/aa/../bb",
+                             repository_location ());
+      assert (l.string () == "/a/c/pkg/1/bb");
       assert (l.canonical_name () == "bb");
     }
     {
@@ -165,59 +200,71 @@ main (int argc, char* argv[])
     {
       repository_location l ("http://www.a.com:8080/dd/1/aa/bb");
       assert (l.string () == "http://www.a.com:8080/dd/1/aa/bb");
-      assert (l.canonical_name () == "a.com:8080/aa/bb");
+      assert (l.canonical_name () == "a.com:8080/dd/aa/bb");
+      assert (!l.secure ());
+    }
+    {
+      repository_location l ("http://www.a.com:8080/dd/pkg/1/aa/bb");
+      assert (l.string () == "http://www.a.com:8080/dd/pkg/1/aa/bb");
+      assert (l.canonical_name () == "a.com:8080/dd/aa/bb");
+      assert (!l.secure ());
+    }
+    {
+      repository_location l ("http://www.a.com:8080/bpkg/dd/1/aa/bb");
+      assert (l.string () == "http://www.a.com:8080/bpkg/dd/1/aa/bb");
+      assert (l.canonical_name () == "a.com:8080/bpkg/dd/aa/bb");
       assert (!l.secure ());
     }
     {
       repository_location l ("https://www.a.com:444/dd/1/aa/bb");
       assert (l.string () == "https://www.a.com:444/dd/1/aa/bb");
-      assert (l.canonical_name () == "a.com:444/aa/bb");
+      assert (l.canonical_name () == "a.com:444/dd/aa/bb");
       assert (l.secure ());
     }
     {
       repository_location l ("http://a.com/a/b/../c/1/aa/../bb");
       assert (l.string () == "http://a.com/a/c/1/bb");
-      assert (l.canonical_name () == "a.com/bb");
+      assert (l.canonical_name () == "a.com/a/c/bb");
     }
     {
       repository_location l ("https://a.com/a/b/../c/1/aa/../bb");
       assert (l.string () == "https://a.com/a/c/1/bb");
-      assert (l.canonical_name () == "a.com/bb");
+      assert (l.canonical_name () == "a.com/a/c/bb");
     }
     {
       repository_location l ("http://www.CPPget.org/qw/1/a/b/");
       assert (l.string () == "http://www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "cppget.org/a/b");
+      assert (l.canonical_name () == "cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://pkg.CPPget.org/qw/1/a/b/");
       assert (l.string () == "http://pkg.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "cppget.org/a/b");
+      assert (l.canonical_name () == "cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://bpkg.CPPget.org/qw/1/a/b/");
       assert (l.string () == "http://bpkg.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "cppget.org/a/b");
+      assert (l.canonical_name () == "cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://abc.cppget.org/qw/1/a/b/");
       assert (l.string () == "http://abc.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "abc.cppget.org/a/b");
+      assert (l.canonical_name () == "abc.cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://pkg.www.cppget.org/qw/1/a/b/");
       assert (l.string () == "http://pkg.www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "www.cppget.org/a/b");
+      assert (l.canonical_name () == "www.cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://bpkg.www.cppget.org/qw/1/a/b/");
       assert (l.string () == "http://bpkg.www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "www.cppget.org/a/b");
+      assert (l.canonical_name () == "www.cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://cppget.org/qw//1/a//b/");
       assert (l.string () == "http://cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "cppget.org/a/b");
+      assert (l.canonical_name () == "cppget.org/qw/a/b");
     }
     {
       repository_location l ("http://stable.cppget.org/1/");
@@ -227,6 +274,12 @@ main (int argc, char* argv[])
       repository_location l1 ("http://stable.cppget.org/1/misc");
       repository_location l2 ("../../1/math", l1);
       assert (l2.string () == "http://stable.cppget.org/1/math");
+      assert (l2.canonical_name () == "stable.cppget.org/math");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("../../pkg/1/math", l1);
+      assert (l2.string () == "http://stable.cppget.org/pkg/1/math");
       assert (l2.canonical_name () == "stable.cppget.org/math");
     }
     {
@@ -259,25 +312,25 @@ main (int argc, char* argv[])
       repository_location l1 ("/var/r1/1/misc");
       repository_location l2 ("../../../r2/1/math", l1);
       assert (l2.string () == "/var/r2/1/math");
-      assert (l2.canonical_name () == "math");
+      assert (l2.canonical_name () == "/var/r2/math");
     }
     {
       repository_location l1 ("/var/1/misc");
       repository_location l2 ("../math", l1);
       assert (l2.string () == "/var/1/math");
-      assert (l2.canonical_name () == "math");
+      assert (l2.canonical_name () == "/var/math");
     }
     {
       repository_location l1 ("/var/1/stable");
       repository_location l2 ("/var/1/test", l1);
       assert (l2.string () == "/var/1/test");
-      assert (l2.canonical_name () == "test");
+      assert (l2.canonical_name () == "/var/test");
     }
     {
       repository_location l1 ("http://stable.cppget.org/1/misc");
       repository_location l2 ("/var/1/test", l1);
       assert (l2.string () == "/var/1/test");
-      assert (l2.canonical_name () == "test");
+      assert (l2.canonical_name () == "/var/test");
     }
     {
       repository_location l1 ("http://www.cppget.org/1/stable");

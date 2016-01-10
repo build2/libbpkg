@@ -1407,7 +1407,10 @@ namespace bpkg
     // Finish calculating the canonical name, unless we are relative.
     //
     if (relative ())
+    {
+      assert (canonical_name_.empty ());
       return;
+    }
 
     // Search for the version path component preceeding canonical name
     // <path> component.
@@ -1432,9 +1435,21 @@ namespace bpkg
     if (stoul (*i) != 1)
       throw invalid_argument ("unsupported repository version");
 
+    dir_path p (rb, i); // Canonical name path part.
+
+    // Prefix ends with "pkg" component.
+    //
+    bool pc (++i != re && (*i == "pkg" || *i == "bpkg"));
+
+    if (pc)
+      ++i; // Skip "pkg" component from prefix.
+
+    if (!host_.empty () || !pc)
+      p = dir_path (i, re) / p; // Concatenate prefix and path.
+
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
-    string d (dir_path (rb, i).posix_string ());
+    string d (p.posix_string ());
 
     if (!canonical_name_.empty () && !d.empty ()) // If we have host and dir.
       canonical_name_ += '/';
