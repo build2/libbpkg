@@ -4,13 +4,18 @@
 
 #include <string>
 #include <cassert>
+#include <sstream>
 #include <iostream>
 #include <exception>
 #include <stdexcept> // invalid_argument
 
+#include <butl/optional>
+
 #include <bpkg/manifest>
+#include <bpkg/manifest-parser>
 
 using namespace std;
+using namespace butl;
 using namespace bpkg;
 
 static bool
@@ -35,15 +40,46 @@ bad_location (const string& l, const repository_location& b)
     repository_location bl (l, b);
     return false;
   }
-  catch (const invalid_argument)
+  catch (const invalid_argument&)
   {
     return true;
   }
 }
 
+static string
+effective_url (const string& l, const repository_location& r)
+{
+  istringstream is (":1\nurl: " + l);
+  manifest_parser mp (is, "");
+  repository_manifest m (mp);
+
+  optional<string> u (m.effective_url (r));
+  assert (u);
+  return *u;
+}
+
+static bool
+bad_url (const string& l, const repository_location& r)
+{
+  try
+  {
+    effective_url (l, r);
+    return false;
+  }
+  catch (const invalid_argument&)
+  {
+  }
+  catch (const logic_error&)
+  {
+  }
+  return true;
+}
+
 int
 main (int argc, char* argv[])
 {
+  using protocol = repository_location::protocol;
+
   if (argc != 1)
   {
     cerr << "usage: " << argv[0] << endl;
@@ -123,6 +159,38 @@ main (int argc, char* argv[])
                           repository_location (
                             "http://stable.cppget.org/1/misc")));
 
+    // Invalid web interface URL.
+    //
+    assert (bad_url (".a/..",
+                     repository_location (
+                       "http://stable.cppget.org/1/misc")));
+
+    assert (bad_url ("../a/..",
+                     repository_location (
+                       "http://stable.cppget.org/1/misc")));
+
+    assert (bad_url ("../.a",
+                     repository_location (
+                       "http://stable.cppget.org/1/misc")));
+
+    assert (bad_url ("../../..",
+                     repository_location (
+                       "/var/1/misc")));
+
+    assert (bad_url ("../../..",
+                     repository_location (
+                       "/var/pkg/1/misc")));
+
+    assert (bad_url ("../../..", repository_location ()));
+
+    assert (bad_url ("../../../../..",
+                     repository_location (
+                       "http://pkg.stable.cppget.org/foo/pkg/1/misc")));
+
+    assert (bad_url ("../../../../../abc",
+                     repository_location (
+                       "http://stable.cppget.org/foo/1/misc")));
+
     // Test valid locations.
     //
     {
@@ -133,6 +201,7 @@ main (int argc, char* argv[])
     {
       repository_location l ("1/aa/bb", repository_location ());
       assert (l.string () == "1/aa/bb");
+
       // Relative locations have no canonical name.
       //
       assert (l.canonical_name ().empty ());
@@ -181,7 +250,8 @@ main (int argc, char* argv[])
       assert (l.canonical_name () == "bb");
     }
     {
-      repository_location l ("../c/../c/./1/aa/../bb", repository_location ());
+      repository_location l ("../c/../c/./1/aa/../bb",
+                             repository_location ());
       assert (l.string () == "../c/1/bb");
       assert (l.canonical_name ().empty ());
     }
@@ -189,37 +259,37 @@ main (int argc, char* argv[])
       repository_location l ("http://www.a.com:80/1/aa/bb");
       assert (l.string () == "http://www.a.com:80/1/aa/bb");
       assert (l.canonical_name () == "a.com/aa/bb");
-      assert (!l.secure ());
+      assert (l.proto () == protocol::http);
     }
     {
       repository_location l ("https://www.a.com:443/1/aa/bb");
       assert (l.string () == "https://www.a.com:443/1/aa/bb");
       assert (l.canonical_name () == "a.com/aa/bb");
-      assert (l.secure ());
+      assert (l.proto () == protocol::https);
     }
     {
       repository_location l ("http://www.a.com:8080/dd/1/aa/bb");
       assert (l.string () == "http://www.a.com:8080/dd/1/aa/bb");
       assert (l.canonical_name () == "a.com:8080/dd/aa/bb");
-      assert (!l.secure ());
+      assert (l.proto () == protocol::http);
     }
     {
       repository_location l ("http://www.a.com:8080/dd/pkg/1/aa/bb");
       assert (l.string () == "http://www.a.com:8080/dd/pkg/1/aa/bb");
       assert (l.canonical_name () == "a.com:8080/dd/aa/bb");
-      assert (!l.secure ());
+      assert (l.proto () == protocol::http);
     }
     {
       repository_location l ("http://www.a.com:8080/bpkg/dd/1/aa/bb");
       assert (l.string () == "http://www.a.com:8080/bpkg/dd/1/aa/bb");
       assert (l.canonical_name () == "a.com:8080/bpkg/dd/aa/bb");
-      assert (!l.secure ());
+      assert (l.proto () == protocol::http);
     }
     {
       repository_location l ("https://www.a.com:444/dd/1/aa/bb");
       assert (l.string () == "https://www.a.com:444/dd/1/aa/bb");
       assert (l.canonical_name () == "a.com:444/dd/aa/bb");
-      assert (l.secure ());
+      assert (l.proto () == protocol::https);
     }
     {
       repository_location l ("http://a.com/a/b/../c/1/aa/../bb");
@@ -299,14 +369,14 @@ main (int argc, char* argv[])
       repository_location l2 ("../1/math", l1);
       assert (l2.string () == "http://www.stable.cppget.org:8080/1/math");
       assert (l2.canonical_name () == "stable.cppget.org:8080/math");
-      assert (!l2.secure ());
+      assert (l2.proto () == protocol::http);
     }
     {
       repository_location l1 ("https://www.stable.cppget.org:444/1");
       repository_location l2 ("../1/math", l1);
       assert (l2.string () == "https://www.stable.cppget.org:444/1/math");
       assert (l2.canonical_name () == "stable.cppget.org:444/math");
-      assert (l2.secure ());
+      assert (l2.proto () == protocol::https);
     }
     {
       repository_location l1 ("/var/r1/1/misc");
@@ -350,6 +420,82 @@ main (int argc, char* argv[])
       repository_location l2 ("/var/1/stable", repository_location ());
       assert (l1.string () == l2.string ());
       assert (l1.canonical_name () == l2.canonical_name ());
+    }
+
+    // Test valid web interface locations.
+    //
+    {
+      repository_location l ("http://cppget.org/1/misc");
+      assert (effective_url ("http://cppget.org/pkg", l) ==
+              "http://cppget.org/pkg");
+    }
+    {
+      repository_location l ("http://cppget.org/1/misc");
+      assert (effective_url ("https://cppget.org/pkg", l) ==
+              "https://cppget.org/pkg");
+    }
+    {
+      repository_location l ("http://pkg.cppget.org/foo/pkg/1/misc/stable");
+      assert (effective_url ("./.", l) ==
+              "http://pkg.cppget.org/foo/pkg/misc/stable");
+    }
+    {
+      repository_location l ("http://cppget.org/foo/1/misc/stable");
+      assert (effective_url ("./.", l) ==
+              "http://cppget.org/foo/misc/stable");
+    }
+    {
+      repository_location l ("http://pkg.cppget.org/foo/pkg/1/misc/stable");
+      assert (effective_url ("././..", l) ==
+              "http://pkg.cppget.org/foo/pkg/misc");
+    }
+    {
+      repository_location l ("http://pkg.cppget.org/foo/pkg/1/misc");
+      assert (effective_url ("././../../..", l) == "http://pkg.cppget.org");
+    }
+    {
+      repository_location l ("https://pkg.cppget.org/foo/pkg/1/misc/stable");
+      assert (effective_url ("../.", l) ==
+              "https://cppget.org/foo/pkg/misc/stable");
+    }
+    {
+      repository_location l ("https://pkg.cppget.org/foo/pkg/1/misc/stable");
+      assert (effective_url (".././..", l) ==
+              "https://cppget.org/foo/pkg/misc");
+    }
+    {
+      repository_location l ("https://bpkg.cppget.org/foo/bpkg/1/misc/stable");
+      assert (effective_url ("./..", l) ==
+              "https://bpkg.cppget.org/foo/misc/stable");
+    }
+    {
+      repository_location l ("https://bpkg.cppget.org/foo/bpkg/1/misc/stable");
+      assert (effective_url ("./../..", l) ==
+              "https://bpkg.cppget.org/foo/misc");
+    }
+    {
+      repository_location l ("http://www.cppget.org/foo/bpkg/1/misc/stable");
+      assert (effective_url ("../..", l) ==
+              "http://cppget.org/foo/misc/stable");
+    }
+    {
+      repository_location l ("http://cppget.org/pkg/foo/1/misc/stable");
+      assert (effective_url ("../..", l) ==
+              "http://cppget.org/pkg/foo/misc/stable");
+    }
+    {
+      repository_location l ("http://www.cppget.org/foo/bpkg/1/misc/stable");
+      assert (effective_url ("../../..", l) ==
+              "http://cppget.org/foo/misc");
+    }
+    {
+      repository_location l ("http://pkg.cppget.org/foo/pkg/1/misc");
+      assert (effective_url ("../../../..", l) == "http://cppget.org");
+    }
+    {
+      repository_location l ("http://www.cppget.org/foo/bpkg/1/misc/stable");
+      assert (effective_url ("../../../abc", l) ==
+              "http://cppget.org/foo/misc/abc");
     }
   }
   catch (const exception& e)

@@ -10,7 +10,7 @@
 #include <cassert>
 #include <cstdint>   // uint16_t
 #include <ostream>
-#include <algorithm> // move()
+#include <utility>   // move()
 #include <stdexcept> // logic_error
 
 #include <butl/path>
@@ -363,7 +363,7 @@ namespace bpkg
     repository_location () = default;
 
     // If the argument is not empty, create remote/absolute repository
-    // location. Throw invalid_argument if the location is a relative
+    // location. Throw std::invalid_argument if the location is a relative
     // path. If the argument is empty, then create the special empty
     // location.
     //
@@ -372,7 +372,7 @@ namespace bpkg
 
     // Create a potentially relative repository location. If base is not
     // empty, use it to complete the relative location to remote/absolute.
-    // Throw invalid_argument if base is not empty but the location is
+    // Throw std::invalid_argument if base is not empty but the location is
     // empty, base itself is relative, or the resulting completed location
     // is invalid.
     //
@@ -458,13 +458,15 @@ namespace bpkg
       return port_;
     }
 
-    bool
-    secure () const
+    enum class protocol {http, https};
+
+    protocol
+    proto () const
     {
       if (local ())
         throw std::logic_error ("local location");
 
-      return secure_;
+      return proto_;
     }
 
     // Note that this is not necessarily syntactically the same string
@@ -477,10 +479,10 @@ namespace bpkg
 
   private:
     std::string canonical_name_;
+    protocol proto_;
     std::string host_;
     std::uint16_t port_;
     butl::dir_path path_;
-    bool secure_;
   };
 
   inline std::ostream&
@@ -509,6 +511,28 @@ namespace bpkg
     butl::optional<std::string> summary;
     butl::optional<std::string> description;
 
+    // Return the effective role of the repository. If the role is not
+    // explicitly specified (see the role member above), then calculate
+    // the role based on the location. Specifically, if the location is
+    // empty, then the effective role is base. Otherwise -- prerequisite.
+    // If the role is specified, then verify that it is consistent with
+    // the location value (that is, base if the location is empty and
+    // prerequisite or complete if not) and return that. Otherwise,
+    // throw std::logic_error.
+    //
+    repository_role
+    effective_role () const;
+
+    // Return the effective web interface URL based on the specified remote
+    // repository location. If url is not present or doesn't start with '.',
+    // then return it unchanged. Otherwise, process the relative format
+    // as described in the manifest specification. Throw std::invalid_argument
+    // if the relative url format is invalid or if the repository location is
+    // empty or local.
+    //
+    butl::optional<std::string>
+    effective_url (const repository_location&) const;
+
   public:
     repository_manifest (manifest_parser&, bool ignore_unknown = false);
     repository_manifest (manifest_parser&,
@@ -517,18 +541,6 @@ namespace bpkg
 
     void
     serialize (manifest_serializer&) const;
-
-    // Return the effective role of the repository. If the role is not
-    // explicitly specified (see the role member above), then calculate
-    // the role based on the location. Specifically, if the location is
-    // empty, then the effective role is base. Otherwise -- prerequisite.
-    // If the role is specified, then verify that it is consistent with
-    // the location value (that is, base if the location is empty and
-    // prerequisite or complete if not) and return that. Otherwise,
-    // throw logic_error.
-    //
-    repository_role
-    effective_role () const;
   };
 
   class repository_manifests: public std::vector<repository_manifest>

@@ -1188,8 +1188,234 @@ namespace bpkg
     s.next ("", ""); // End of stream.
   }
 
+  // url_parts
+  //
+  struct url_parts
+  {
+    using protocol = repository_location::protocol;
+
+    protocol proto;
+    string host;
+    uint16_t port;
+    dir_path path;
+
+    explicit
+    url_parts (const string&);
+  };
+
+  // Return the URL protocol, or nullopt if location is not a URL.
+  //
+  static optional<url_parts::protocol>
+  is_url (const string& location)
+  {
+    using protocol = url_parts::protocol;
+
+    optional<protocol> p;
+    if (::strncasecmp (location.c_str (), "http://", 7) == 0)
+      p = protocol::http;
+    else if (::strncasecmp (location.c_str (), "https://", 8) == 0)
+      p = protocol::https;
+
+    return p;
+  }
+
+  static string
+  to_string (url_parts::protocol proto,
+             const string& host,
+             uint16_t port,
+             const dir_path& path)
+  {
+    string u (
+      (proto == url_parts::protocol::http ? "http://" : "https://") + host);
+
+    if (port != 0)
+      u += ":" + std::to_string (port);
+
+    if (!path.empty ())
+      u += "/" + path.posix_string ();
+
+    return u;
+  }
+
+  url_parts::
+  url_parts (const string& s)
+  {
+    optional<protocol> pr (is_url (s));
+    if (!pr)
+      throw invalid_argument ("invalid protocol");
+
+    proto = *pr;
+
+    string::size_type host_offset (s.find ("//"));
+    assert (host_offset != string::npos);
+    host_offset += 2;
+
+    string::size_type p (s.find ('/', host_offset));
+
+    if (p != string::npos)
+      // Chop the path part. Path is saved as a relative one to be of the
+      // same type on different operating systems including Windows.
+      //
+      path = dir_path (s, p + 1, string::npos);
+
+    // Put the lower-cased version of the host part into host.
+    // Chances are good it will stay unmodified.
+    //
+    transform (s.cbegin () + host_offset,
+               p == string::npos ? s.cend () : s.cbegin () + p,
+               back_inserter (host),
+               lowercase);
+
+    // Validate host name according to "2.3.1. Preferred name syntax" and
+    // "2.3.4. Size limits" of https://tools.ietf.org/html/rfc1035.
+    //
+    // Check that there is no empty labels and ones containing chars
+    // different from alpha-numeric and hyphen. Label should start from
+    // letter, do not end with hypen and be not longer than 63 chars.
+    // Total host name length should be not longer than 255 chars.
+    //
+    auto hb (host.cbegin ());
+    auto he (host.cend ());
+    auto ls (hb); // Host domain name label begin.
+    auto pt (he); // Port begin.
+
+    for (auto i (hb); i != he; ++i)
+    {
+      char c (*i);
+
+      if (pt == he) // Didn't reach port specification yet.
+      {
+        if (c == ':') // Port specification reached.
+          pt = i;
+        else
+        {
+          auto n (i + 1);
+
+          // Validate host name.
+          //
+
+          // Is first label char.
+          //
+          bool flc (i == ls);
+
+          // Is last label char.
+          //
+          bool llc (n == he || *n == '.' || *n == ':');
+
+          // Validate char.
+          //
+          bool valid (alpha (c) ||
+                      (digit (c) && !flc) ||
+                      ((c == '-' || c == '.') && !flc && !llc));
+
+          // Validate length.
+          //
+          if (valid)
+            valid = i - ls < 64 && i - hb < 256;
+
+          if (!valid)
+            throw invalid_argument ("invalid host");
+
+          if (c == '.')
+            ls = n;
+        }
+      }
+      else
+      {
+        // Validate port.
+        //
+        if (!digit (c))
+          throw invalid_argument ("invalid port");
+      }
+    }
+
+    // Chop the port, if present.
+    //
+    if (pt == he)
+      port = 0;
+    else
+    {
+      unsigned long long n (++pt == he ? 0 : stoull (string (pt, he)));
+      if (n == 0 || n > UINT16_MAX)
+        throw invalid_argument ("invalid port");
+
+      port = static_cast<uint16_t> (n);
+      host.resize (pt - hb - 1);
+    }
+
+    if (host.empty ())
+      throw invalid_argument ("invalid host");
+  }
+
   // repository_location
   //
+  static string
+  strip_domain (const string& host)
+  {
+    assert (!host.empty ()); // Should be repository location host.
+
+    string h;
+    bool bpkg (false);
+
+    if (host.compare (0, 4, "www.") == 0 ||
+        host.compare (0, 4, "pkg.") == 0 ||
+        (bpkg = host.compare (0, 5, "bpkg.") == 0))
+    {
+      if (h.assign (host, bpkg ? 5 : 4, string::npos).empty ())
+        throw invalid_argument ("invalid host");
+    }
+    else
+      h = host;
+
+    return h;
+  }
+
+  // The 'pkg' path component stripping mode.
+  //
+  enum class strip_mode {version, component, path};
+
+  static dir_path
+  strip_path (const dir_path& path, strip_mode mode)
+  {
+    // Should be repository location path.
+    //
+    assert (!path.empty () && *path.begin () != "..");
+
+    auto rb (path.rbegin ()), i (rb), re (path.rend ());
+
+    // Find the version component.
+    //
+    for (; i != re; ++i)
+    {
+      const string& c (*i);
+
+      if (!c.empty () && c.find_first_not_of ("1234567890") == string::npos)
+        break;
+    }
+
+    if (i == re)
+      throw invalid_argument ("missing repository version");
+
+    // Validate the version. At the moment the only valid value is 1.
+    //
+    if (stoul (*i) != 1)
+      throw invalid_argument ("unsupported repository version");
+
+    dir_path res (rb, i);
+
+    // Canonical name prefix part ends with the special "pkg" component.
+    //
+    bool pc (++i != re && (*i == "pkg" || *i == "bpkg"));
+
+    if (pc && mode == strip_mode::component)
+      ++i; // Strip the "pkg" component.
+
+    if (!pc || mode != strip_mode::path)
+      res = dir_path (i, re) / res; // Concatenate prefix and path parts.
+
+    return res;
+  }
+
   // Location parameter type is fully qualified as compiler gets confused with
   // string() member.
   //
@@ -1221,135 +1447,22 @@ namespace bpkg
     if (!b.empty () && b.relative ())
       throw invalid_argument ("base relative filesystem path");
 
-    secure_ = false;
-
-    if (::strncasecmp (l.c_str (), "http://", 7) == 0 ||
-        (secure_ = ::strncasecmp (l.c_str (), "https://", 8) == 0))
+    if (is_url (l))
     {
-      // Split location into host, port and path components. Calculate
-      // canonical name <host> part removing www. and pkg. prefixes.
+      url_parts u (l);
+      proto_ = u.proto;
+      host_ = move (u.host);
+      port_ = u.port;
+      path_ = move (u.path);
+
+      canonical_name_ = strip_domain (host_);
+
+      // For canonical name and for the HTTP protocol, treat a.com and
+      // a.com:80 as the same name. The same rule applies to the HTTPS
+      // protocol and port 443.
       //
-      size_t host_offset (secure_ ? 8 : 7);
-      auto p (l.find ('/', host_offset));
-
-      // The remote repository location with no path specified is not a valid
-      // one. Keep the path_ member empty so the later check for emptiness
-      // will throw invalid_argument exception.
-      //
-      if (p != string::npos)
-        // Chop the path part. Path is saved as a relative one to be of the
-        // same type on different operating systems including Windows.
-        //
-        path_ = dir_path (l, p + 1, string::npos);
-
-      // Put the lower-cased version of the host part into host_.
-      // Chances are good it will stay unmodified.
-      //
-      transform (l.cbegin () + host_offset,
-                 p == string::npos ? l.cend () : l.cbegin () + p,
-                 back_inserter (host_),
-                 lowercase);
-
-      // Validate host name according to "2.3.1. Preferred name syntax" and
-      // "2.3.4. Size limits" of https://tools.ietf.org/html/rfc1035.
-      //
-      // Check that there is no empty labels and ones containing chars
-      // different from alpha-numeric and hyphen. Label should start from
-      // letter, do not end with hypen and be not longer than 63 chars.
-      // Total host name length should be not longer than 255 chars.
-      //
-      auto hb (host_.cbegin ());
-      auto he (host_.cend ());
-      auto ls (hb); // Host domain name label begin.
-      auto pt (he); // Port begin.
-
-      for (auto i (hb); i != he; ++i)
-      {
-        char c (*i);
-
-        if (pt == he) // Didn't reach port specification yet.
-        {
-          if (c == ':') // Port specification reached.
-            pt = i;
-          else
-          {
-            auto n (i + 1);
-
-            // Validate host name.
-            //
-
-            // Is first label char.
-            //
-            bool flc (i == ls);
-
-            // Is last label char.
-            //
-            bool llc (n == he || *n == '.' || *n == ':');
-
-            // Validate char.
-            //
-            bool valid (alpha (c) ||
-                        (digit (c) && !flc) ||
-                        ((c == '-' || c == '.') && !flc && !llc));
-
-            // Validate length.
-            //
-            if (valid)
-              valid = i - ls < 64 && i - hb < 256;
-
-            if (!valid)
-              throw invalid_argument ("invalid host");
-
-            if (c == '.')
-              ls = n;
-          }
-        }
-        else
-        {
-          // Validate port.
-          //
-          if (!digit (c))
-            throw invalid_argument ("invalid port");
-        }
-      }
-
-      // Chop the port, if present.
-      //
-      if (pt == he)
-        port_ = 0;
-      else
-      {
-        unsigned long long n (++pt == he ? 0 : stoull (string (pt, he)));
-        if (n == 0 || n > UINT16_MAX)
-          throw invalid_argument ("invalid port");
-
-        port_ = static_cast<uint16_t> (n);
-        host_.resize (pt - hb - 1);
-      }
-
-      if (host_.empty ())
-        throw invalid_argument ("invalid host");
-
-      // Ok, the last thing we need to do is add the host and port
-      // parts to the canonical_name_ name. Here we also need to
-      // chop off the special "www" and "pkg" prefixes. Strictly
-      // speaking we can end up with comething bogus like "com"
-      // if the host is "pkg.com".
-      //
-      bool bpkg (false);
-      if (host_.compare (0, 4, "www.") == 0 ||
-          host_.compare (0, 4, "pkg.") == 0 ||
-          (bpkg = host_.compare (0, 5, "bpkg.") == 0))
-        canonical_name_.assign (host_, bpkg ? 5 : 4, string::npos);
-      else
-        canonical_name_ = host_;
-
-      // For canonical name and for the HTTP protocol, treat a.com
-      // and a.com:80 as the same name. The same rule apply the HTTPS protocol
-      // and the port 443.
-      //
-      if (port_ != 0 && port_ != (secure_ ? 443 : 80))
-        canonical_name_ += ':' + to_string (port_);
+      if (port_ != 0 && port_ != (proto_ == protocol::http ? 80 : 443))
+        canonical_name_ += ':' + std::to_string (port_);
     }
     else
     {
@@ -1361,10 +1474,10 @@ namespace bpkg
       {
         // Convert the relative path location to an absolute or remote one.
         //
+        proto_ = b.proto_;
         host_ = b.host_;
         port_ = b.port_;
         path_ = b.path_ / path_;
-        secure_ = b.secure_;
 
         // Set canonical name to the base location canonical name host
         // part. The path part of the canonical name is calculated below.
@@ -1412,49 +1525,18 @@ namespace bpkg
       return;
     }
 
-    // Search for the version path component preceeding canonical name
-    // <path> component.
+    // Canonical name <prefix>/<path> part.
     //
-    auto rb (path_.rbegin ()), i (rb), re (path_.rend ());
-
-    // Find the version component.
-    //
-    for (; i != re; ++i)
-    {
-      const string& c (*i);
-
-      if (!c.empty () && c.find_first_not_of ("1234567890") == string::npos)
-        break;
-    }
-
-    if (i == re)
-      throw invalid_argument ("missing repository version");
-
-    // Validate the version. At the moment the only valid value is 1.
-    //
-    if (stoul (*i) != 1)
-      throw invalid_argument ("unsupported repository version");
-
-    dir_path p (rb, i); // Canonical name path part.
-
-    // Prefix ends with "pkg" component.
-    //
-    bool pc (++i != re && (*i == "pkg" || *i == "bpkg"));
-
-    if (pc)
-      ++i; // Skip "pkg" component from prefix.
-
-    if (!host_.empty () || !pc)
-      p = dir_path (i, re) / p; // Concatenate prefix and path.
+    string cp (
+      strip_path (path_, remote () ? strip_mode::component : strip_mode::path).
+        posix_string ());
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
-    string d (p.posix_string ());
-
-    if (!canonical_name_.empty () && !d.empty ()) // If we have host and dir.
+    if (!canonical_name_.empty () && !cp.empty ()) // If we have host and dir.
       canonical_name_ += '/';
 
-    canonical_name_ += d;
+    canonical_name_ += cp;
 
     // But don't allow empty canonical names.
     //
@@ -1465,20 +1547,13 @@ namespace bpkg
   string repository_location::
   string () const
   {
-    using std::string; // Also function name.
-
     if (empty ())
-      return string ();
+      return std::string (); // Also function name.
 
     if (local ())
       return path_.string ();
 
-    string p ((secure_ ? "https://" : "http://") + host_);
-
-    if (port_ != 0)
-      p += ":" + to_string (port_);
-
-    return p + "/" + path_.posix_string ();
+    return to_string (proto_, host_, port_, path_);
   }
 
   // repository_manifest
@@ -1691,6 +1766,73 @@ namespace bpkg
       return location.empty ()
         ? repository_role::base
         : repository_role::prerequisite;
+  }
+
+  optional<string> repository_manifest::
+  effective_url (const repository_location& l) const
+  {
+    if (!url || (*url)[0] != '.')
+      return url;
+
+    const dir_path rp (*url);
+    auto i (rp.begin ());
+
+    static const char* invalid_url ("invalid relative url");
+
+    auto strip([&i, &rp]() -> bool {
+        if (i != rp.end ())
+        {
+          const auto& c (*i++);
+          if (c == "..")
+            return true;
+
+          if (c == ".")
+            return false;
+        }
+
+        throw invalid_argument (invalid_url);
+      });
+
+    bool strip_d (strip ()); // Strip domain.
+    bool strip_p (strip ()); // Strip path.
+
+    // The web interface relative path with the special first two components
+    // stripped.
+    //
+    const dir_path rpath (i, rp.end ());
+    assert (rpath.relative ());
+
+    url_parts u (l.string ());
+
+    // Web interface URL path part.
+    //
+    // It is important to call strip_path() before appending the relative path.
+    // Otherwise the effective URL for the path ./../../.. and the repository
+    // location http://a.com/foo/pkg/1/math will wrongly be
+    // http://a.com/foo/pkg instead of http://a.com.
+    //
+    dir_path ipath (
+      strip_path (
+        u.path, strip_p ? strip_mode::component : strip_mode::version) / rpath);
+
+    static const char* invalid_location ("invalid repository location");
+
+    try
+    {
+      ipath.normalize ();
+    }
+    catch (const invalid_path&)
+    {
+      throw invalid_argument (invalid_location);
+    }
+
+    assert (ipath.relative ());
+
+    if (!ipath.empty () && *ipath.begin () == "..")
+      throw invalid_argument (invalid_location);
+
+    return to_string (
+      u.proto, strip_d ? strip_domain (u.host) : u.host, u.port, ipath);
   }
 
   // repository_manifests
