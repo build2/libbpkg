@@ -1211,9 +1211,9 @@ namespace bpkg
     using protocol = url_parts::protocol;
 
     optional<protocol> p;
-    if (::strncasecmp (location.c_str (), "http://", 7) == 0)
+    if (strncasecmp (location.c_str (), "http://", 7) == 0)
       p = protocol::http;
-    else if (::strncasecmp (location.c_str (), "https://", 8) == 0)
+    else if (strncasecmp (location.c_str (), "https://", 8) == 0)
       p = protocol::https;
 
     return p;
