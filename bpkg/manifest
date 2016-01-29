@@ -330,6 +330,7 @@ namespace bpkg
     // The following values are only valid in the manifest list.
     //
     butl::optional<butl::path> location;
+    butl::optional<std::string> sha256sum;
 
   public:
     package_manifest (manifest_parser&, bool ignore_unknown = false);
@@ -348,6 +349,11 @@ namespace bpkg
 
     using base_type::base_type;
 
+    // Checksum of the corresponding repository_manifests.
+    //
+    std::string sha256sum;
+
+  public:
     package_manifests () = default;
     package_manifests (manifest_parser&, bool ignore_unknown = false);
 

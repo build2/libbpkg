@@ -1,4 +1,6 @@
 : 1
+sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+:
 name: libfoo
 version: 1.2.3+2
 priority: high; Due to critical bug fix.
@@ -27,6 +29,7 @@ requires: ? ; libc++ standard library if using Clang on Mac OS X.
 requires: zlib; Most Linux/UNIX systems already have one; or get it at\
  www.zlib.net.
 location: libfoo-1.2.3+2.tar.bz2
+sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 :
 name: libbar
 version: 3.4A.5+6
@@ -38,6 +41,7 @@ url: http://www.example.org/projects/libbar/
 email: libbar-users@example.org
 depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
 location: bar/libbar-3.4A.5+6.tbz
+sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 :
 name: libbaz
 version: 2~3.4A.5+3
@@ -46,3 +50,4 @@ license: LGPLv2
 url: http://www.example.org/projects/libbar/
 email: libbaz-users@example.org
 location: libbaz/libbaz-2~3.4A.5+3.tar.gz
+sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

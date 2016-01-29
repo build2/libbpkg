@@ -59,6 +59,21 @@ namespace bpkg
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
   }
 
+  inline static bool
+  valid_sha256 (const string& s) noexcept
+  {
+    if (s.size () != 64)
+      return false;
+
+    for (const auto& c: s)
+    {
+      if ((c < 'a' || c > 'f' ) && !digit (c))
+        return false;
+    }
+
+    return true;
+  }
+
   // Replace std::tolower to keep things locale independent.
   //
   inline static char
@@ -1064,6 +1079,16 @@ namespace bpkg
           bad_value ("invalid package location");
         }
       }
+      else if (n == "sha256sum")
+      {
+        if (sha256sum)
+          bad_name ("package sha256sum redefinition");
+
+        if (!valid_sha256 (v))
+          bad_value ("invalid package sha256sum");
+
+        sha256sum = move (v);
+      }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in package manifest");
     }
@@ -1088,7 +1113,8 @@ namespace bpkg
   serialize (serializer& s) const
   {
     // @@ Should we check that all non-optional values are specified ?
-    // @@ Should we check the version release is not empty ?
+    // @@ Should we check that values are valid: name is not empty, version
+    //    release is not empty, sha256sum is a proper string, ...
     //
 
     s.next ("", "1"); // Start of manifest.
@@ -1151,6 +1177,9 @@ namespace bpkg
     if (location)
       s.next ("location", location->posix_string ());
 
+    if (sha256sum)
+      s.next ("sha256sum", *sha256sum);
+
     s.next ("", ""); // End of manifest.
   }
 
@@ -1160,27 +1189,92 @@ namespace bpkg
   package_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
-    while (!nv.empty ())
+
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
+    // Make sure this is the start and we support the version.
+    //
+    if (!nv.name.empty ())
+      bad_name ("start of package list manifest expected");
+
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
+
+    // Parse the package list manifest.
+    //
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    {
+      string& n (nv.name);
+      string& v (nv.value);
+
+      if (n == "sha256sum")
+      {
+        if (!sha256sum.empty ())
+          bad_name ("sha256sum redefinition");
+
+        if (!valid_sha256 (v))
+          bad_value ("invalid sha256sum");
+
+        sha256sum = move (v);
+      }
+      else if (!iu)
+        bad_name ("unknown name '" + n + "' in package list manifest");
+    }
+
+    // Verify all non-optional values were specified.
+    //
+    if (sha256sum.empty ())
+      bad_value ("no sha256sum specified");
+
+    // Parse package manifests.
+    //
+    for (nv = p.next (); !nv.empty (); )
     {
       push_back (package_manifest (p, nv, iu));
       nv = p.next ();
 
-      if (!back ().location)
-        throw parsing (p.name (), nv.name_line, nv.name_column,
-                       "package location expected");
+      const package_manifest& m (back ());
+
+      if (!m.location)
+        bad_name ("package location expected");
+
+      if (!m.sha256sum)
+        bad_name ("package sha256sum expected");
     }
   }
 
   void package_manifests::
   serialize (serializer& s) const
   {
+    // Serialize the package list manifest.
+    //
+    // @@ Should we check that values are valid ?
+    //
+    s.next ("", "1"); // Start of manifest.
+    s.next ("sha256sum", sha256sum);
+    s.next ("", "");  // End of manifest.
+
+    // Serialize package manifests.
+    //
     for (const package_manifest& p: *this)
     {
-      if (!p.location || p.location->empty ())
-        throw
+      auto no_value = [&p, &s](const string& d)
+        {
+          throw
           serialization (
             s.name (),
-            "no valid location for " + p.name + "-" + p.version.string ());
+            d + " for " + p.name + "-" + p.version.string ());
+        };
+
+      if (!p.location)
+        no_value ("no valid location");
+
+      if (!p.sha256sum)
+        no_value ("no valid sha256sum");
 
       p.serialize (s);
     }
@@ -1779,7 +1873,7 @@ namespace bpkg
 
     static const char* invalid_url ("invalid relative url");
 
-    auto strip([&i, &rp]() -> bool {
+    auto strip ([&i, &rp]() -> bool {
         if (i != rp.end ())
         {
           const auto& c (*i++);
