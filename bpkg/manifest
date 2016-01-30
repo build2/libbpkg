@@ -147,7 +147,10 @@ namespace bpkg
   };
 
   inline std::ostream&
-  operator<< (std::ostream& os, const version& v) {return os << v.string ();}
+  operator<< (std::ostream& os, const version& v)
+  {
+    return os << (v.empty () ? "<empty-version>" : v.string ());
+  }
 
   // priority
   //
