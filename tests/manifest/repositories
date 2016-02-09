@@ -6,7 +6,7 @@ location: ../stable
 role: complement
 :
 url: http://cppget.org
-email: repoman@cppget.org
+email: repoman@cppget.org; General mailing list.
 summary: General C++ package repository
 description: This is the awesome C++ package repository full of exciting\
  stuff.

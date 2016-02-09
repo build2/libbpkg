@@ -523,13 +523,15 @@ namespace bpkg
   class repository_manifest
   {
   public:
+    using email_type = bpkg::email;
+
     repository_location location;
     butl::optional<repository_role> role;
 
     // The following values may only be present for the base repository.
     //
     butl::optional<std::string> url;
-    butl::optional<std::string> email;
+    butl::optional<email_type> email;
     butl::optional<std::string> summary;
     butl::optional<std::string> description;
 

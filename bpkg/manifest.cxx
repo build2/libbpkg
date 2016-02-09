@@ -1735,10 +1735,12 @@ namespace bpkg
         if (email)
           bad_name ("email redefinition");
 
+        string c (split_comment (v));
+
         if (v.empty ())
           bad_value ("empty email");
 
-        email = move (v);
+        email = email_type (move (v), move (c));
       }
       else if (n == "summary")
       {
@@ -1824,7 +1826,7 @@ namespace bpkg
       if (!b)
         bad_value ("email not allowed");
 
-      s.next ("email", *email);
+      s.next ("email", add_comment (*email, email->comment));
     }
 
     if (summary)
