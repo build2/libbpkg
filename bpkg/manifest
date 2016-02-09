@@ -270,6 +270,19 @@ namespace bpkg
   std::ostream&
   operator<< (std::ostream&, const dependency_constraint&);
 
+  inline bool
+  operator== (const dependency_constraint& x, const dependency_constraint& y)
+  {
+    return x.min_version == y.min_version && x.max_version == y.max_version &&
+      x.min_open == y.min_open && x.max_open == y.max_open;
+  }
+
+  inline bool
+  operator!= (const dependency_constraint& x, const dependency_constraint& y)
+  {
+    return !(x == y);
+  }
+
   struct dependency
   {
     std::string name;
