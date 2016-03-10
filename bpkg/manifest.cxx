@@ -526,6 +526,54 @@ namespace bpkg
     return v;
   }
 
+  // text_file
+  //
+  text_file::
+  ~text_file ()
+  {
+    if (file)
+      path.~path_type ();
+    else
+      text.~string ();
+  }
+
+  text_file::
+  text_file (text_file&& f): file (f.file), comment (move (f.comment))
+  {
+    if (file)
+      new (&path) path_type (move (f.path));
+    else
+      new (&text) string (move (f.text));
+  }
+
+  text_file::
+  text_file (const text_file& f): file (f.file), comment (f.comment)
+  {
+    if (file)
+      new (&path) path_type (f.path);
+    else
+      new (&text) string (f.text);
+  }
+
+  text_file& text_file::
+  operator= (text_file&& f)
+  {
+    if (this != &f)
+    {
+      this->~text_file ();
+      new (this) text_file (move (f)); // Assume noexcept move-construction.
+    }
+    return *this;
+  }
+
+  text_file& text_file::
+  operator= (const text_file& f)
+  {
+    if (this != &f)
+      *this = text_file (f); // Reduce to move-assignment.
+    return *this;
+  }
+
   // depends
   //
 
@@ -610,7 +658,7 @@ namespace bpkg
   //
   package_manifest::
   package_manifest (parser& p, bool iu)
-      : package_manifest (p, p.next (), iu) // Delegate
+      : package_manifest (p, p.next (), false, iu) // Delegate
   {
     // Make sure this is the end.
     //
@@ -622,6 +670,12 @@ namespace bpkg
 
   package_manifest::
   package_manifest (parser& p, name_value nv, bool iu)
+      : package_manifest (p, nv, true, iu) // Delegate
+  {
+  }
+
+  package_manifest::
+  package_manifest (parser& p, name_value nv, bool il, bool iu)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -713,10 +767,13 @@ namespace bpkg
         if (v.empty ())
           bad_value ("empty package description");
 
-        description = description_type (move (v));
+        description = text_file (move (v));
       }
       else if (n == "description-file")
       {
+        if (il)
+          bad_name ("package description-file not allowed");
+
         if (description)
         {
           if (description->file)
@@ -731,7 +788,12 @@ namespace bpkg
         if (v.empty ())
           bad_value ("no path in package description-file");
 
-        description = description_type (move (v), move (c));
+        path p (v);
+
+        if (p.absolute ())
+          bad_value ("package description-file path is absolute");
+
+        description = text_file (move (p), move (c));
       }
       else if (n == "changes")
       {
@@ -742,12 +804,20 @@ namespace bpkg
       }
       else if (n == "changes-file")
       {
+        if (il)
+          bad_name ("package changes-file not allowed");
+
         string c (split_comment (v));
 
         if (v.empty ())
           bad_value ("no path in package changes-file");
 
-        changes.emplace_back (move (v), move (c));
+        path p (v);
+
+        if (p.absolute ())
+          bad_value ("package changes-file path is absolute");
+
+        changes.emplace_back (move (p), move (c));
       }
       else if (n == "url")
       {
@@ -1055,10 +1125,11 @@ namespace bpkg
 
         dependencies.push_back (da);
       }
-      // Manifest list names. Currently we don't check it is indeed a list.
-      //
       else if (n == "location")
       {
+        if (!il)
+          bad_name ("package location not allowed");
+
         if (location)
           bad_name ("package location redefinition");
 
@@ -1081,6 +1152,9 @@ namespace bpkg
       }
       else if (n == "sha256sum")
       {
+        if (!il)
+          bad_name ("package sha256sum not allowed");
+
         if (sha256sum)
           bad_name ("package sha256sum redefinition");
 
@@ -1107,6 +1181,15 @@ namespace bpkg
       bad_value ("no project email specified");
     else if (license_alternatives.empty ())
       bad_value ("no project license specified");
+
+    if (il)
+    {
+      if (!location)
+        bad_name ("no package location specified");
+
+      if (!sha256sum)
+        bad_name ("no package sha256sum specified");
+    }
   }
 
   void package_manifest::
@@ -1115,6 +1198,9 @@ namespace bpkg
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: name is not empty, version
     //    release is not empty, sha256sum is a proper string, ...
+    // @@ Currently we don't know if we are serializing the individual package
+    //    manifest or the package list manifest, so can't ensure all values
+    //    allowed in the current context (location, sha256sum, *-file values).
     //
 
     s.next ("", "1"); // Start of manifest.
@@ -1140,17 +1226,18 @@ namespace bpkg
     {
       if (description->file)
         s.next ("description-file",
-                add_comment (*description, description->comment));
+                add_comment (
+                  description->path.string (), description->comment));
       else
-        s.next ("description", *description);
+        s.next ("description", description->text);
     }
 
     for (const auto& c: changes)
     {
       if (c.file)
-        s.next ("changes-file", add_comment (c, c.comment));
+        s.next ("changes-file", add_comment (c.path.string (), c.comment));
       else
-        s.next ("changes", c);
+        s.next ("changes", c.text);
     }
 
     s.next ("url", add_comment (url, url.comment));
@@ -1232,19 +1319,8 @@ namespace bpkg
 
     // Parse package manifests.
     //
-    for (nv = p.next (); !nv.empty (); )
-    {
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
       push_back (package_manifest (p, nv, iu));
-      nv = p.next ();
-
-      const package_manifest& m (back ());
-
-      if (!m.location)
-        bad_name ("package location expected");
-
-      if (!m.sha256sum)
-        bad_name ("package sha256sum expected");
-    }
   }
 
   void package_manifests::
@@ -1262,19 +1338,25 @@ namespace bpkg
     //
     for (const package_manifest& p: *this)
     {
-      auto no_value = [&p, &s](const string& d)
+      auto bad_value = [&p, &s](const string& d)
         {
           throw
-          serialization (
-            s.name (),
-            d + " for " + p.name + "-" + p.version.string ());
+            serialization (
+              s.name (), d + " for " + p.name + "-" + p.version.string ());
         };
 
+      if (p.description && p.description->file)
+        bad_value ("forbidden description-file");
+
+      for (const auto& c: p.changes)
+        if (c.file)
+          bad_value ("forbidden changes-file");
+
       if (!p.location)
-        no_value ("no valid location");
+        bad_value ("no valid location");
 
       if (!p.sha256sum)
-        no_value ("no valid sha256sum");
+        bad_value ("no valid sha256sum");
 
       p.serialize (s);
     }

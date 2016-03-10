@@ -11,7 +11,6 @@ tags: c++, xml, parser, serializer, pull, streaming, modern
 description: libfoo is a very modern C++ XML parser.
 changes: 1.2.3+2: applied upstream patch for critical bug bar
 changes: 1.2.3+1: applied upstream patch for critical bug foo
-changes-file: NEWS
 url: http://www.example.org/projects/libfoo/; libfoo project page url
 package-url: http://www.example.org/projects/libbar/1.2.3+2; package url
 email: libfoo-users@example.org; Public mailing list, posts by non-members\
@@ -36,7 +35,6 @@ version: 3.4A.5+6
 summary: Modern bar management framework
 license: LGPLv2
 tags: c++, xml, modern
-description-file: README; Comprehensive description
 url: http://www.example.org/projects/libbar/
 email: libbar-users@example.org
 depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]

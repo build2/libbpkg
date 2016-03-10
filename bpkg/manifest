@@ -170,23 +170,40 @@ namespace bpkg
 
   // description
   // description-file
+  // change
+  // change-file
   //
-  class description: public std::string
+  class text_file
   {
   public:
+    using path_type = butl::path;
+
     bool file;
+
+    union
+    {
+      std::string text;
+      path_type path;
+    };
+
     std::string comment;
 
-    // Description constructor.
+    // File text constructor.
     //
     explicit
-    description (std::string d = "")
-        : std::string (std::move (d)), file (false) {}
+    text_file (std::string t = ""): file (false), text (std::move (t)) {}
 
-    // Description file constructor.
+    // File reference constructor.
     //
-    description (std::string f, std::string c)
-        : std::string (std::move (f)), file (true), comment (std::move (c)) {}
+    text_file (path_type p, std::string c)
+        : file (true), path (std::move (p)), comment (std::move (c)) {}
+
+    text_file (text_file&&);
+    text_file (const text_file&);
+    text_file& operator= (text_file&&);
+    text_file& operator= (const text_file&);
+
+    ~text_file ();
   };
 
   // license
@@ -198,26 +215,6 @@ namespace bpkg
 
     explicit
     licenses (std::string c = ""): comment (std::move (c)) {}
-  };
-
-  // change
-  // change-file
-  //
-  class change: public std::string
-  {
-  public:
-    bool file;
-    std::string comment;
-
-    // Change constructor.
-    //
-    explicit
-    change (std::string c = ""): std::string (std::move (c)), file (false) {}
-
-    // Change file constructor.
-    //
-    change (std::string f, std::string c)
-        : std::string (std::move (f)), file (true), comment (std::move (c)) {}
   };
 
   // url
@@ -326,7 +323,6 @@ namespace bpkg
     using priority_type = bpkg::priority;
     using url_type = bpkg::url;
     using email_type = bpkg::email;
-    using description_type = bpkg::description;
 
     std::string name;
     version_type version;
@@ -334,8 +330,8 @@ namespace bpkg
     std::string summary;
     std::vector<licenses> license_alternatives;
     strings tags;
-    butl::optional<description_type> description;
-    std::vector<change> changes;
+    butl::optional<text_file> description;
+    std::vector<text_file> changes;
     url_type url;
     butl::optional<url_type> package_url;
     email_type email;
@@ -349,13 +345,24 @@ namespace bpkg
     butl::optional<std::string> sha256sum;
 
   public:
+    // Create individual package manifest.
+    //
     package_manifest (manifest_parser&, bool ignore_unknown = false);
+
+    // Create an element of the package list manifest.
+    //
     package_manifest (manifest_parser&,
                       manifest_name_value start,
                       bool ignore_unknown = false);
 
     void
     serialize (manifest_serializer&) const;
+
+  private:
+    package_manifest (manifest_parser&,
+                      manifest_name_value start,
+                      bool in_list,
+                      bool ignore_unknown);
   };
 
   class package_manifests: public std::vector<package_manifest>
