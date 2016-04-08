@@ -1704,8 +1704,9 @@ namespace bpkg
     // Canonical name <prefix>/<path> part.
     //
     string cp (
-      strip_path (path_, remote () ? strip_mode::component : strip_mode::path).
-        posix_string ());
+      strip_path (
+        path_, remote () ? strip_mode::component : strip_mode::path).
+          posix_string ());
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
@@ -1844,6 +1845,16 @@ namespace bpkg
 
         description = move (v);
       }
+      else if (n == "certificate")
+      {
+        if (certificate)
+          bad_name ("certificate redefinition");
+
+        if (v.empty ())
+          bad_value ("empty certificate");
+
+        certificate = move (v);
+      }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
@@ -1869,6 +1880,9 @@ namespace bpkg
 
       if (description)
         bad_value ("description not allowed");
+
+      if (certificate)
+        bad_value ("certificate not allowed");
     }
   }
 
@@ -1925,6 +1939,14 @@ namespace bpkg
         bad_value ("description not allowed");
 
       s.next ("description", *description);
+    }
+
+    if (certificate)
+    {
+      if (!b)
+        bad_value ("certificate not allowed");
+
+      s.next ("certificate", *certificate);
     }
 
     s.next ("", ""); // End of manifest.
@@ -1984,9 +2006,9 @@ namespace bpkg
 
     // Web interface URL path part.
     //
-    // It is important to call strip_path() before appending the relative path.
-    // Otherwise the effective URL for the path ./../../.. and the repository
-    // location http://a.com/foo/pkg/1/math will wrongly be
+    // It is important to call strip_path() before appending the relative
+    // path. Otherwise the effective URL for the path ./../../.. and the
+    // repository location http://a.com/foo/pkg/1/math will wrongly be
     // http://a.com/foo/pkg instead of http://a.com.
     //
     dir_path ipath (

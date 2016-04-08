@@ -541,6 +541,7 @@ namespace bpkg
     butl::optional<email_type> email;
     butl::optional<std::string> summary;
     butl::optional<std::string> description;
+    butl::optional<std::string> certificate;
 
     // Return the effective role of the repository. If the role is not
     // explicitly specified (see the role member above), then calculate
@@ -548,7 +549,7 @@ namespace bpkg
     // empty, then the effective role is base. Otherwise -- prerequisite.
     // If the role is specified, then verify that it is consistent with
     // the location value (that is, base if the location is empty and
-    // prerequisite or complete if not) and return that. Otherwise,
+    // prerequisite or complement if not) and return that. Otherwise,
     // throw std::logic_error.
     //
     repository_role
