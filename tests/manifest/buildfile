@@ -7,7 +7,7 @@
 
 # @@ Hack until build2 supports multiple tests. Also remove .gitignore.
 #
-./: exe{pdriver} exe{rdriver}
+./: exe{pdriver} exe{rdriver} exe{sdriver}
 
 exe{pdriver}: obj{pdriver}
 exe{pdriver}: test.roundtrip = packages
@@ -15,10 +15,14 @@ exe{pdriver}: test.roundtrip = packages
 exe{rdriver}: obj{rdriver}
 exe{rdriver}: test.roundtrip = repositories
 
-obj{pdriver rdriver}: cxx{driver}
-exe{pdriver rdriver} obj{pdriver rdriver}: ../../bpkg/lib{bpkg}
+exe{sdriver}: obj{sdriver}
+exe{sdriver}: test.roundtrip = signature
+
+obj{pdriver rdriver sdriver}: cxx{driver}
+exe{pdriver rdriver sdriver} obj{pdriver rdriver sdriver}: ../../bpkg/lib{bpkg}
 
 obj{pdriver}: cxx.poptions += -DTEST_PACKAGES
 obj{rdriver}: cxx.poptions += -DTEST_REPOSITORIES
+obj{sdriver}: cxx.poptions += -DTEST_SIGNATURE
 
 include ../../bpkg/

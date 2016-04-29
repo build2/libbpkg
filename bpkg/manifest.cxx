@@ -18,6 +18,7 @@
 #include <stdexcept> // invalid_argument
 
 #include <butl/path>
+#include <butl/base64>
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
@@ -1197,7 +1198,7 @@ namespace bpkg
   {
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: name is not empty, version
-    //    release is not empty, sha256sum is a proper string, ...
+    //    release is not empty, sha256sum is a proper string, ...?
     // @@ Currently we don't know if we are serializing the individual package
     //    manifest or the package list manifest, so can't ensure all values
     //    allowed in the current context (location, sha256sum, *-file values).
@@ -2071,5 +2072,98 @@ namespace bpkg
       r.serialize (s);
 
     s.next ("", ""); // End of stream.
+  }
+
+  // signature_manifest
+  //
+  signature_manifest::
+  signature_manifest (parser& p, bool iu)
+      : signature_manifest (p, p.next (), iu) // Delegate
+  {
+    // Make sure this is the end.
+    //
+    name_value nv (p.next ());
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single signature manifest expected");
+  }
+
+  signature_manifest::
+  signature_manifest (parser& p, name_value nv, bool iu)
+  {
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
+    // Make sure this is the start and we support the version.
+    //
+    if (!nv.name.empty ())
+      bad_name ("start of signature manifest expected");
+
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
+
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    {
+      string& n (nv.name);
+      string& v (nv.value);
+
+      if (n == "sha256sum")
+      {
+        if (!sha256sum.empty ())
+          bad_name ("sha256sum redefinition");
+
+        if (v.empty ())
+          bad_value ("empty sha256sum");
+
+        if (!valid_sha256 (v))
+          bad_value ("invalid sha256sum");
+
+        sha256sum = move (v);
+      }
+      else if (n == "signature")
+      {
+        if (!signature.empty ())
+          bad_name ("signature redefinition");
+
+        if (v.empty ())
+          bad_value ("empty signature");
+
+        // Try to base64-decode as a sanity check.
+        //
+        try
+        {
+          signature = base64_decode (v);
+        }
+        catch (const invalid_argument&)
+        {
+          bad_value ("invalid signature");
+        }
+      }
+      else if (!iu)
+        bad_name ("unknown name '" + n + "' in signature manifest");
+    }
+
+    // Verify all non-optional values were specified.
+    //
+    if (sha256sum.empty ())
+      bad_value ("no sha256sum specified");
+    else if (signature.empty ())
+      bad_value ("no signature specified");
+  }
+
+  void signature_manifest::
+  serialize (serializer& s) const
+  {
+    // @@ Should we check that values are valid ?
+    //
+    s.next ("", "1"); // Start of manifest.
+
+    s.next ("sha256sum", sha256sum);
+    s.next ("signature", base64_encode (signature));
+
+    s.next ("", ""); // End of manifest.
   }
 }

@@ -1,9 +1,14 @@
+Version 0.4.0
+
+  * Add signature_manifest class.
+
+  * Add repository_manifest::certificate.
+
 Version 0.3.0
 
   * Reimplement *-file manifest values as C++11 unions.
 
   * Add support for comments in the repository manifest email values.
-
 
 Version 0.2.0
 

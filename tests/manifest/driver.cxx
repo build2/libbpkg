@@ -31,8 +31,10 @@ main (int argc, char* argv[])
 
 #ifdef TEST_PACKAGES
     package_manifests ms (p);
-#else
+#elif TEST_REPOSITORIES
     repository_manifests ms (p);
+#else
+    signature_manifest ms (p);
 #endif
 
     manifest_serializer s (cout, "stdout");

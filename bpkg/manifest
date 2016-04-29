@@ -588,6 +588,39 @@ namespace bpkg
     void
     serialize (manifest_serializer&) const;
   };
+
+  class signature_manifest
+  {
+  public:
+    // Checksum of the corresponding package_manifests.
+    //
+    std::string sha256sum;
+
+    // Signature of the corresponding package_manifests. Calculated by
+    // encrypting package_manifests checksum (stored in sha256sum) with the
+    // repository certificate private key.
+    //
+    std::vector<char> signature;
+
+  public:
+    signature_manifest () = default;
+    signature_manifest (manifest_parser&, bool ignore_unknown = false);
+
+    // Serialize sha256sum and base64-encoded representation of the signature.
+    //
+    void
+    serialize (manifest_serializer&) const;
+
+  private:
+    // Used for delegating in public constructor. Strictly speaking is not
+    // required, as a signature_manifest currently never appears as a part of
+    // a manifest list, but kept for the consistency with other manifests
+    // implementations.
+    //
+    signature_manifest (manifest_parser&,
+                        manifest_name_value start,
+                        bool ignore_unknown);
+  };
 }
 
 #endif // BPKG_MANIFEST
