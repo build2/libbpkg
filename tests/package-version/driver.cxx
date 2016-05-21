@@ -9,6 +9,8 @@
 #include <exception>
 #include <stdexcept> // invalid_argument
 
+#include <butl/optional>
+
 #include <bpkg/manifest>
 
 using namespace std;

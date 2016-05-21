@@ -1704,10 +1704,10 @@ namespace bpkg
 
     // Canonical name <prefix>/<path> part.
     //
-    string cp (
-      strip_path (
-        path_, remote () ? strip_mode::component : strip_mode::path).
-          posix_string ());
+     dir_path sp (strip_path (
+       path_, remote () ? strip_mode::component : strip_mode::path));
+
+     string cp (sp.relative () ? sp.posix_string () : sp.string ());
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
@@ -1729,7 +1729,7 @@ namespace bpkg
       return std::string (); // Also function name.
 
     if (local ())
-      return path_.string ();
+      return relative () ? path_.posix_string () : path_.string ();
 
     return to_string (proto_, host_, port_, path_);
   }

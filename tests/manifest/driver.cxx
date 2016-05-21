@@ -2,14 +2,18 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cassert>
 #include <fstream>
 #include <iostream>
+
+#include <butl/fdstream> // stdout_mode()
 
 #include <bpkg/manifest>
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
 
 using namespace std;
+using namespace butl;
 using namespace bpkg;
 
 int
@@ -37,6 +41,8 @@ main (int argc, char* argv[])
     signature_manifest ms (p);
 #endif
 
+
+    stdout_fdmode (fdtranslate::binary); // Write in binary mode.
     manifest_serializer s (cout, "stdout");
     ms.serialize (s);
   }

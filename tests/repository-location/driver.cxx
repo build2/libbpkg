@@ -172,7 +172,7 @@ main (int argc, char* argv[])
     assert (bad_url ("../.a",
                      repository_location (
                        "http://stable.cppget.org/1/misc")));
-
+#ifndef _WIN32
     assert (bad_url ("../../..",
                      repository_location (
                        "/var/1/misc")));
@@ -180,6 +180,15 @@ main (int argc, char* argv[])
     assert (bad_url ("../../..",
                      repository_location (
                        "/var/pkg/1/misc")));
+#else
+    assert (bad_url ("..\\..\\..",
+                     repository_location (
+                       "c:\\var\\1\\misc")));
+
+    assert (bad_url ("..\\..\\..",
+                     repository_location (
+                       "c:\\var\\pkg\\1\\misc")));
+#endif
 
     assert (bad_url ("../../..", repository_location ()));
 
@@ -216,6 +225,7 @@ main (int argc, char* argv[])
       assert (l.string () == "b/pkg/1/aa/bb");
       assert (l.canonical_name ().empty ());
     }
+#ifndef _WIN32
     {
       repository_location l ("/1/aa/bb", repository_location ());
       assert (l.string () == "/1/aa/bb");
@@ -249,6 +259,48 @@ main (int argc, char* argv[])
       assert (l.string () == "/a/c/pkg/1/bb");
       assert (l.canonical_name () == "bb");
     }
+#else
+    {
+      repository_location l ("c:\\1\\aa\\bb", repository_location ());
+      assert (l.string () == "c:\\1\\aa\\bb");
+      assert (l.canonical_name () == "c:\\aa\\bb");
+    }
+    {
+      repository_location l ("c:/1/aa/bb", repository_location ());
+      assert (l.string () == "c:\\1\\aa\\bb");
+      assert (l.canonical_name () == "c:\\aa\\bb");
+    }
+    {
+      repository_location l ("c:\\pkg\\1\\aa\\bb", repository_location ());
+      assert (l.string () == "c:\\pkg\\1\\aa\\bb");
+      assert (l.canonical_name () == "aa/bb");
+    }
+    {
+      repository_location l ("c:\\var\\pkg\\1\\example.org\\math\\testing",
+                             repository_location ());
+      assert (l.string () == "c:\\var\\pkg\\1\\example.org\\math\\testing");
+      assert (l.canonical_name () == "example.org/math/testing");
+    }
+    {
+      repository_location l ("c:\\var\\pkg\\example.org\\1\\math\\testing",
+                             repository_location ());
+      assert (l.string () == "c:\\var\\pkg\\example.org\\1\\math\\testing");
+
+      assert (l.canonical_name () ==
+              "c:\\var\\pkg\\example.org\\math\\testing");
+    }
+    {
+      repository_location l ("c:/a/b/../c/1/aa/../bb", repository_location ());
+      assert (l.string () == "c:\\a\\c\\1\\bb");
+      assert (l.canonical_name () == "c:\\a\\c\\bb");
+    }
+    {
+      repository_location l ("c:/a/b/../c/pkg/1/aa/../bb",
+                             repository_location ());
+      assert (l.string () == "c:\\a\\c\\pkg\\1\\bb");
+      assert (l.canonical_name () == "bb");
+    }
+#endif
     {
       repository_location l ("../c/../c/./1/aa/../bb",
                              repository_location ());
@@ -378,6 +430,7 @@ main (int argc, char* argv[])
       assert (l2.canonical_name () == "stable.cppget.org:444/math");
       assert (l2.proto () == protocol::https);
     }
+#ifndef _WIN32
     {
       repository_location l1 ("/var/r1/1/misc");
       repository_location l2 ("../../../r2/1/math", l1);
@@ -403,6 +456,44 @@ main (int argc, char* argv[])
       assert (l2.canonical_name () == "/var/test");
     }
     {
+      repository_location l1 ("/var/1/stable");
+      repository_location l2 ("/var/1/stable", repository_location ());
+      assert (l1.string () == l2.string ());
+      assert (l1.canonical_name () == l2.canonical_name ());
+    }
+#else
+    {
+      repository_location l1 ("c:/var/r1/1/misc");
+      repository_location l2 ("../../../r2/1/math", l1);
+      assert (l2.string () == "c:\\var\\r2\\1\\math");
+      assert (l2.canonical_name () == "c:\\var\\r2\\math");
+    }
+    {
+      repository_location l1 ("c:/var/1/misc");
+      repository_location l2 ("../math", l1);
+      assert (l2.string () == "c:\\var\\1\\math");
+      assert (l2.canonical_name () == "c:\\var\\math");
+    }
+    {
+      repository_location l1 ("c:/var/1/stable");
+      repository_location l2 ("c:\\var\\1\\test", l1);
+      assert (l2.string () == "c:\\var\\1\\test");
+      assert (l2.canonical_name () == "c:\\var\\test");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("c:/var/1/test", l1);
+      assert (l2.string () == "c:\\var\\1\\test");
+      assert (l2.canonical_name () == "c:\\var\\test");
+    }
+    {
+      repository_location l1 ("c:/var/1/stable");
+      repository_location l2 ("c:/var/1/stable", repository_location ());
+      assert (l1.string () == l2.string ());
+      assert (l1.canonical_name () == l2.canonical_name ());
+    }
+#endif
+    {
       repository_location l1 ("http://www.cppget.org/1/stable");
       repository_location l2 ("http://abc.com/1/test", l1);
       assert (l2.string () == "http://abc.com/1/test");
@@ -412,12 +503,6 @@ main (int argc, char* argv[])
       repository_location l1 ("http://stable.cppget.org/1/");
       repository_location l2 ("http://stable.cppget.org/1/",
                              repository_location ());
-      assert (l1.string () == l2.string ());
-      assert (l1.canonical_name () == l2.canonical_name ());
-    }
-    {
-      repository_location l1 ("/var/1/stable");
-      repository_location l2 ("/var/1/stable", repository_location ());
       assert (l1.string () == l2.string ());
       assert (l1.canonical_name () == l2.canonical_name ());
     }

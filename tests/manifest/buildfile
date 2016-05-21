@@ -19,7 +19,11 @@ exe{sdriver}: obj{sdriver}
 exe{sdriver}: test.roundtrip = signature
 
 obj{pdriver rdriver sdriver}: cxx{driver}
-exe{pdriver rdriver sdriver} obj{pdriver rdriver sdriver}: ../../bpkg/lib{bpkg}
+
+import libs += libbutl%lib{butl}
+
+exe{pdriver rdriver sdriver} obj{pdriver rdriver sdriver}: \
+  ../../bpkg/lib{bpkg} $libs
 
 obj{pdriver}: cxx.poptions += -DTEST_PACKAGES
 obj{rdriver}: cxx.poptions += -DTEST_REPOSITORIES

@@ -2,13 +2,17 @@
 // copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cassert>
 #include <fstream>
 #include <iostream>
+
+#include <butl/fdstream> // stdout_mode()
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
 
 using namespace std;
+using namespace butl;
 using namespace bpkg;
 
 int
@@ -24,9 +28,11 @@ main (int argc, char* argv[])
   {
     ifstream ifs;
     ifs.exceptions (ifstream::badbit | ifstream::failbit);
-    ifs.open (argv[1], ifstream::in | ifstream::binary);
+    ifs.open (argv[1]);
 
     manifest_parser p (ifs, argv[1]);
+
+    stdout_fdmode (fdtranslate::binary); // Write in binary mode.
     manifest_serializer s (cout, "stdout");
 
     for (bool eom (true), eos (false); !eos; )
