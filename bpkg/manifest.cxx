@@ -4,8 +4,6 @@
 
 #include <bpkg/manifest>
 
-#include <strings.h> // strncasecmp()
-
 #include <string>
 #include <ostream>
 #include <sstream>
@@ -1387,10 +1385,21 @@ namespace bpkg
   {
     using protocol = url_parts::protocol;
 
+    // Check if the location starts with the specified schema. The argument
+    // must be in the lower case (we don't use str[n]casecmp() since it's not
+    // portable).
+    //
+    auto schema = [&location](const char* s) -> bool
+    {
+      size_t i (0);
+      for (; s[i] != '\0' && s[i] == lowercase (location[i]); ++i) ;
+      return s[i] == '\0';
+    };
+
     optional<protocol> p;
-    if (strncasecmp (location.c_str (), "http://", 7) == 0)
+    if (schema ("http://"))
       p = protocol::http;
-    else if (strncasecmp (location.c_str (), "https://", 8) == 0)
+    else if (schema ("https://"))
       p = protocol::https;
 
     return p;
