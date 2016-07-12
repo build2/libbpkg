@@ -5,5 +5,5 @@
 d = manifest-parser/ manifest-serializer/ manifest-roundtrip/ manifest/ \
     package-version/ repository-location/
 
-.: $d
+./: $d
 include $d
