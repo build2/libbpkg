@@ -3,10 +3,9 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <cassert>
-#include <fstream>
 #include <iostream>
 
-#include <butl/fdstream> // stdout_mode()
+#include <butl/fdstream>
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
@@ -26,13 +25,10 @@ main (int argc, char* argv[])
 
   try
   {
-    ifstream ifs;
-    ifs.exceptions (ifstream::badbit | ifstream::failbit);
-    ifs.open (argv[1]);
-
+    ifdstream ifs (argv[1]);
     manifest_parser p (ifs, argv[1]);
 
-    stdout_fdmode (fdtranslate::binary); // Write in binary mode.
+    stdout_fdmode (fdstream_mode::binary); // Write in binary mode.
     manifest_serializer s (cout, "stdout");
 
     for (bool eom (true), eos (false); !eos; )
@@ -49,11 +45,6 @@ main (int argc, char* argv[])
 
       s.next (nv.name, nv.value);
     }
-  }
-  catch (const ios_base::failure&)
-  {
-    cerr << "io failure" << endl;
-    return 1;
   }
   catch (const exception& e)
   {

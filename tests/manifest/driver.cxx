@@ -3,10 +3,9 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <cassert>
-#include <fstream>
 #include <iostream>
 
-#include <butl/fdstream> // stdout_mode()
+#include <butl/fdstream>
 
 #include <bpkg/manifest>
 #include <bpkg/manifest-parser>
@@ -27,10 +26,7 @@ main (int argc, char* argv[])
 
   try
   {
-    ifstream ifs;
-    ifs.exceptions (ifstream::badbit | ifstream::failbit);
-    ifs.open (argv[1]);
-
+    ifdstream ifs (argv[1]);
     manifest_parser p (ifs, argv[1]);
 
 #ifdef TEST_PACKAGES
@@ -41,15 +37,9 @@ main (int argc, char* argv[])
     signature_manifest ms (p);
 #endif
 
-
-    stdout_fdmode (fdtranslate::binary); // Write in binary mode.
+    stdout_fdmode (fdstream_mode::binary); // Write in binary mode.
     manifest_serializer s (cout, "stdout");
     ms.serialize (s);
-  }
-  catch (const ios_base::failure&)
-  {
-    cerr << "io failure" << endl;
-    return 1;
   }
   catch (const exception& e)
   {
