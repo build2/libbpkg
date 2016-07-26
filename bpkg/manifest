@@ -16,6 +16,8 @@
 #include <butl/path>
 #include <butl/optional>
 
+#include <bpkg/export>
+
 namespace bpkg
 {
   class manifest_parser;
@@ -24,7 +26,7 @@ namespace bpkg
 
   using strings = std::vector<std::string>;
 
-  class version
+  class LIBBPKG_EXPORT version
   {
   public:
     // Let's keep the members in the order they appear in the string
@@ -122,7 +124,7 @@ namespace bpkg
     }
 
   private:
-    struct data_type
+    struct LIBBPKG_EXPORT data_type
     {
       enum class parse {full, upstream, release};
 
@@ -173,7 +175,7 @@ namespace bpkg
   // change
   // change-file
   //
-  class text_file
+  class LIBBPKG_EXPORT text_file
   {
   public:
     using path_type = butl::path;
@@ -245,7 +247,7 @@ namespace bpkg
 
   // depends
   //
-  struct dependency_constraint
+  struct LIBBPKG_EXPORT dependency_constraint
   {
     butl::optional<version> min_version;
     butl::optional<version> max_version;
@@ -264,7 +266,7 @@ namespace bpkg
     empty () const noexcept {return !min_version && !max_version;}
   };
 
-  std::ostream&
+  LIBBPKG_EXPORT std::ostream&
   operator<< (std::ostream&, const dependency_constraint&);
 
   inline bool
@@ -286,7 +288,7 @@ namespace bpkg
     butl::optional<dependency_constraint> constraint;
   };
 
-  std::ostream&
+  LIBBPKG_EXPORT std::ostream&
   operator<< (std::ostream&, const dependency&);
 
   class dependency_alternatives: public std::vector<dependency>
@@ -300,7 +302,7 @@ namespace bpkg
         : conditional (d), comment (std::move (c)) {}
   };
 
-  std::ostream&
+  LIBBPKG_EXPORT std::ostream&
   operator<< (std::ostream&, const dependency_alternatives&);
 
   // requires
@@ -316,7 +318,7 @@ namespace bpkg
         : conditional (d), comment (std::move (c)) {}
   };
 
-  class package_manifest
+  class LIBBPKG_EXPORT package_manifest
   {
   public:
     using version_type = bpkg::version;
@@ -345,6 +347,8 @@ namespace bpkg
     butl::optional<std::string> sha256sum;
 
   public:
+    package_manifest () = default; // VC export.
+
     // Create individual package manifest.
     //
     package_manifest (manifest_parser&, bool ignore_unknown = false);
@@ -365,7 +369,7 @@ namespace bpkg
                       bool ignore_unknown);
   };
 
-  class package_manifests: public std::vector<package_manifest>
+  class LIBBPKG_EXPORT package_manifests: public std::vector<package_manifest>
   {
   public:
     using base_type = std::vector<package_manifest>;
@@ -384,7 +388,7 @@ namespace bpkg
     serialize (manifest_serializer&) const;
   };
 
-  class repository_location
+  class LIBBPKG_EXPORT repository_location
   {
   public:
     // Create a special empty repository_location.
@@ -527,7 +531,7 @@ namespace bpkg
     complement
   };
 
-  class repository_manifest
+  class LIBBPKG_EXPORT repository_manifest
   {
   public:
     using email_type = bpkg::email;
@@ -566,6 +570,7 @@ namespace bpkg
     effective_url (const repository_location&) const;
 
   public:
+    repository_manifest () = default; // VC export.
     repository_manifest (manifest_parser&, bool ignore_unknown = false);
     repository_manifest (manifest_parser&,
                          manifest_name_value start,
@@ -575,7 +580,8 @@ namespace bpkg
     serialize (manifest_serializer&) const;
   };
 
-  class repository_manifests: public std::vector<repository_manifest>
+  class LIBBPKG_EXPORT repository_manifests:
+    public std::vector<repository_manifest>
   {
   public:
     using base_type = std::vector<repository_manifest>;
@@ -589,7 +595,7 @@ namespace bpkg
     serialize (manifest_serializer&) const;
   };
 
-  class signature_manifest
+  class LIBBPKG_EXPORT signature_manifest
   {
   public:
     // Checksum of the corresponding package_manifests.

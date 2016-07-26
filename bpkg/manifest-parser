@@ -12,9 +12,11 @@
 
 #include <butl/char-scanner>
 
+#include <bpkg/export>
+
 namespace bpkg
 {
-  class manifest_parsing: public std::runtime_error
+  class LIBBPKG_EXPORT manifest_parsing: public std::runtime_error
   {
   public:
     manifest_parsing (const std::string& name,
@@ -44,7 +46,7 @@ namespace bpkg
     empty () const {return name.empty () && value.empty ();}
   };
 
-  class manifest_parser: protected butl::char_scanner
+  class LIBBPKG_EXPORT manifest_parser: protected butl::char_scanner
   {
   public:
     manifest_parser (std::istream& is, const std::string& name)

@@ -10,9 +10,11 @@
 #include <cstddef>   // size_t
 #include <stdexcept> // runtime_error
 
+#include <bpkg/export>
+
 namespace bpkg
 {
-  class manifest_serialization: public std::runtime_error
+  class LIBBPKG_EXPORT manifest_serialization: public std::runtime_error
   {
   public:
     manifest_serialization (const std::string& name,
@@ -22,7 +24,7 @@ namespace bpkg
     std::string description;
   };
 
-  class manifest_serializer
+  class LIBBPKG_EXPORT manifest_serializer
   {
   public:
     manifest_serializer (std::ostream& os, const std::string& name)
