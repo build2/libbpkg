@@ -17,6 +17,7 @@
 
 #include <butl/path>
 #include <butl/base64>
+#include <butl/utility> // casecmp(), lcase(), alpha(), digit()
 
 #include <bpkg/manifest-parser>
 #include <bpkg/manifest-serializer>
@@ -47,18 +48,6 @@ namespace bpkg
   }
 
   inline static bool
-  digit (char c) noexcept
-  {
-    return c >= '0' && c <= '9';
-  }
-
-  inline static bool
-  alpha (char c) noexcept
-  {
-    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-  }
-
-  inline static bool
   valid_sha256 (const string& s) noexcept
   {
     if (s.size () != 64)
@@ -71,15 +60,6 @@ namespace bpkg
     }
 
     return true;
-  }
-
-  // Replace std::tolower to keep things locale independent.
-  //
-  inline static char
-  lowercase (char c) noexcept
-  {
-    const unsigned char shift ('a' - 'A');
-    return c >= 'A' && c <='Z' ? c + shift : c;
   }
 
   // Resize v up to ';', return what goes after ';'.
@@ -249,10 +229,7 @@ namespace bpkg
         zo = stoul (c) == 0;
       }
       else
-      {
-        for (const char* i (begin); i != end; ++i)
-          append (1, lowercase (*i));
-      }
+        append (lcase (begin, end - begin));
 
       if (!zo)
         len_ = size ();
@@ -1385,21 +1362,10 @@ namespace bpkg
   {
     using protocol = url_parts::protocol;
 
-    // Check if the location starts with the specified schema. The argument
-    // must be in the lower case (we don't use str[n]casecmp() since it's not
-    // portable).
-    //
-    auto schema = [&location](const char* s) -> bool
-    {
-      size_t i (0);
-      for (; s[i] != '\0' && s[i] == lowercase (location[i]); ++i) ;
-      return s[i] == '\0';
-    };
-
     optional<protocol> p;
-    if (schema ("http://"))
+    if (casecmp (location, "http://", 7) == 0)
       p = protocol::http;
-    else if (schema ("https://"))
+    else if (casecmp (location, "https://", 8) == 0)
       p = protocol::https;
 
     return p;
@@ -1450,7 +1416,7 @@ namespace bpkg
     transform (s.cbegin () + host_offset,
                p == string::npos ? s.cend () : s.cbegin () + p,
                back_inserter (host),
-               lowercase);
+               static_cast<char (*) (char)> (lcase));
 
     // Validate host name according to "2.3.1. Preferred name syntax" and
     // "2.3.4. Size limits" of https://tools.ietf.org/html/rfc1035.
