@@ -13,14 +13,12 @@ lib{bpkg}:                               \
 $libs
 
 cxx.poptions =+ -I$src_root
-
-lib{bpkg}: cxx.export.poptions = -I$src_root
-
-liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
-libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
-
 obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBPKG_SHARED_BUILD
+
+lib{bpkg}: cxx.export.poptions = -I$src_root
+liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
+libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
 # Install into the bpkg/ subdirectory of, say, /usr/include/.
 #
