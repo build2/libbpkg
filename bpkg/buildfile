@@ -22,4 +22,4 @@ libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
 # Install into the bpkg/ subdirectory of, say, /usr/include/.
 #
-install.include = $install.include/bpkg
+install.include = $install.include/bpkg/
