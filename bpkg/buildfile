@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs += libbutl%lib{butl}
+import int_libs = libbutl%lib{butl}
 
 lib{bpkg}:                               \
 {hxx            }{ export              } \
@@ -10,13 +10,15 @@ lib{bpkg}:                               \
 {hxx         cxx}{ manifest-parser     } \
 {hxx         cxx}{ manifest-serializer } \
 {hxx            }{ version             } \
-$libs
+                   $int_libs
 
 cxx.poptions =+ -I$src_root
 obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBPKG_SHARED_BUILD
 
 lib{bpkg}: cxx.export.poptions = -I$src_root
+lib{bpkg}: cxx.export.libs = $int_libs
+
 liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
 libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
