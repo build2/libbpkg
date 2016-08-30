@@ -6,4 +6,6 @@ d = bpkg/ tests/
 ./: $d doc{LICENSE NEWS README version} file{manifest}
 include $d
 
-doc{INSTALL*}: install = false
+# Don't install tests.
+#
+dir{tests/}: install = false
