@@ -3,9 +3,10 @@
 # license   : MIT; see accompanying LICENSE file
 
 d = bpkg/ tests/
-./: $d doc{LICENSE NEWS README version} file{manifest}
+./: $d doc{INSTALL LICENSE NEWS README version} file{manifest}
 include $d
 
-# Don't install tests.
+# Don't install tests or the INSTALL file.
 #
 dir{tests/}: install = false
+doc{INSTALL}@./: install = false
