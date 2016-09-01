@@ -237,6 +237,16 @@ main (int argc, char* argv[])
       assert (l.canonical_name () == "aa/bb");
     }
     {
+      repository_location l ("/var/bpkg/1", repository_location ());
+      assert (l.string () == "/var/bpkg/1");
+      assert (l.canonical_name () == "/var/bpkg");
+    }
+    {
+      repository_location l ("/1", repository_location ());
+      assert (l.string () == "/1");
+      assert (l.canonical_name () == "/");
+    }
+    {
       repository_location l ("/var/pkg/1/example.org/math/testing",
                              repository_location ());
       assert (l.string () == "/var/pkg/1/example.org/math/testing");

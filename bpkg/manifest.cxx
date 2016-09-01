@@ -1682,6 +1682,13 @@ namespace bpkg
      dir_path sp (strip_path (
        path_, remote () ? strip_mode::component : strip_mode::path));
 
+     // If for an absolute path location the stripping result is empty (which
+     // also means <path> part is empty as well) then fallback to stripping
+     // just the version component.
+     //
+     if (absolute () && sp.empty ())
+       sp = strip_path (path_, strip_mode::version);
+
      string cp (sp.relative () ? sp.posix_string () : sp.string ());
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
