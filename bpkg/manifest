@@ -295,11 +295,12 @@ namespace bpkg
   {
   public:
     bool conditional;
+    bool buildtime;
     std::string comment;
 
-    explicit
-    dependency_alternatives (bool d = false, std::string c = "")
-        : conditional (d), comment (std::move (c)) {}
+    dependency_alternatives () = default;
+    dependency_alternatives (bool d, bool b, std::string c)
+        : conditional (d), buildtime (b), comment (std::move (c)) {}
   };
 
   LIBBPKG_EXPORT std::ostream&
@@ -311,11 +312,12 @@ namespace bpkg
   {
   public:
     bool conditional;
+    bool buildtime;
     std::string comment;
 
-    explicit
-    requirement_alternatives (bool d = false, std::string c = "")
-        : conditional (d), comment (std::move (c)) {}
+    requirement_alternatives () = default;
+    requirement_alternatives (bool d, bool b, std::string c)
+        : conditional (d), buildtime (b), comment (std::move (c)) {}
   };
 
   class LIBBPKG_EXPORT package_manifest

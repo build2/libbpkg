@@ -20,6 +20,9 @@ email: build-users@codesynthesis.com; Public mailing list, posts by\
  non-members are allowed but moderated.
 package-email: boris@codesynthesis.com; Direct email to the author.
 depends: libbutl
+depends: * build2
+depends: ?* bpkg
+requires: ?* linux | windows
 requires: c++11
 :
 path: c:\windows\\

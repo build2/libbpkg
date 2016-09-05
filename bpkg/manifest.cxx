@@ -618,7 +618,13 @@ namespace bpkg
   operator<< (ostream& o, const dependency_alternatives& as)
   {
     if (as.conditional)
-      o << "? ";
+      o << '?';
+
+    if (as.buildtime)
+      o << '*';
+
+    if (as.conditional || as.buildtime)
+      o << ' ';
 
     bool f (true);
     for (const dependency& a: as)
@@ -875,14 +881,19 @@ namespace bpkg
       }
       else if (n == "requires")
       {
-        bool cond (!v.empty () && v[0] == '?');
-        requirement_alternatives ra (cond, split_comment (v));
+        // Allow specifying ?* in any order.
+        //
+        size_t m (v.size ());
+        size_t cond ((m > 0 && v[0] == '?') || (m > 1 && v[1] == '?') ? 1 : 0);
+        size_t btim ((m > 0 && v[0] == '*') || (m > 1 && v[1] == '*') ? 1 : 0);
+
+        requirement_alternatives ra (cond != 0, btim != 0, split_comment (v));
         string::const_iterator b (v.begin ());
         string::const_iterator e (v.end ());
 
-        if (ra.conditional)
+        if (ra.conditional || ra.buildtime)
         {
-          string::size_type p (v.find_first_not_of (spaces, 1));
+          string::size_type p (v.find_first_not_of (spaces, cond + btim));
           b = p == string::npos ? e : b + p;
         }
 
@@ -897,14 +908,19 @@ namespace bpkg
       }
       else if (n == "depends")
       {
-        bool cond (!v.empty () && v[0] == '?');
-        dependency_alternatives da (cond, split_comment (v));
+        // Allow specifying ?* in any order.
+        //
+        size_t m (v.size ());
+        size_t cond ((m > 0 && v[0] == '?') || (m > 1 && v[1] == '?') ? 1 : 0);
+        size_t btim ((m > 0 && v[0] == '*') || (m > 1 && v[1] == '*') ? 1 : 0);
+
+        dependency_alternatives da (cond != 0, btim != 0, split_comment (v));
         string::const_iterator b (v.begin ());
         string::const_iterator e (v.end ());
 
-        if (da.conditional)
+        if (da.conditional || da.buildtime)
         {
-          string::size_type p (v.find_first_not_of (spaces, 1));
+          string::size_type p (v.find_first_not_of (spaces, cond + btim));
           b = p == string::npos ? e : b + p;
         }
 
@@ -1227,14 +1243,20 @@ namespace bpkg
       s.next ("package-email",
               add_comment (*package_email, package_email->comment));
 
+
+
     for (const auto& d: dependencies)
       s.next ("depends",
-              (d.conditional ? "? " : "") +
+              (d.conditional
+               ? (d.buildtime ? "?* " : "? ")
+               : (d.buildtime ? "* " : "")) +
               add_comment (concatenate (d, " | "), d.comment));
 
     for (const auto& r: requirements)
       s.next ("requires",
-              (r.conditional ? "? " : "") +
+              (r.conditional
+               ? (r.buildtime ? "?* " : "? ")
+               : (r.buildtime ? "* " : "")) +
               add_comment (concatenate (r, " | "), r.comment));
 
     if (location)
