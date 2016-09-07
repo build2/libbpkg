@@ -4,6 +4,9 @@ Version 0.4.0
 
   * Add repository_manifest::certificate.
 
+  * When calculating repository canonical name, do not strip the prefix if
+    the resulting name will be empty (e.g., /var/bpkg/1).
+
 Version 0.3.0
 
   * Reimplement *-file manifest values as C++11 unions.
