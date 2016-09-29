@@ -15,15 +15,12 @@
 
 #include <butl/path>
 #include <butl/optional>
+#include <butl/manifest-forward>
 
 #include <bpkg/export>
 
 namespace bpkg
 {
-  class manifest_parser;
-  class manifest_serializer;
-  class manifest_name_value;
-
   using strings = std::vector<std::string>;
 
   class LIBBPKG_EXPORT version
@@ -353,20 +350,20 @@ namespace bpkg
 
     // Create individual package manifest.
     //
-    package_manifest (manifest_parser&, bool ignore_unknown = false);
+    package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
     // Create an element of the package list manifest.
     //
-    package_manifest (manifest_parser&,
-                      manifest_name_value start,
+    package_manifest (butl::manifest_parser&,
+                      butl::manifest_name_value start,
                       bool ignore_unknown = false);
 
     void
-    serialize (manifest_serializer&) const;
+    serialize (butl::manifest_serializer&) const;
 
   private:
-    package_manifest (manifest_parser&,
-                      manifest_name_value start,
+    package_manifest (butl::manifest_parser&,
+                      butl::manifest_name_value start,
                       bool in_list,
                       bool ignore_unknown);
   };
@@ -384,10 +381,10 @@ namespace bpkg
 
   public:
     package_manifests () = default;
-    package_manifests (manifest_parser&, bool ignore_unknown = false);
+    package_manifests (butl::manifest_parser&, bool ignore_unknown = false);
 
     void
-    serialize (manifest_serializer&) const;
+    serialize (butl::manifest_serializer&) const;
   };
 
   class LIBBPKG_EXPORT repository_location
@@ -573,13 +570,13 @@ namespace bpkg
 
   public:
     repository_manifest () = default; // VC export.
-    repository_manifest (manifest_parser&, bool ignore_unknown = false);
-    repository_manifest (manifest_parser&,
-                         manifest_name_value start,
+    repository_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+    repository_manifest (butl::manifest_parser&,
+                         butl::manifest_name_value start,
                          bool ignore_unknown = false);
 
     void
-    serialize (manifest_serializer&) const;
+    serialize (butl::manifest_serializer&) const;
   };
 
   class LIBBPKG_EXPORT repository_manifests:
@@ -591,10 +588,10 @@ namespace bpkg
     using base_type::base_type;
 
     repository_manifests () = default;
-    repository_manifests (manifest_parser&, bool ignore_unknown = false);
+    repository_manifests (butl::manifest_parser&, bool ignore_unknown = false);
 
     void
-    serialize (manifest_serializer&) const;
+    serialize (butl::manifest_serializer&) const;
   };
 
   class LIBBPKG_EXPORT signature_manifest
@@ -612,12 +609,12 @@ namespace bpkg
 
   public:
     signature_manifest () = default;
-    signature_manifest (manifest_parser&, bool ignore_unknown = false);
+    signature_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
     // Serialize sha256sum and base64-encoded representation of the signature.
     //
     void
-    serialize (manifest_serializer&) const;
+    serialize (butl::manifest_serializer&) const;
 
   private:
     // Used for delegating in public constructor. Strictly speaking is not
@@ -625,8 +622,8 @@ namespace bpkg
     // a manifest list, but kept for the consistency with other manifests
     // implementations.
     //
-    signature_manifest (manifest_parser&,
-                        manifest_name_value start,
+    signature_manifest (butl::manifest_parser&,
+                        butl::manifest_name_value start,
                         bool ignore_unknown);
   };
 }

@@ -18,9 +18,8 @@
 #include <butl/path>
 #include <butl/base64>
 #include <butl/utility> // casecmp(), lcase(), alpha(), digit()
-
-#include <bpkg/manifest-parser>
-#include <bpkg/manifest-serializer>
+#include <butl/manifest-parser>
+#include <butl/manifest-serializer>
 
 using namespace std;
 using namespace butl;

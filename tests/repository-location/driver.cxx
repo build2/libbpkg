@@ -10,9 +10,9 @@
 #include <stdexcept> // invalid_argument
 
 #include <butl/optional>
+#include <butl/manifest-parser>
 
 #include <bpkg/manifest>
-#include <bpkg/manifest-parser>
 
 using namespace std;
 using namespace butl;

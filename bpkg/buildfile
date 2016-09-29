@@ -7,8 +7,6 @@ import int_libs = libbutl%lib{butl}
 lib{bpkg}:                               \
 {hxx            }{ export              } \
 {hxx         cxx}{ manifest            } \
-{hxx         cxx}{ manifest-parser     } \
-{hxx         cxx}{ manifest-serializer } \
 {hxx            }{ version             } \
                    $int_libs
 

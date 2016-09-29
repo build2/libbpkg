@@ -6,10 +6,10 @@
 #include <iostream>
 
 #include <butl/fdstream>
+#include <butl/manifest-parser>
+#include <butl/manifest-serializer>
 
 #include <bpkg/manifest>
-#include <bpkg/manifest-parser>
-#include <bpkg/manifest-serializer>
 
 using namespace std;
 using namespace butl;

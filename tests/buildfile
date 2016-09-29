@@ -2,8 +2,7 @@
 # copyright : Copyright (c) 2014-2016 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-d = manifest-parser/ manifest-serializer/ manifest-roundtrip/ manifest/ \
-    package-version/ repository-location/
+d = manifest/ package-version/ repository-location/
 
 ./: $d
 include $d
