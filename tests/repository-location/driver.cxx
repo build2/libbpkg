@@ -133,7 +133,6 @@ main (int argc, char* argv[])
     assert (bad_location ("1/.."));
     assert (bad_location ("bbb"));
     assert (bad_location ("aaa/bbb"));
-    assert (bad_location ("/aaa/bbb"));
     assert (bad_location ("http://aa"));
     assert (bad_location ("https://aa"));
     assert (bad_location ("http://aa/"));
@@ -142,6 +141,12 @@ main (int argc, char* argv[])
     assert (bad_location ("http://aa/bb"));
     assert (bad_location ("http://a.com/../c/1/aa"));
     assert (bad_location ("http://a.com/a/b/../../../c/1/aa"));
+
+#ifndef _WIN32
+    assert (bad_location ("/aaa/bbb"));
+#else
+    assert (bad_location ("c:\\aaa\\bbb"));
+#endif
 
     // Invalid version.
     //
@@ -156,6 +161,11 @@ main (int argc, char* argv[])
                                                repository_location ())));
 
     assert (bad_location ("../../../1/math",
+                          repository_location (
+                            "http://stable.cppget.org/1/misc")));
+
+
+    assert (bad_location ("../..",
                           repository_location (
                             "http://stable.cppget.org/1/misc")));
 
@@ -223,6 +233,11 @@ main (int argc, char* argv[])
     {
       repository_location l ("b/pkg/1/aa/bb", repository_location ());
       assert (l.string () == "b/pkg/1/aa/bb");
+      assert (l.canonical_name ().empty ());
+    }
+    {
+      repository_location l ("aa/..", repository_location ());
+      assert (l.string () == ".");
       assert (l.canonical_name ().empty ());
     }
 #ifndef _WIN32
@@ -425,6 +440,18 @@ main (int argc, char* argv[])
       repository_location l2 ("../math", l1);
       assert (l2.string () == "http://stable.cppget.org/1/math");
       assert (l2.canonical_name () == "stable.cppget.org/math");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 ("math/..", l1);
+      assert (l2.string () == "http://stable.cppget.org/1/misc");
+      assert (l2.canonical_name () == "stable.cppget.org/misc");
+    }
+    {
+      repository_location l1 ("http://stable.cppget.org/1/misc");
+      repository_location l2 (".", l1);
+      assert (l2.string () == "http://stable.cppget.org/1/misc");
+      assert (l2.canonical_name () == "stable.cppget.org/misc");
     }
     {
       repository_location l1 ("http://www.stable.cppget.org:8080/1");

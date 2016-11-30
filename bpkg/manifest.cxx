@@ -1675,9 +1675,8 @@ namespace bpkg
     }
 
     // Need to check path for emptiness before proceeding further as a valid
-    // non empty location can not have an empty path_ member. Note that path
-    // can become empty as a result of normalize () call. Example of such a
-    // path is 'a/..'.
+    // non empty location can not have an empty path_ member (which can be the
+    // case for the remote location, but not for the relative or absolute).
     //
     if (path_.empty ())
       throw invalid_argument ("empty path");
@@ -2017,13 +2016,14 @@ namespace bpkg
     //
     dir_path ipath (
       strip_path (
-        u.path, strip_p ? strip_mode::component : strip_mode::version) / rpath);
+        u.path,
+        strip_p ? strip_mode::component : strip_mode::version) / rpath);
 
     static const char* invalid_location ("invalid repository location");
 
     try
     {
-      ipath.normalize ();
+      ipath.normalize (false, true); // Current dir collapses to an empty one.
     }
     catch (const invalid_path&)
     {
