@@ -9,6 +9,7 @@
 #include <exception>
 #include <stdexcept> // invalid_argument
 
+#include <butl/utility>  // operator<<(ostream, exception)
 #include <butl/optional>
 
 #include <bpkg/manifest>
@@ -332,7 +333,7 @@ main (int argc, char* argv[])
   }
   catch (const exception& e)
   {
-    cerr << e.what () << endl;
+    cerr << e << endl;
     return 1;
   }
 }
