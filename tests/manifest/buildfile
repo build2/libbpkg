@@ -2,31 +2,8 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-#exe{driver}: cxx{driver} ../../bpkg/lib{bpkg}
-#exe{driver}: test.roundtrip = manifest
-
-# @@ Hack until build2 supports multiple tests. Also remove .gitignore.
-#
-./: exe{pdriver} exe{rdriver} exe{sdriver}
-
-exe{pdriver}: obj{pdriver}
-exe{pdriver}: test.roundtrip = packages
-
-exe{rdriver}: obj{rdriver}
-exe{rdriver}: test.roundtrip = repositories
-
-exe{sdriver}: obj{sdriver}
-exe{sdriver}: test.roundtrip = signature
-
-obj{pdriver rdriver sdriver}: cxx{driver}
-
 import libs += libbutl%lib{butl}
 
-exe{pdriver rdriver sdriver} obj{pdriver rdriver sdriver}: \
-  ../../bpkg/lib{bpkg} $libs
-
-obj{pdriver}: cxx.poptions += -DTEST_PACKAGES
-obj{rdriver}: cxx.poptions += -DTEST_REPOSITORIES
-obj{sdriver}: cxx.poptions += -DTEST_SIGNATURE
+exe{driver}: cxx{driver} ../../bpkg/lib{bpkg} $libs test{testscript}
 
 include ../../bpkg/

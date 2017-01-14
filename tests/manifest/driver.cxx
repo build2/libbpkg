@@ -2,11 +2,11 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <ios>      // ios_base::failbit, ios_base::badbit
+#include <string>
 #include <cassert>
 #include <iostream>
 
-#include <butl/utility>             // operator<<(ostream, exception)
-#include <butl/fdstream>
 #include <butl/manifest-parser>
 #include <butl/manifest-serializer>
 
@@ -19,32 +19,35 @@ using namespace bpkg;
 int
 main (int argc, char* argv[])
 {
-  if (argc != 2)
-  {
-    cerr << "usage: " << argv[0] << " <file>" << endl;
-    return 1;
-  }
+  // Usage: driver (-p|-r|-s)
+  //
+  // Read and parse manifest from STDIN and serialize it to STDOUT. The
+  // following options specify the manifest type.
+  //
+  // -p
+  //    Parse package manifest list.
+  //
+  // -r
+  //    Parse repository manifest list.
+  //
+  // -s
+  //    Parse signature manifest.
+  //
+  assert (argc == 2);
+  string opt (argv[1]);
 
-  try
-  {
-    ifdstream ifs (argv[1]);
-    manifest_parser p (ifs, argv[1]);
+  cin.exceptions  (ios_base::failbit | ios_base::badbit);
+  cout.exceptions (ios_base::failbit | ios_base::badbit);
 
-#ifdef TEST_PACKAGES
-    package_manifests ms (p);
-#elif TEST_REPOSITORIES
-    repository_manifests ms (p);
-#else
-    signature_manifest ms (p);
-#endif
+  manifest_parser     p (cin,  "stdin");
+  manifest_serializer s (cout, "stdout");
 
-    stdout_fdmode (fdstream_mode::binary); // Write in binary mode.
-    manifest_serializer s (cout, "stdout");
-    ms.serialize (s);
-  }
-  catch (const exception& e)
-  {
-    cerr << e << endl;
-    return 1;
-  }
+  if (opt == "-p")
+    package_manifests (p).serialize (s);
+  else if (opt == "-r")
+    repository_manifests (p).serialize (s);
+  else if (opt == "-s")
+    signature_manifest (p).serialize (s);
+  else
+    assert (false);
 }
