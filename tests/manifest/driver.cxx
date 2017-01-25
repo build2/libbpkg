@@ -16,23 +16,18 @@ using namespace std;
 using namespace butl;
 using namespace bpkg;
 
+// Usage: argv[0] (-p|-r|-s)
+//
+// Read and parse manifest from STDIN and serialize it to STDOUT. The
+// following options specify the manifest type.
+//
+// -p  parse package manifest list
+// -r  parse repository manifest list
+// -s  parse signature manifest
+//
 int
 main (int argc, char* argv[])
 {
-  // Usage: driver (-p|-r|-s)
-  //
-  // Read and parse manifest from STDIN and serialize it to STDOUT. The
-  // following options specify the manifest type.
-  //
-  // -p
-  //    Parse package manifest list.
-  //
-  // -r
-  //    Parse repository manifest list.
-  //
-  // -s
-  //    Parse signature manifest.
-  //
   assert (argc == 2);
   string opt (argv[1]);
 
