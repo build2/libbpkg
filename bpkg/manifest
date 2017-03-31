@@ -23,6 +23,8 @@ namespace bpkg
 {
   using strings = std::vector<std::string>;
 
+  // @@ Let's create <bpkg/types> with "basic" package types.
+  //
   class LIBBPKG_EXPORT version
   {
   public:

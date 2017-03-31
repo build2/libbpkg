@@ -705,7 +705,7 @@ namespace bpkg
         // used for version constrains rather than actual releases.
         //
         if (version.release && version.release->empty ())
-          bad_name ("invalid package version release");
+          bad_value ("invalid package version release");
       }
       else if (n == "summary")
       {
@@ -1241,8 +1241,6 @@ namespace bpkg
     if (package_email)
       s.next ("package-email",
               add_comment (*package_email, package_email->comment));
-
-
 
     for (const auto& d: dependencies)
       s.next ("depends",
@@ -2155,6 +2153,13 @@ namespace bpkg
       bad_value ("no sha256sum specified");
     else if (signature.empty ())
       bad_value ("no signature specified");
+
+    // Make sure this is the end.
+    //
+    nv = p.next ();
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single signature manifest expected");
   }
 
   void signature_manifest::
