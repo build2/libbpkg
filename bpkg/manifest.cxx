@@ -848,6 +848,15 @@ namespace bpkg
 
         package_email = email_type (move (v), move (c));
       }
+      else if (n == "build-email")
+      {
+        if (build_email)
+          bad_name ("build email redefinition");
+
+        string c (split_comment (v));
+
+        build_email = email_type (move (v), move (c));
+      }
       else if (n == "priority")
       {
         if (priority)
@@ -1241,6 +1250,10 @@ namespace bpkg
     if (package_email)
       s.next ("package-email",
               add_comment (*package_email, package_email->comment));
+
+    if (build_email)
+      s.next ("build-email",
+              add_comment (*build_email, build_email->comment));
 
     for (const auto& d: dependencies)
       s.next ("depends",

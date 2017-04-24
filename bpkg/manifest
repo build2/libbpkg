@@ -233,6 +233,7 @@ namespace bpkg
 
   // email
   // package-email
+  // build-email
   //
   class email: public std::string
   {
@@ -339,6 +340,7 @@ namespace bpkg
     butl::optional<url_type> package_url;
     email_type email;
     butl::optional<email_type> package_email;
+    butl::optional<email_type> build_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
 
