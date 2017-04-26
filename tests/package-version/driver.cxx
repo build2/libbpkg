@@ -82,9 +82,9 @@ main (int argc, char* argv[])
     assert (bad_version ("3.5+1+4"));       // Extra revision.
     assert (bad_version ("1~~2+3"));        // Duplicated epoch separator.
     assert (bad_version ("1~2++3"));        // Duplicated revision separator.
-    assert (bad_version ("a.394857391.3")); // Too long numeric component.
-    assert (bad_version ("a.000000000.3")); // Too long numeric zero component.
-    assert (bad_version ("1-a.000000000")); // Same.
+    assert (bad_version ("a.39485739122323231.3")); // Too long component.
+    assert (bad_version ("a.00000000000000000.3")); // Too long zero component.
+    assert (bad_version ("1-a.00000000000000000")); // Same.
     assert (bad_version ("65536~q.3"));     // Too big epoch.
     assert (bad_version ("1+q+65536"));     // Too big revision.
     assert (bad_version ("3.5~1.4"));       // Components in epoch.
@@ -157,7 +157,7 @@ main (int argc, char* argv[])
     {
       version v ("1");
       assert (v.string () == "1");
-      assert (v.canonical_upstream == "00000001");
+      assert (v.canonical_upstream == "0000000000000001");
       assert (test_constructor (v));
     }
 
@@ -178,28 +178,28 @@ main (int argc, char* argv[])
     {
       version v ("1.0.0");
       assert (v.string () == "1.0.0");
-      assert (v.canonical_upstream == "00000001");
+      assert (v.canonical_upstream == "0000000000000001");
       assert (test_constructor (v));
     }
 
     {
       version v ("0.1.00");
       assert (v.string () == "0.1.00");
-      assert (v.canonical_upstream == "00000000.00000001");
+      assert (v.canonical_upstream == "0000000000000000.0000000000000001");
       assert (test_constructor (v));
     }
 
     {
       version v ("0.0a.00");
       assert (v.string () == "0.0a.00");
-      assert (v.canonical_upstream == "00000000.0a");
+      assert (v.canonical_upstream == "0000000000000000.0a");
       assert (test_constructor (v));
     }
 
     {
       version v ("0.a00.00");
       assert (v.string () == "0.a00.00");
-      assert (v.canonical_upstream == "00000000.a00");
+      assert (v.canonical_upstream == "0000000000000000.a00");
       assert (test_constructor (v));
     }
 
@@ -227,7 +227,8 @@ main (int argc, char* argv[])
     {
       version v ("3~1A.31.0.4.0+7");
       assert (v.string () == "3~1A.31.0.4.0+7");
-      assert (v.canonical_upstream == "1a.00000031.00000000.00000004");
+      assert (v.canonical_upstream ==
+              "1a.0000000000000031.0000000000000000.0000000000000004");
       assert (test_constructor (v));
     }
 
@@ -259,7 +260,7 @@ main (int argc, char* argv[])
       version v ("1~A-1.2.3B.00+0");
       assert (v.string () == "1~A-1.2.3B.00");
       assert (v.release && *v.release == "1.2.3B.00");
-      assert (v.canonical_release == "00000001.00000002.3b");
+      assert (v.canonical_release == "0000000000000001.0000000000000002.3b");
       assert (test_constructor (v));
     }
 

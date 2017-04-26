@@ -218,10 +218,10 @@ namespace bpkg
       bool zo (false); // Digit-only zero component.
       if (numeric)
       {
-        if (end - begin > 8)
-          throw invalid_argument ("8 digits maximum allowed in a component");
+        if (end - begin > 16)
+          throw invalid_argument ("16 digits maximum allowed in a component");
 
-        append (8 - (end - begin), '0'); // Add padding zeros.
+        append (16 - (end - begin), '0'); // Add padding zeros.
 
         string c (begin, end);
         append (c);
