@@ -596,7 +596,7 @@ namespace bpkg
       return o << (c.min_open ? "> " : ">= ") << *c.min_version;
 
     if (*c.min_version == *c.max_version)
-        return o << "== " << *c.min_version;
+      return o << "== " << *c.min_version;
 
     return o << (c.min_open ? '(' : '[') << *c.min_version << " "
              << *c.max_version << (c.max_open ? ')' : ']');
