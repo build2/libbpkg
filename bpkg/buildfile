@@ -10,13 +10,16 @@ lib{bpkg}:                               \
 {hxx            }{ version             } \
                    $int_libs
 
+hxx{version}: in{version} $src_root/file{manifest}
+hxx{version}: dist = true
+
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version.
 #
-if $abi_prerelease
-  lib{bpkg}: bin.lib.version = @-$version
+if $version.pre_release
+  lib{bpkg}: bin.lib.version = @"-$version.project_id"
 else
-  lib{bpkg}: bin.lib.version = @-$abi_major.$abi_minor
+  lib{bpkg}: bin.lib.version = @"-$version.major.$version.minor"
 
 cxx.poptions =+ "-I$src_root"
 obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
