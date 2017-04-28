@@ -21,11 +21,11 @@ if $version.pre_release
 else
   lib{bpkg}: bin.lib.version = @"-$version.major.$version.minor"
 
-cxx.poptions =+ "-I$src_root"
+cxx.poptions =+ "-I$out_root" "-I$src_root"
 obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBPKG_SHARED_BUILD
 
-lib{bpkg}: cxx.export.poptions = "-I$src_root"
+lib{bpkg}: cxx.export.poptions = "-I$out_root" "-I$src_root"
 liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
 libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
