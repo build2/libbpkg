@@ -9,9 +9,9 @@
 #include <exception>
 #include <stdexcept> // invalid_argument
 
-#include <butl/utility>         // operator<<(ostream, exception)
-#include <butl/optional>
-#include <butl/manifest-parser>
+#include <libbutl/utility.hxx>         // operator<<(ostream, exception)
+#include <libbutl/optional.hxx>
+#include <libbutl/manifest-parser.hxx>
 
 #include <libbpkg/manifest.hxx>
 

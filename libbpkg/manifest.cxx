@@ -15,11 +15,12 @@
 #include <algorithm> // find(), transform()
 #include <stdexcept> // invalid_argument
 
-#include <butl/path>
-#include <butl/base64>
-#include <butl/utility> // casecmp(), lcase(), alpha(), digit()
-#include <butl/manifest-parser>
-#include <butl/manifest-serializer>
+#include <libbutl/path.hxx>
+#include <libbutl/base64.hxx>
+#include <libbutl/utility.hxx>             // casecmp(), lcase(), alpha(),
+                                           // digit()
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
 
 using namespace std;
 using namespace butl;

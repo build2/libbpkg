@@ -13,9 +13,9 @@
 #include <utility>   // move()
 #include <stdexcept> // logic_error
 
-#include <butl/path>
-#include <butl/optional>
-#include <butl/manifest-forward>
+#include <libbutl/path.hxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/manifest-forward.hxx>
 
 #include <libbpkg/export.hxx>
 #include <libbpkg/version.hxx>
