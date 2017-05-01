@@ -13,7 +13,7 @@
 #include <butl/optional>
 #include <butl/manifest-parser>
 
-#include <bpkg/manifest>
+#include <libbpkg/manifest.hxx>
 
 using namespace std;
 using namespace butl;

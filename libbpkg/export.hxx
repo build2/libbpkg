@@ -1,9 +1,9 @@
-// file      : bpkg/export -*- C++ -*-
+// file      : libbpkg/export.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BPKG_EXPORT
-#define BPKG_EXPORT
+#ifndef LIBBPKG_EXPORT_HXX
+#define LIBBPKG_EXPORT_HXX
 
 // Normally we don't export class templates (but do complete specializations),
 // inline functions, and classes with only inline member functions. Exporting
@@ -38,4 +38,4 @@
 #  define LIBBPKG_EXPORT            // Using static or shared.
 #endif
 
-#endif // BPKG_EXPORT
+#endif // LIBBPKG_EXPORT_HXX

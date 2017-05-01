@@ -1,9 +1,9 @@
-// file      : bpkg/manifest -*- C++ -*-
+// file      : libbpkg/manifest.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BPKG_MANIFEST
-#define BPKG_MANIFEST
+#ifndef LIBBPKG_MANIFEST_HXX
+#define LIBBPKG_MANIFEST_HXX
 
 #include <string>
 #include <vector>
@@ -17,14 +17,14 @@
 #include <butl/optional>
 #include <butl/manifest-forward>
 
-#include <bpkg/export>
-#include <bpkg/version>
+#include <libbpkg/export.hxx>
+#include <libbpkg/version.hxx>
 
 namespace bpkg
 {
   using strings = std::vector<std::string>;
 
-  // @@ Let's create <bpkg/types> with "basic" package types.
+  // @@ Let's create <libbpkg/types.hxx> with "basic" package types.
   //
   class LIBBPKG_EXPORT version
   {
@@ -633,4 +633,4 @@ namespace bpkg
   };
 }
 
-#endif // BPKG_MANIFEST
+#endif // LIBBPKG_MANIFEST_HXX

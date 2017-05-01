@@ -1,8 +1,8 @@
-// file      : bpkg/manifest.cxx -*- C++ -*-
+// file      : libbpkg/manifest.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <bpkg/manifest>
+#include <libbpkg/manifest.hxx>
 
 #include <string>
 #include <ostream>

@@ -12,7 +12,7 @@
 #include <butl/utility>  // operator<<(ostream, exception)
 #include <butl/optional>
 
-#include <bpkg/manifest>
+#include <libbpkg/manifest.hxx>
 
 using namespace std;
 using namespace butl;

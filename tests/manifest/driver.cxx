@@ -10,7 +10,7 @@
 #include <butl/manifest-parser>
 #include <butl/manifest-serializer>
 
-#include <bpkg/manifest>
+#include <libbpkg/manifest.hxx>
 
 using namespace std;
 using namespace butl;

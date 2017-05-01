@@ -4,7 +4,7 @@
 
 $out_root/:
 {
-  include bpkg/
+  include libbpkg/
 }
 
-export $out_root/bpkg/lib{bpkg}
+export $out_root/libbpkg/lib{bpkg}

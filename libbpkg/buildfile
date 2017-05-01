@@ -1,4 +1,4 @@
-# file      : bpkg/buildfile
+# file      : libbpkg/buildfile
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
@@ -31,6 +31,6 @@ libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
 lib{bpkg}: cxx.export.libs = $int_libs
 
-# Install into the bpkg/ subdirectory of, say, /usr/include/.
+# Install into the libbpkg/ subdirectory of, say, /usr/include/.
 #
-install.include = $install.include/bpkg/
+install.include = $install.include/libbpkg/
