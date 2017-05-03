@@ -1,3 +1,9 @@
+Version 0.5.0
+
+  * Support for build-email value in package manifest.
+
+  * Maximum version component limit has been increased to 16 characters.
+
 Version 0.4.0
 
   * Add signature_manifest class.
