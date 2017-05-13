@@ -1210,7 +1210,7 @@ namespace bpkg
 
     if (priority)
     {
-      priority::value_type v (*priority);
+      size_t v (*priority);
       assert (v < priority_names.size ());
       s.next ("priority", add_comment (priority_names[v], priority->comment));
     }
