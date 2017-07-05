@@ -321,6 +321,33 @@ namespace bpkg
         : conditional (d), buildtime (b), comment (std::move (c)) {}
   };
 
+  class build_constraint
+  {
+  public:
+    // If true, then the package should not be built for matching
+    // configurations by automated build bots.
+    //
+    bool exclusion;
+
+    // Filesystem wildcard patterns for the build configuration name and
+    // target.
+    //
+    std::string config;
+    butl::optional<std::string> target;
+
+    std::string comment;
+
+    build_constraint () = default;
+    build_constraint (bool e,
+                      std::string n,
+                      butl::optional<std::string> t,
+                      std::string c)
+        : exclusion (e),
+          config (std::move (n)),
+          target (std::move (t)),
+          comment (std::move (c)) {}
+  };
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -344,6 +371,7 @@ namespace bpkg
     butl::optional<email_type> build_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
+    std::vector<build_constraint> build_constraints;
 
     // The following values are only valid in the manifest list.
     //

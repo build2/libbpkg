@@ -41,6 +41,9 @@
   requires: ? ; libc++ standard library if using Clang on Mac OS X.
   requires: zlib; Most Linux/UNIX systems already have one; or get it at\
    www.zlib.net.
+  build-exclude: *; Only supported on Linux and FreeBSD.
+  build-include: linux*
+  build-include: freebsd*
   location: libfoo-1.2.3+2.tar.bz2
   sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   :
@@ -53,6 +56,7 @@
   email: libbar-users@example.org
   build-email:
   depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
+  build-exclude: *-msvc_14*/i?86-*; Linker crash.
   location: bar/libbar-3.4A.5+6.tbz
   sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   :

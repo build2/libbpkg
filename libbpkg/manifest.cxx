@@ -673,6 +673,25 @@ namespace bpkg
     if (nv.value != "1")
       bad_value ("unsupported format version");
 
+    auto add_build_constraint = [&bad_value, this] (bool e, string&& v)
+    {
+      string c (split_comment (v));
+      size_t p (v.find ('/'));
+
+      string nm (p != string::npos ? v.substr (0, p) : move (v));
+      optional<string> tg (p != string::npos
+                           ? optional<string> (string (v, p + 1))
+                           : nullopt);
+
+      if (nm.empty ())
+        bad_value ("empty build configuration name pattern");
+
+      if (tg && tg->empty ())
+        bad_value ("empty build target pattern");
+
+      build_constraints.emplace_back (e, move (nm), move (tg), move (c));
+    };
+
     for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
@@ -914,6 +933,14 @@ namespace bpkg
           bad_value ("empty package requirement specification");
 
         requirements.push_back (move (ra));
+      }
+      else if (n == "build-include")
+      {
+        add_build_constraint (false, move (v));
+      }
+      else if (n == "build-exclude")
+      {
+        add_build_constraint (true, move (v));
       }
       else if (n == "depends")
       {
@@ -1269,6 +1296,11 @@ namespace bpkg
                ? (r.buildtime ? "?* " : "? ")
                : (r.buildtime ? "* " : "")) +
               add_comment (concatenate (r, " | "), r.comment));
+
+    for (const auto& c: build_constraints)
+      s.next (c.exclusion ? "build-exclude" : "build-include",
+              add_comment (!c.target ? c.config : c.config + "/" + *c.target,
+                           c.comment));
 
     if (location)
       s.next ("location", location->posix_string ());
