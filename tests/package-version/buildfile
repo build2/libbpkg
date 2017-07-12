@@ -4,6 +4,6 @@
 
 import libs += libbutl%lib{butl}
 
-exe{driver}: cxx{driver} ../../libbpkg/lib{bpkg} $libs
+exe{driver}: cxx{*} ../../libbpkg/lib{bpkg} $libs
 
 include ../../libbpkg/

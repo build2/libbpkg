@@ -4,11 +4,7 @@
 
 import int_libs = libbutl%lib{butl}
 
-lib{bpkg}:                               \
-{hxx            }{ export              } \
-{hxx         cxx}{ manifest            } \
-{hxx            }{ version             } \
-                   $int_libs
+lib{bpkg}: {hxx ixx txx cxx}{** -version} {hxx}{version} $int_libs
 
 hxx{version}: in{version} $src_root/file{manifest}
 hxx{version}: dist = true
