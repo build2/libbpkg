@@ -5,4 +5,4 @@
 import libs  = libbutl%lib{butl}
 import libs += libbpkg%lib{bpkg}
 
-exe{driver}: cxx{*} $libs
+exe{driver}: {hxx cxx}{*} $libs
