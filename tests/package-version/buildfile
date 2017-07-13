@@ -2,8 +2,7 @@
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs += libbutl%lib{butl}
+import libs  = libbutl%lib{butl}
+import libs += libbpkg%lib{bpkg}
 
-exe{driver}: cxx{*} ../../libbpkg/lib{bpkg} $libs
-
-include ../../libbpkg/
+exe{driver}: cxx{*} $libs
