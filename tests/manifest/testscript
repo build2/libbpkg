@@ -41,9 +41,9 @@
   requires: ? ; libc++ standard library if using Clang on Mac OS X.
   requires: zlib; Most Linux/UNIX systems already have one; or get it at\
    www.zlib.net.
-  build-exclude: *; Only supported on Linux and FreeBSD.
   build-include: linux*
   build-include: freebsd*
+  build-exclude: *; Only supports Linux and FreeBSD.
   location: libfoo-1.2.3+2.tar.bz2
   sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   :
