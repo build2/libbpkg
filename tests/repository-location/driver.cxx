@@ -19,6 +19,8 @@ using namespace std;
 using namespace butl;
 using namespace bpkg;
 
+using butl::optional;
+
 static bool
 bad_location (const string& l)
 {

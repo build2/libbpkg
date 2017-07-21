@@ -18,6 +18,9 @@ using namespace std;
 using namespace butl;
 using namespace bpkg;
 
+using butl::optional;
+using butl::nullopt;
+
 static bool
 bad_version (const string& v)
 {
@@ -33,7 +36,10 @@ bad_version (const string& v)
 }
 
 static bool
-bad_version (uint16_t e, const string& u, const optional<string>& l, uint16_t r)
+bad_version (uint16_t e,
+             const string& u,
+             const optional<string>& l,
+             uint16_t r)
 {
   try
   {

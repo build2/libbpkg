@@ -33,6 +33,9 @@ namespace bpkg
   using serialization = manifest_serialization;
   using name_value = manifest_name_value;
 
+  using butl::optional;
+  using butl::nullopt;
+
   // Utility functions
   //
   static const strings priority_names ({"low", "medium", "high", "security"});
