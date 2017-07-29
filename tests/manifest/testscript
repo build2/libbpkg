@@ -24,9 +24,11 @@
   changes: 1.2.3+2: applied upstream patch for critical bug bar
   changes: 1.2.3+1: applied upstream patch for critical bug foo
   url: http://www.example.org/projects/libfoo/; libfoo project page url
-  package-url: http://www.example.org/projects/libbar/1.2.3+2; package url
   email: libfoo-users@example.org; Public mailing list, posts by non-members\
    are allowed but moderated.
+  doc-url: http://www.example.org/projects/libfoo/man.xhtml; documentation page
+  src-url: https://git.example.org/cgit/libfoo/tree/; source tree url
+  package-url: http://www.example.org/projects/libfoo/1.2.3+2; package url
   package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
   build-email: libfoo-builds@example.org; Mailing list for bbot notification\
    emails.

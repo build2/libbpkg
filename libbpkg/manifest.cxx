@@ -695,6 +695,28 @@ namespace bpkg
       build_constraints.emplace_back (e, move (nm), move (tg), move (c));
     };
 
+    auto parse_url = [&bad_value] (string&& v, const char* what) -> url_type
+    {
+      string c (split_comment (v));
+
+      if (v.empty ())
+        bad_value (string ("empty ") + what + " url");
+
+      return url_type (move (v), move (c));
+    };
+
+    auto parse_email = [&bad_value] (string&& v,
+                                     const char* what,
+                                     bool empty = false) -> email_type
+    {
+      string c (split_comment (v));
+
+      if (v.empty () && !empty)
+        bad_value (string ("empty ") + what + " email");
+
+      return email_type (move (v), move (c));
+    };
+
     for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
@@ -828,57 +850,49 @@ namespace bpkg
         if (!url.empty ())
           bad_name ("project url redefinition");
 
-        string c (split_comment (v));
-
-        if (v.empty ())
-          bad_value ("empty project url");
-
-        url = url_type (move (v), move (c));
+        url = parse_url (move (v), "project");
       }
       else if (n == "email")
       {
         if (!email.empty ())
           bad_name ("project email redefinition");
 
-        string c (split_comment (v));
+        email = parse_email (move (v), "project");
+      }
+      else if (n == "doc-url")
+      {
+        if (doc_url)
+          bad_name ("doc url redefinition");
 
-        if (v.empty ())
-          bad_value ("empty project email");
+        doc_url = parse_url (move (v), "doc");
+      }
+      else if (n == "src-url")
+      {
+        if (src_url)
+          bad_name ("src url redefinition");
 
-        email = email_type (move (v), move (c));
+        src_url = parse_url (move (v), "src");
       }
       else if (n == "package-url")
       {
         if (package_url)
           bad_name ("package url redefinition");
 
-        string c (split_comment (v));
-
-        if (v.empty ())
-          bad_value ("empty package url");
-
-        package_url = url_type (move (v), move (c));
+        package_url = parse_url (move (v), "package");
       }
       else if (n == "package-email")
       {
         if (package_email)
           bad_name ("package email redefinition");
 
-        string c (split_comment (v));
-
-        if (v.empty ())
-          bad_value ("empty package email");
-
-        package_email = email_type (move (v), move (c));
+        package_email = parse_email (move (v), "package");
       }
       else if (n == "build-email")
       {
         if (build_email)
           bad_name ("build email redefinition");
 
-        string c (split_comment (v));
-
-        build_email = email_type (move (v), move (c));
+        build_email = parse_email (move (v), "build", true);
       }
       else if (n == "priority")
       {
@@ -1272,11 +1286,16 @@ namespace bpkg
     }
 
     s.next ("url", add_comment (url, url.comment));
+    s.next ("email", add_comment (email, email.comment));
+
+    if (doc_url)
+      s.next ("doc-url", add_comment (*doc_url, doc_url->comment));
+
+    if (src_url)
+      s.next ("src-url", add_comment (*src_url, src_url->comment));
 
     if (package_url)
       s.next ("package-url", add_comment (*package_url, package_url->comment));
-
-    s.next ("email", add_comment (email, email.comment));
 
     if (package_email)
       s.next ("package-email",
