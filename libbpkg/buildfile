@@ -29,4 +29,4 @@ lib{bpkg}: cxx.export.libs = $int_libs
 
 # Install into the libbpkg/ subdirectory of, say, /usr/include/.
 #
-install.include = $install.include/libbpkg/
+{hxx ixx txx}{*}: install = include/libbpkg/
