@@ -65,44 +65,6 @@ namespace bpkg
     return true;
   }
 
-  // Resize v up to ';', return what goes after ';'.
-  //
-  inline static string
-  add_comment (const string& v, const string& c)
-  {
-    return c.empty () ? v : (v + "; " + c);
-  }
-
-  static string
-  split_comment (string& v)
-  {
-    using iterator = string::const_iterator;
-
-    iterator b (v.begin ());
-    iterator i (b);
-    iterator ve (b); // End of value.
-    iterator e (v.end ());
-
-    // Find end of value (ve).
-    //
-    for (char c; i != e && (c = *i) != ';'; ++i)
-      if (!space (c))
-        ve = i + 1;
-
-    // Find beginning of a comment (i).
-    //
-    if (i != e)
-    {
-      // Skip spaces.
-      //
-      for (++i; i != e && space (*i); ++i);
-    }
-
-    string c (i, e);
-    v.resize (ve - b);
-    return c;
-  }
-
   template <typename T>
   static string
   concatenate (const T& s, const char* delim = ", ")
@@ -676,11 +638,13 @@ namespace bpkg
     if (nv.value != "1")
       bad_value ("unsupported format version");
 
-    auto add_build_constraint = [&bad_value, this] (bool e, string&& v)
+    auto add_build_constraint = [&bad_value, this] (bool e, const string& vc)
     {
-      string c (split_comment (v));
-      size_t p (v.find ('/'));
+      auto vcp (parser::split_comment (vc));
+      string v (move (vcp.first));
+      string c (move (vcp.second));
 
+      size_t p (v.find ('/'));
       string nm (p != string::npos ? v.substr (0, p) : move (v));
       optional<string> tg (p != string::npos
                            ? optional<string> (string (v, p + 1))
@@ -695,26 +659,27 @@ namespace bpkg
       build_constraints.emplace_back (e, move (nm), move (tg), move (c));
     };
 
-    auto parse_url = [&bad_value] (string&& v, const char* what) -> url_type
+    auto parse_url = [&bad_value] (const string& v,
+                                   const char* what) -> url_type
     {
-      string c (split_comment (v));
+      auto p (parser::split_comment (v));
 
       if (v.empty ())
         bad_value (string ("empty ") + what + " url");
 
-      return url_type (move (v), move (c));
+      return url_type (move (p.first), move (p.second));
     };
 
-    auto parse_email = [&bad_value] (string&& v,
+    auto parse_email = [&bad_value] (const string& v,
                                      const char* what,
                                      bool empty = false) -> email_type
     {
-      string c (split_comment (v));
+      auto p (parser::split_comment (v));
 
       if (v.empty () && !empty)
         bad_value (string ("empty ") + what + " email");
 
-      return email_type (move (v), move (c));
+      return email_type (move (p.first), move (p.second));
     };
 
     for (nv = p.next (); !nv.empty (); nv = p.next ())
@@ -809,17 +774,16 @@ namespace bpkg
                       "mutually exclusive");
         }
 
-        string c (split_comment (v));
+        auto vc (parser::split_comment (v));
+        path p (move (vc.first));
 
-        if (v.empty ())
+        if (p.empty ())
           bad_value ("no path in package description-file");
-
-        path p (v);
 
         if (p.absolute ())
           bad_value ("package description-file path is absolute");
 
-        description = text_file (move (p), move (c));
+        description = text_file (move (p), move (vc.second));
       }
       else if (n == "changes")
       {
@@ -833,89 +797,89 @@ namespace bpkg
         if (il)
           bad_name ("package changes-file not allowed");
 
-        string c (split_comment (v));
+        auto vc (parser::split_comment (v));
+        path p (move (vc.first));
 
-        if (v.empty ())
+        if (p.empty ())
           bad_value ("no path in package changes-file");
-
-        path p (v);
 
         if (p.absolute ())
           bad_value ("package changes-file path is absolute");
 
-        changes.emplace_back (move (p), move (c));
+        changes.emplace_back (move (p), move (vc.second));
       }
       else if (n == "url")
       {
         if (!url.empty ())
           bad_name ("project url redefinition");
 
-        url = parse_url (move (v), "project");
+        url = parse_url (v, "project");
       }
       else if (n == "email")
       {
         if (!email.empty ())
           bad_name ("project email redefinition");
 
-        email = parse_email (move (v), "project");
+        email = parse_email (v, "project");
       }
       else if (n == "doc-url")
       {
         if (doc_url)
           bad_name ("doc url redefinition");
 
-        doc_url = parse_url (move (v), "doc");
+        doc_url = parse_url (v, "doc");
       }
       else if (n == "src-url")
       {
         if (src_url)
           bad_name ("src url redefinition");
 
-        src_url = parse_url (move (v), "src");
+        src_url = parse_url (v, "src");
       }
       else if (n == "package-url")
       {
         if (package_url)
           bad_name ("package url redefinition");
 
-        package_url = parse_url (move (v), "package");
+        package_url = parse_url (v, "package");
       }
       else if (n == "package-email")
       {
         if (package_email)
           bad_name ("package email redefinition");
 
-        package_email = parse_email (move (v), "package");
+        package_email = parse_email (v, "package");
       }
       else if (n == "build-email")
       {
         if (build_email)
           bad_name ("build email redefinition");
 
-        build_email = parse_email (move (v), "build", true);
+        build_email = parse_email (v, "build", true);
       }
       else if (n == "priority")
       {
         if (priority)
           bad_name ("package priority redefinition");
 
-        string c (split_comment (v));
+        auto vc (parser::split_comment (v));
         strings::const_iterator b (priority_names.begin ());
         strings::const_iterator e (priority_names.end ());
-        strings::const_iterator i (find (b, e, v));
+        strings::const_iterator i (find (b, e, vc.first));
 
         if (i == e)
           bad_value ("invalid package priority");
 
         priority =
           priority_type (static_cast<priority_type::value_type> (i - b),
-                         move (c));
+                         move (vc.second));
       }
       else if (n == "license")
       {
-        licenses l (split_comment (v));
+        auto vc (parser::split_comment (v));
+        licenses l (move (vc.second));
 
-        list_parser lp (v.begin (), v.end ());
+        list_parser lp (vc.first.begin (), vc.first.end ());
         for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
           l.push_back (move (lv));
 
@@ -932,13 +896,17 @@ namespace bpkg
         size_t cond ((m > 0 && v[0] == '?') || (m > 1 && v[1] == '?') ? 1 : 0);
         size_t btim ((m > 0 && v[0] == '*') || (m > 1 && v[1] == '*') ? 1 : 0);
 
-        requirement_alternatives ra (cond != 0, btim != 0, split_comment (v));
-        string::const_iterator b (v.begin ());
-        string::const_iterator e (v.end ());
+        auto vc (parser::split_comment (v));
+
+        const string& vl (vc.first);
+        requirement_alternatives ra (cond != 0, btim != 0, move (vc.second));
+
+        string::const_iterator b (vl.begin ());
+        string::const_iterator e (vl.end ());
 
         if (ra.conditional || ra.buildtime)
         {
-          string::size_type p (v.find_first_not_of (spaces, cond + btim));
+          string::size_type p (vl.find_first_not_of (spaces, cond + btim));
           b = p == string::npos ? e : b + p;
         }
 
@@ -953,11 +921,11 @@ namespace bpkg
       }
       else if (n == "build-include")
       {
-        add_build_constraint (false, move (v));
+        add_build_constraint (false, v);
       }
       else if (n == "build-exclude")
       {
-        add_build_constraint (true, move (v));
+        add_build_constraint (true, v);
       }
       else if (n == "depends")
       {
@@ -967,13 +935,17 @@ namespace bpkg
         size_t cond ((m > 0 && v[0] == '?') || (m > 1 && v[1] == '?') ? 1 : 0);
         size_t btim ((m > 0 && v[0] == '*') || (m > 1 && v[1] == '*') ? 1 : 0);
 
-        dependency_alternatives da (cond != 0, btim != 0, split_comment (v));
-        string::const_iterator b (v.begin ());
-        string::const_iterator e (v.end ());
+        auto vc (parser::split_comment (v));
+
+        const string& vl (vc.first);
+        dependency_alternatives da (cond != 0, btim != 0, move (vc.second));
+
+        string::const_iterator b (vl.begin ());
+        string::const_iterator e (vl.end ());
 
         if (da.conditional || da.buildtime)
         {
-          string::size_type p (v.find_first_not_of (spaces, cond + btim));
+          string::size_type p (vl.find_first_not_of (spaces, cond + btim));
           b = p == string::npos ? e : b + p;
         }
 
@@ -1256,13 +1228,17 @@ namespace bpkg
     {
       size_t v (*priority);
       assert (v < priority_names.size ());
-      s.next ("priority", add_comment (priority_names[v], priority->comment));
+
+      s.next ("priority",
+              serializer::merge_comment (priority_names[v],
+                                         priority->comment));
     }
 
     s.next ("summary", summary);
 
     for (const auto& la: license_alternatives)
-      s.next ("license", add_comment (concatenate (la), la.comment));
+      s.next ("license",
+              serializer::merge_comment (concatenate (la), la.comment));
 
     if (!tags.empty ())
       s.next ("tags", concatenate (tags));
@@ -1271,8 +1247,8 @@ namespace bpkg
     {
       if (description->file)
         s.next ("description-file",
-                add_comment (
-                  description->path.string (), description->comment));
+                serializer::merge_comment (description->path.string (),
+                                           description->comment));
       else
         s.next ("description", description->text);
     }
@@ -1280,49 +1256,56 @@ namespace bpkg
     for (const auto& c: changes)
     {
       if (c.file)
-        s.next ("changes-file", add_comment (c.path.string (), c.comment));
+        s.next ("changes-file",
+                serializer::merge_comment (c.path.string (), c.comment));
       else
         s.next ("changes", c.text);
     }
 
-    s.next ("url", add_comment (url, url.comment));
-    s.next ("email", add_comment (email, email.comment));
-
+    s.next ("url", serializer::merge_comment (url, url.comment));
     if (doc_url)
-      s.next ("doc-url", add_comment (*doc_url, doc_url->comment));
+      s.next ("doc-url",
+              serializer::merge_comment (*doc_url, doc_url->comment));
 
     if (src_url)
-      s.next ("src-url", add_comment (*src_url, src_url->comment));
+      s.next ("src-url",
+              serializer::merge_comment (*src_url, src_url->comment));
 
     if (package_url)
-      s.next ("package-url", add_comment (*package_url, package_url->comment));
+      s.next ("package-url",
+              serializer::merge_comment (*package_url, package_url->comment));
+
+    s.next ("email", serializer::merge_comment (email, email.comment));
 
     if (package_email)
       s.next ("package-email",
-              add_comment (*package_email, package_email->comment));
+              serializer::merge_comment (*package_email,
+                                         package_email->comment));
 
     if (build_email)
       s.next ("build-email",
-              add_comment (*build_email, build_email->comment));
+              serializer::merge_comment (*build_email, build_email->comment));
 
     for (const auto& d: dependencies)
       s.next ("depends",
               (d.conditional
                ? (d.buildtime ? "?* " : "? ")
                : (d.buildtime ? "* " : "")) +
-              add_comment (concatenate (d, " | "), d.comment));
+              serializer::merge_comment (concatenate (d, " | "), d.comment));
 
     for (const auto& r: requirements)
       s.next ("requires",
               (r.conditional
                ? (r.buildtime ? "?* " : "? ")
                : (r.buildtime ? "* " : "")) +
-              add_comment (concatenate (r, " | "), r.comment));
+              serializer::merge_comment (concatenate (r, " | "), r.comment));
 
     for (const auto& c: build_constraints)
       s.next (c.exclusion ? "build-exclude" : "build-include",
-              add_comment (!c.target ? c.config : c.config + "/" + *c.target,
-                           c.comment));
+              serializer::merge_comment (!c.target
+                                         ? c.config
+                                         : c.config + "/" + *c.target,
+                                         c.comment));
 
     if (location)
       s.next ("location", location->posix_string ());
@@ -1887,12 +1870,12 @@ namespace bpkg
         if (email)
           bad_name ("email redefinition");
 
-        string c (split_comment (v));
+        auto vc (parser::split_comment (v));
 
-        if (v.empty ())
+        if (vc.first.empty ())
           bad_value ("empty email");
 
-        email = email_type (move (v), move (c));
+        email = email_type (move (vc.first), move (vc.second));
       }
       else if (n == "summary")
       {
@@ -1991,7 +1974,7 @@ namespace bpkg
       if (!b)
         bad_value ("email not allowed");
 
-      s.next ("email", add_comment (*email, email->comment));
+      s.next ("email", serializer::merge_comment (*email, email->comment));
     }
 
     if (summary)
