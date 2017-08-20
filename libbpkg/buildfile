@@ -7,7 +7,6 @@ import int_libs = libbutl%lib{butl}
 lib{bpkg}: {hxx ixx txx cxx}{** -version} {hxx}{version} $int_libs
 
 hxx{version}: in{version} $src_root/file{manifest}
-hxx{version}: dist = true
 
 # For pre-releases use the complete version to make sure they cannot be used
 # in place of another pre-release or the final version.
