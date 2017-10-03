@@ -7,8 +7,8 @@
 #include <cassert>
 #include <iostream>
 
-#include <libbutl/manifest-parser.hxx>
-#include <libbutl/manifest-serializer.hxx>
+#include <libbutl/manifest-parser.mxx>
+#include <libbutl/manifest-serializer.mxx>
 
 #include <libbpkg/manifest.hxx>
 

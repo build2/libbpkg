@@ -13,8 +13,8 @@
 #include <utility>   // move()
 #include <stdexcept> // logic_error
 
-#include <libbutl/path.hxx>
-#include <libbutl/optional.hxx>
+#include <libbutl/path.mxx>
+#include <libbutl/optional.mxx>
 #include <libbutl/manifest-forward.hxx>
 
 #include <libbpkg/export.hxx>
