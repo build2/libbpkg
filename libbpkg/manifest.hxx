@@ -13,6 +13,7 @@
 #include <utility>   // move()
 #include <stdexcept> // logic_error
 
+#include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/optional.mxx>
 #include <libbutl/manifest-forward.hxx>
@@ -422,6 +423,95 @@ namespace bpkg
     serialize (butl::manifest_serializer&) const;
   };
 
+  // Traits class for the repository URL object.
+  //
+  enum class repository_protocol {file, http, https, git};
+
+  struct LIBBPKG_EXPORT repository_url_traits
+  {
+    using string_type = std::string;
+    using path_type   = butl::path;
+
+    using scheme_type    = repository_protocol;
+    using authority_type = butl::basic_url_authority<string_type>;
+
+    static scheme_type
+    translate_scheme (const string_type&,
+                      string_type&&,
+                      butl::optional<authority_type>&,
+                      butl::optional<path_type>&,
+                      butl::optional<string_type>&,
+                      butl::optional<string_type>&);
+
+
+    static string_type
+    translate_scheme (string_type&,
+                      const scheme_type&,
+                      const butl::optional<authority_type>&,
+                      const butl::optional<path_type>&,
+                      const butl::optional<string_type>&,
+                      const butl::optional<string_type>&);
+
+    static path_type
+    translate_path (string_type&&);
+
+    static string_type
+    translate_path (const path_type&);
+  };
+
+  // Repository URL. Note that it represents both the remote (http(s)://,
+  // git://, etc) and local (file:// as well as plain directory path)
+  // repository URLs. May also be empty.
+  //
+  // Notes:
+  //
+  // - For an empty URL object all components are absent. For a non-empty one
+  //   the directory path is always present and normalized.
+  //
+  // - For the remote URL object the host name is in the lower case (IPv4/6 are
+  //   not supported) and the path is relative.
+  //
+  // - For the local URL object the path can be relative or absolute. Query
+  //   can not be present. Fragment can not be present for the relative path
+  //   as there is no notation that can be used to represent it.
+  //
+  struct LIBBPKG_EXPORT repository_url: butl::basic_url<repository_protocol,
+                                                        repository_url_traits>
+  {
+    using base_type = basic_url<repository_protocol, repository_url_traits>;
+
+    using base_type::base_type;
+
+    // Create an empty URL object.
+    //
+    repository_url () = default;
+
+    // If the argument is an empty string, then create an empty URL object. If
+    // the argument is a local path or a file URL then create a local URL
+    // object. Otherwise create a remote URL object.
+    //
+    // May throw std::invalid_argument (unknown URL schema, incorrect syntax,
+    // unexpected components, etc).
+    //
+    repository_url (const string_type& s): base_type (s) {}
+  };
+
+  // Repository type.
+  //
+  enum class repository_type {bpkg, git};
+
+  LIBBPKG_EXPORT std::string
+  to_string (repository_type);
+
+  LIBBPKG_EXPORT repository_type
+  to_repository_type (const std::string&); // May throw std::invalid_argument.
+
+  inline std::ostream&
+  operator<< (std::ostream& os, repository_type t)
+  {
+    return os << to_string (t);
+  }
+
   class LIBBPKG_EXPORT repository_location
   {
   public:
@@ -429,28 +519,29 @@ namespace bpkg
     //
     repository_location () = default;
 
-    // If the argument is not empty, create remote/absolute repository
-    // location. Throw std::invalid_argument if the location is a relative
-    // path. If the argument is empty, then create the special empty
-    // location.
+    // Create remote, absolute or empty repository location making sure that
+    // the URL matches the repository type. Throw std::invalid_argument if the
+    // URL object is a relative local path.
     //
     explicit
-    repository_location (const std::string&);
+    repository_location (repository_url, repository_type);
 
-    // Create a potentially relative repository location. If base is not
-    // empty, use it to complete the relative location to remote/absolute.
-    // Throw std::invalid_argument if base is not empty but the location is
-    // empty, base itself is relative, or the resulting completed location
+    // Create a potentially relative bpkg repository location. If base is not
+    // empty, use it to complete the relative location to the remote/absolute
+    // one. Throw std::invalid_argument if base is not empty but the location
+    // is empty, base itself is relative, or the resulting completed location
     // is invalid.
     //
-    repository_location (const std::string&, const repository_location& base);
+    repository_location (repository_url u,
+                         const repository_location& base)
+        : repository_location (std::move (u), repository_type::bpkg, base) {}
 
     repository_location (const repository_location& l,
                          const repository_location& base)
-        : repository_location (l.string (), base) {}
+        : repository_location (l.url (), l.type (), base) {}
 
-    // Note that relative locations have no canonical name. Canonical
-    // name of an empty location is the empty name.
+    // Note that relative locations have no canonical name. Canonical name of
+    // an empty location is the empty name.
     //
     const std::string&
     canonical_name () const noexcept {return canonical_name_;}
@@ -462,7 +553,7 @@ namespace bpkg
     // other predicates throw std::logic_error for an empty location.
     //
     bool
-    empty () const noexcept {return path_.empty ();}
+    empty () const noexcept {return url_.empty ();}
 
     bool
     local () const
@@ -470,7 +561,7 @@ namespace bpkg
       if (empty ())
         throw std::logic_error ("empty location");
 
-      return host_.empty ();
+      return url_.scheme == repository_protocol::file;
     }
 
     bool
@@ -487,22 +578,42 @@ namespace bpkg
 
       // Note that in remote locations path is always relative.
       //
-      return path_.absolute ();
+      return url_.path->absolute ();
     }
 
     bool
     relative () const
     {
-      return local () && path_.relative ();
+      return local () && url_.path->relative ();
     }
 
-    const butl::dir_path&
+    repository_type
+    type () const
+    {
+      if (empty ())
+        throw std::logic_error ("empty location");
+
+      return type_;
+    }
+
+    // URL of an empty location is empty.
+    //
+    repository_url
+    url () const
+    {
+      return url_;
+    }
+
+    // Repository path. Note that for repository types that refer to
+    // "directories" it always contains the trailing slash.
+    //
+    const butl::path&
     path () const
     {
       if (empty ())
         throw std::logic_error ("empty location");
 
-      return path_;
+      return *url_.path;
     }
 
     const std::string&
@@ -511,7 +622,7 @@ namespace bpkg
       if (local ())
         throw std::logic_error ("local location");
 
-      return host_;
+      return url_.authority->host;
     }
 
     // Value 0 indicated that no port was specified explicitly.
@@ -522,34 +633,46 @@ namespace bpkg
       if (local ())
         throw std::logic_error ("local location");
 
-      return port_;
+      return url_.authority->port;
     }
 
-    enum class protocol {http, https};
-
-    protocol
+    repository_protocol
     proto () const
     {
-      if (local ())
-        throw std::logic_error ("local location");
+      if (empty ())
+        throw std::logic_error ("empty location");
 
-      return proto_;
+      return url_.scheme;
     }
 
-    // Note that this is not necessarily syntactically the same string
-    // as what was used to initialize this location. But it should be
-    // semantically equivalent. String representation of an empty
-    // location is the empty string.
+    const butl::optional<std::string>&
+    fragment () const
+    {
+      if (relative ())
+        throw std::logic_error ("relative filesystem path");
+
+      return url_.fragment;
+    }
+
+    // String representation of an empty location is the empty string.
     //
     std::string
-    string () const;
+    string () const
+    {
+      return url_.string ();
+    }
+
+  private:
+    // Used for delegating in public constructor.
+    //
+    repository_location (repository_url,
+                         repository_type,
+                         const repository_location& base);
 
   private:
     std::string canonical_name_;
-    protocol proto_;
-    std::string host_;
-    std::uint16_t port_;
-    butl::dir_path path_;
+    repository_url url_;
+    repository_type type_;
   };
 
   inline std::ostream&
@@ -570,7 +693,7 @@ namespace bpkg
   public:
     using email_type = bpkg::email;
 
-    repository_location location;
+    repository_location location;         // bpkg repository location.
     butl::optional<repository_role> role;
 
     // The following values may only be present for the base repository.
@@ -594,8 +717,8 @@ namespace bpkg
     effective_role () const;
 
     // Return the effective web interface URL based on the specified remote
-    // repository location. If url is not present or doesn't start with '.',
-    // then return it unchanged. Otherwise, process the relative format
+    // bpkg repository location. If url is not present or doesn't start with
+    // '.', then return it unchanged. Otherwise, process the relative format
     // as described in the manifest specification. Throw std::invalid_argument
     // if the relative url format is invalid or if the repository location is
     // empty or local.

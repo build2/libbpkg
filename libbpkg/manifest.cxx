@@ -10,9 +10,8 @@
 #include <cassert>
 #include <cstring>   // strncmp(), strcmp()
 #include <utility>   // move()
-#include <cstdint>   // uint64_t, uint16_t, UINT16_MAX
-#include <iterator>  // back_insert_iterator
-#include <algorithm> // find(), transform()
+#include <cstdint>   // uint16_t, UINT16_MAX
+#include <algorithm> // find(), replace()
 #include <stdexcept> // invalid_argument
 
 #include <libbutl/path.mxx>
@@ -447,6 +446,8 @@ namespace bpkg
   string version::
   string (bool ignore_revision) const
   {
+    using std::to_string; // Hidden by to_string (repository_type).
+
     if (empty ())
       throw logic_error ("empty version");
 
@@ -1410,200 +1411,266 @@ namespace bpkg
     s.next ("", ""); // End of stream.
   }
 
-  // url_parts
+  // repository_url_traits
   //
-  struct url_parts
+  repository_url_traits::scheme_type repository_url_traits::
+  translate_scheme (const string_type&         url,
+                    string_type&&              scheme,
+                    optional<authority_type>&  authority,
+                    optional<path_type>&       path,
+                    optional<string_type>&     query,
+                    optional<string_type>&     fragment)
   {
-    using protocol = repository_location::protocol;
+    auto bad_url = [] (const char* d = "invalid URL")
+    {
+      throw invalid_argument (d);
+    };
 
-    protocol proto;
-    string host;
-    uint16_t port;
-    dir_path path;
+    auto translate_remote = [&authority, &path, &query, &fragment, &bad_url] ()
+    {
+      if (!authority || authority->host.empty ())
+        bad_url ("invalid host");
 
-    explicit
-    url_parts (const string&);
-  };
+      if (authority->host.kind != url_host_kind::name)
+        bad_url ("unsupported host type");
 
-  // Return the URL protocol, or nullopt if location is not a URL.
-  //
-  static optional<url_parts::protocol>
-  is_url (const string& location)
-  {
-    using protocol = url_parts::protocol;
-
-    optional<protocol> p;
-    if (casecmp (location, "http://", 7) == 0)
-      p = protocol::http;
-    else if (casecmp (location, "https://", 8) == 0)
-      p = protocol::https;
-
-    return p;
-  }
-
-  static string
-  to_string (url_parts::protocol proto,
-             const string& host,
-             uint16_t port,
-             const dir_path& path)
-  {
-    string u (
-      (proto == url_parts::protocol::http ? "http://" : "https://") + host);
-
-    if (port != 0)
-      u += ":" + std::to_string (port);
-
-    if (!path.empty ())
-      u += "/" + path.posix_string ();
-
-    return u;
-  }
-
-  url_parts::
-  url_parts (const string& s)
-  {
-    optional<protocol> pr (is_url (s));
-    if (!pr)
-      throw invalid_argument ("invalid protocol");
-
-    proto = *pr;
-
-    string::size_type host_offset (s.find ("//"));
-    assert (host_offset != string::npos);
-    host_offset += 2;
-
-    string::size_type p (s.find ('/', host_offset));
-
-    if (p != string::npos)
-      // Chop the path part. Path is saved as a relative one to be of the
-      // same type on different operating systems including Windows.
+      // Normalize the host name.
       //
-      path = dir_path (s, p + 1, string::npos);
+      lcase (authority->host.value);
 
-    // Put the lower-cased version of the host part into host.
-    // Chances are good it will stay unmodified.
-    //
-    transform (s.cbegin () + host_offset,
-               p == string::npos ? s.cend () : s.cbegin () + p,
-               back_inserter (host),
-               static_cast<char (*) (char)> (lcase));
+      // We don't distinguish between the absent and empty paths for the
+      // remote repository URLs.
+      //
+      if (!path)
+        path = path_type ();
 
-    // Validate host name according to "2.3.1. Preferred name syntax" and
-    // "2.3.4. Size limits" of https://tools.ietf.org/html/rfc1035.
-    //
-    // Check that there is no empty labels and ones containing chars
-    // different from alpha-numeric and hyphen. Label should start from
-    // letter, do not end with hypen and be not longer than 63 chars.
-    // Total host name length should be not longer than 255 chars.
-    //
-    auto hb (host.cbegin ());
-    auto he (host.cend ());
-    auto ls (hb); // Host domain name label begin.
-    auto pt (he); // Port begin.
+      if (path->absolute ())
+        bad_url ("absolute path");
+    };
 
-    for (auto i (hb); i != he; ++i)
+    if (casecmp (scheme, "http") == 0)
     {
-      char c (*i);
-
-      if (pt == he) // Didn't reach port specification yet.
+      translate_remote ();
+      return scheme_type::http;
+    }
+    else if (casecmp (scheme, "https") == 0)
+    {
+      translate_remote ();
+      return scheme_type::https;
+    }
+    else if (casecmp (scheme, "git") == 0)
+    {
+      translate_remote ();
+      return scheme_type::git;
+    }
+    else if (casecmp (scheme, "file") == 0)
+    {
+      if (authority)
       {
-        if (c == ':') // Port specification reached.
-          pt = i;
-        else
-        {
-          auto n (i + 1);
+        if (!authority->empty () &&
+            (casecmp (authority->host, "localhost") != 0 ||
+             authority->port != 0 ||
+             !authority->user.empty ()))
+          throw invalid_argument ("invalid authority");
 
-          // Validate host name.
-          //
-
-          // Is first label char.
-          //
-          bool flc (i == ls);
-
-          // Is last label char.
-          //
-          bool llc (n == he || *n == '.' || *n == ':');
-
-          // Validate char.
-          //
-          bool valid (alpha (c) ||
-                      (digit (c) && !flc) ||
-                      ((c == '-' || c == '.') && !flc && !llc));
-
-          // Validate length.
-          //
-          if (valid)
-            valid = i - ls < 64 && i - hb < 256;
-
-          if (!valid)
-            throw invalid_argument ("invalid host");
-
-          if (c == '.')
-            ls = n;
-        }
-      }
-      else
-      {
-        // Validate port.
+        // We don't distinguish between the absent, empty and localhost
+        // authorities for the local repository locations.
         //
-        if (!digit (c))
-          throw invalid_argument ("invalid port");
+        authority = nullopt;
+      }
+
+      if (!path)
+        bad_url ("absent path");
+
+      // On POSIX make the relative (to the authority "root") path absolute. On
+      // Windows it must already be an absolute path.
+      //
+#ifndef _WIN32
+      if (path->absolute ())
+        bad_url ("absolute path");
+
+      path = path_type ("/") / *path;
+#else
+      if (path->relative ())
+        bad_url ("relative path");
+#endif
+
+      if (query)
+        bad_url ();
+
+      return scheme_type::file;
+    }
+    // Consider URL as a path if the URL parsing failed.
+    //
+    else if (scheme.empty ())
+    {
+      try
+      {
+        path = path_type (url);
+      }
+      catch (const invalid_path&)
+      {
+        // If this is not a valid path either, then let's consider the argument
+        // a broken URL, and leave the basic_url ctor to throw.
+        //
+      }
+
+      return scheme_type::file;
+    }
+    else
+      throw invalid_argument ("unknown scheme");
+  }
+
+  repository_url_traits::string_type repository_url_traits::
+  translate_scheme (string_type&                     url,
+                    const scheme_type&               scheme,
+                    const optional<authority_type>&  /*authority*/,
+                    const optional<path_type>&       path,
+                    const optional<string_type>&     /*query*/,
+                    const optional<string_type>&     fragment)
+  {
+    switch (scheme)
+    {
+    case scheme_type::http:  return "http";
+    case scheme_type::https: return "https";
+    case scheme_type::git:   return "git";
+    case scheme_type::file:
+      {
+        // If there is no fragment present then represent the URL object as a
+        // local path.
+        //
+        assert (path);
+
+        if (fragment)
+        {
+          assert (path->absolute ());
+          return "file";
+        }
+
+        url = path->relative () ? path->posix_string () : path->string ();
+        return string_type ();
       }
     }
 
-    // Chop the port, if present.
-    //
-    if (pt == he)
-      port = 0;
-    else
-    {
-      unsigned long long n (++pt == he ? 0 : stoull (string (pt, he)));
-      if (n == 0 || n > UINT16_MAX)
-        throw invalid_argument ("invalid port");
+    assert (false); // Can't be here.
+    return "";
+  }
 
-      port = static_cast<uint16_t> (n);
-      host.resize (pt - hb - 1);
+  repository_url_traits::path_type repository_url_traits::
+  translate_path (string_type&& path)
+  {
+    try
+    {
+      return path_type (move (path));
+    }
+    catch (const invalid_path&)
+    {
+      throw invalid_argument ("invalid url");
+    }
+  }
+
+   repository_url_traits::string_type repository_url_traits::
+   translate_path (const path_type& path)
+   {
+     // If the path is absolute then this is a local URL object and the file://
+     // URL notation is being produced. Thus, on POSIX we need to make the path
+     // relative (to the authority "root"). On Windows the path should stay
+     // absolute but the directory separators must be converted to the POSIX
+     // ones.
+     //
+     if (path.absolute ())
+     {
+#ifndef _WIN32
+       return path.leaf (dir_path ("/")).string ();
+#else
+       string r (path.string ());
+       replace (r.begin (), r.end (), '\\', '/');
+       return r;
+#endif
+     }
+
+     return path.posix_string ();
+   }
+
+  // repository_type
+  //
+  string
+  to_string (repository_type t)
+  {
+    switch (t)
+    {
+    case repository_type::bpkg: return "bpkg";
+    case repository_type::git:  return "git";
     }
 
-    if (host.empty ())
-      throw invalid_argument ("invalid host");
+    assert (false); // Can't be here.
+    return string ();
+  }
+
+  repository_type
+  to_repository_type (const string& t)
+  {
+         if (t == "bpkg") return repository_type::bpkg;
+    else if (t == "git")  return repository_type::git;
+    else throw invalid_argument ("invalid repository type '" + t + "'");
   }
 
   // repository_location
   //
   static string
-  strip_domain (const string& host)
+  strip_domain (const string& host, repository_type type)
   {
     assert (!host.empty ()); // Should be repository location host.
 
-    string h;
-    bool bpkg (false);
+    optional<string> h;
 
-    if (host.compare (0, 4, "www.") == 0 ||
-        host.compare (0, 4, "pkg.") == 0 ||
-        (bpkg = host.compare (0, 5, "bpkg.") == 0))
+    switch (type)
     {
-      if (h.assign (host, bpkg ? 5 : 4, string::npos).empty ())
-        throw invalid_argument ("invalid host");
-    }
-    else
-      h = host;
+    case repository_type::bpkg:
+      {
+        bool bpkg (false);
+        if (host.compare (0, 4, "www.") == 0 ||
+            host.compare (0, 4, "pkg.") == 0 ||
+            (bpkg = host.compare (0, 5, "bpkg.") == 0))
+          h = string (host, bpkg ? 5 : 4);
 
-    return h;
+        break;
+      }
+    case repository_type::git:
+      {
+        if (host.compare (0, 4, "www.") == 0 ||
+            host.compare (0, 4, "git.") == 0 ||
+            host.compare (0, 4, "scm.") == 0)
+          h = string (host, 4);
+
+        break;
+      }
+    }
+
+    if (h && h->empty ())
+      throw invalid_argument ("invalid host");
+
+    return h ? *h : host;
   }
 
-  // The 'pkg' path component stripping mode.
+  // The 'pkg' path component and '.git' extension stripping mode.
   //
-  enum class strip_mode {version, component, path};
+  enum class strip_mode {version, component, path, extension};
 
-  static dir_path
-  strip_path (const dir_path& path, strip_mode mode)
+  static path
+  strip_path (const path& p, strip_mode mode)
   {
-    // Should be repository location path.
-    //
-    assert (!path.empty () && *path.begin () != "..");
+    if (mode == strip_mode::extension)
+    {
+      const char* e (p.extension_cstring ());
+      return e != nullptr && strcmp (e, "git") == 0 ? p.base () : p;
+    }
 
-    auto rb (path.rbegin ()), i (rb), re (path.rend ());
+    // Should be bpkg repository location path.
+    //
+    assert (!p.empty () && *p.begin () != "..");
+
+    auto rb (p.rbegin ()), i (rb), re (p.rend ());
 
     // Find the version component.
     //
@@ -1623,7 +1690,7 @@ namespace bpkg
     if (stoul (*i) != 1)
       throw invalid_argument ("unsupported repository version");
 
-    dir_path res (rb, i);
+    path res (rb, i);
 
     // Canonical name prefix part ends with the special "pkg" component.
     //
@@ -1633,30 +1700,31 @@ namespace bpkg
       ++i; // Strip the "pkg" component.
 
     if (!pc || mode != strip_mode::path)
-      res = dir_path (i, re) / res; // Concatenate prefix and path parts.
+      res = path (i, re) / res; // Concatenate prefix and path parts.
 
     return res;
   }
 
-  // Location parameter type is fully qualified as compiler gets confused with
-  // string() member.
-  //
   repository_location::
-  repository_location (const std::string& l)
-      : repository_location (l, repository_location ()) // Delegate.
+  repository_location (repository_url u, repository_type t)
+      : repository_location (move (u), t, repository_location ()) // Delegate.
   {
     if (!empty () && relative ())
       throw invalid_argument ("relative filesystem path");
   }
 
   repository_location::
-  repository_location (const std::string& l, const repository_location& b)
+  repository_location (repository_url u,
+                       repository_type t,
+                       const repository_location& b)
+      : url_ (move (u)),
+        type_ (t)
   {
-    // Otherwise compiler gets confused with string() member.
-    //
-    using std::string;
+    using std::string;    // Hidden by string().
+    using std::to_string; // Hidden by to_string(repository_type).
+    using butl::path;     // Hidden by path().
 
-    if (l.empty ())
+    if (url_.empty ())
     {
       if (!b.empty ())
         throw invalid_argument ("empty location");
@@ -1664,42 +1732,100 @@ namespace bpkg
       return;
     }
 
-    // Base repository location can not be a relative path.
+    // Make sure that the URL object is properly constructed (see notes for the
+    // repository_url class in the header).
     //
-    if (!b.empty () && b.relative ())
-      throw invalid_argument ("base relative filesystem path");
+    assert (url_.path &&
+            remote () == (url_.authority && !url_.authority->empty ()));
 
-    if (is_url (l))
+    // Verify that the URL object matches the repository type.
+    //
+    switch (t)
     {
-      url_parts u (l);
-      proto_ = u.proto;
-      host_ = move (u.host);
-      port_ = u.port;
-      path_ = move (u.path);
+    case repository_type::bpkg:
+      {
+        if (url_.scheme == repository_protocol::git)
+          throw invalid_argument ("unsupported scheme for bpkg repository");
 
-      canonical_name_ = strip_domain (host_);
+        break;
+      }
+    case repository_type::git:
+      {
+        if (!url_.fragment)
+          throw invalid_argument ("missing branch/tag for git repository");
+
+        break;
+      }
+    }
+
+    // Base repository location is only meaningful for bpkg repository, and
+    // can not be a relative path.
+    //
+    if (!b.empty ())
+    {
+      if (type_ != repository_type::bpkg)
+        throw invalid_argument ("unexpected base location");
+
+      if (b.type ()  != repository_type::bpkg)
+        throw invalid_argument ("invalid base location");
+
+      if (b.relative ())
+        throw invalid_argument ("base location is relative filesystem path");
+    }
+
+    path& up (*url_.path);
+
+    // For the repositories that are "directories", make sure that the URL
+    // object's path is a directory (contains the trailing slash).
+    //
+    switch (t)
+    {
+    case repository_type::bpkg:
+    case repository_type::git:
+      {
+        if (!up.to_directory ())
+          up = path_cast<dir_path> (move (up));
+        break;
+      }
+    }
+
+    if (remote ())
+    {
+      canonical_name_ = strip_domain (url_.authority->host, type_);
 
       // For canonical name and for the HTTP protocol, treat a.com and
-      // a.com:80 as the same name. The same rule applies to the HTTPS
-      // protocol and port 443.
+      // a.com:80 as the same name. The same rule applies to the HTTPS (port
+      // 443) and GIT (port 9418) protocols.
       //
-      if (port_ != 0 && port_ != (proto_ == protocol::http ? 80 : 443))
-        canonical_name_ += ':' + std::to_string (port_);
+      uint16_t port (url_.authority->port);
+      if (port != 0)
+      {
+        uint16_t def_port;
+
+        switch (url_.scheme)
+        {
+        case repository_protocol::http:  def_port =   80; break;
+        case repository_protocol::https: def_port =  443; break;
+        case repository_protocol::git:   def_port = 9418; break;
+        case repository_protocol::file:  assert (false); // Can't be here.
+        }
+
+        if (port != def_port)
+          canonical_name_ += ':' + to_string (port);
+      }
     }
     else
     {
-      path_ = dir_path (l);
-
       // Complete if we are relative and have base.
       //
-      if (!b.empty () && path_.relative ())
+      if (!b.empty () && up.relative ())
       {
         // Convert the relative path location to an absolute or remote one.
         //
-        proto_ = b.proto_;
-        host_ = b.host_;
-        port_ = b.port_;
-        path_ = b.path_ / path_;
+        repository_url u (b.url ());
+        *u.path /= up;
+
+        url_ = move (u);
 
         // Set canonical name to the base location canonical name host
         // part. The path part of the canonical name is calculated below.
@@ -1716,26 +1842,27 @@ namespace bpkg
     //
     try
     {
-      path_.normalize ();
+      up.normalize ();
     }
     catch (const invalid_path&)
     {
       throw invalid_argument ("invalid path");
     }
 
-    // Need to check path for emptiness before proceeding further as a valid
-    // non empty location can not have an empty path_ member (which can be the
-    // case for the remote location, but not for the relative or absolute).
+    // For bpkg repository we need to check path for emptiness before
+    // proceeding further as a valid non empty location can not have an empty
+    // URL object path member (which can be the case for the remote location,
+    // but not for the relative or absolute).
     //
-    if (path_.empty ())
+    if (type_ == repository_type::bpkg && up.empty ())
       throw invalid_argument ("empty path");
 
     // Need to check that URL path do not go past the root directory of a WEB
     // server. We can not rely on the above normalize() function call doing
-    // this check as soon as path_ member contains a relative directory for the
-    // remote location.
+    // this check as soon as URL object path member contains a relative
+    // directory for the remote location.
     //
-    if (remote () && *path_.begin () == "..")
+    if (remote () && !up.empty () && *up.begin () == "..")
       throw invalid_argument ("invalid path");
 
     // Finish calculating the canonical name, unless we are relative.
@@ -1746,19 +1873,29 @@ namespace bpkg
       return;
     }
 
-    // Canonical name <prefix>/<path> part.
+    // Canonical name <prefix>/<path> part for the bpkg repository, and the
+    // full path with the .git extension stripped for the git repository.
     //
-     dir_path sp (strip_path (
-       path_, remote () ? strip_mode::component : strip_mode::path));
+    path sp;
 
-     // If for an absolute path location the stripping result is empty (which
-     // also means <path> part is empty as well) then fallback to stripping
-     // just the version component.
-     //
-     if (absolute () && sp.empty ())
-       sp = strip_path (path_, strip_mode::version);
+    if (type_ == repository_type::bpkg)
+    {
+      sp = strip_path (up,
+                       remote ()
+                       ? strip_mode::component
+                       : strip_mode::path);
 
-     string cp (sp.relative () ? sp.posix_string () : sp.string ());
+      // If for an absolute path location the stripping result is empty (which
+      // also means <path> part is empty as well) then fallback to stripping
+      // just the version component.
+      //
+      if (absolute () && sp.empty ())
+        sp = strip_path (up, strip_mode::version);
+    }
+    else
+      sp = strip_path (up, strip_mode::extension);
+
+    string cp (sp.relative () ? sp.posix_string () : sp.string ());
 
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
@@ -1771,18 +1908,6 @@ namespace bpkg
     //
     if (canonical_name_.empty ())
       throw invalid_argument ("empty repository name");
-  }
-
-  string repository_location::
-  string () const
-  {
-    if (empty ())
-      return std::string (); // Also function name.
-
-    if (local ())
-      return relative () ? path_.posix_string () : path_.string ();
-
-    return to_string (proto_, host_, port_, path_);
   }
 
   // repository_manifest
@@ -1834,7 +1959,8 @@ namespace bpkg
           // Call prerequisite repository location constructor, do not
           // ammend relative path.
           //
-          location = repository_location (move (v), repository_location ());
+          location = repository_location (repository_url (move (v)),
+                                          repository_location ());
         }
         catch (const invalid_argument& e)
         {
@@ -1947,7 +2073,12 @@ namespace bpkg
     s.next ("", "1"); // Start of manifest.
 
     if (!location.empty ())
+    {
+      if (location.remote () && location.type () != repository_type::bpkg)
+        bad_value ("invalid repository location");
+
       s.next ("location", location.string ());
+    }
 
     if (role)
     {
@@ -2023,27 +2154,33 @@ namespace bpkg
   optional<string> repository_manifest::
   effective_url (const repository_location& l) const
   {
+    static const char* invalid_location ("invalid repository location");
+
+    if (l.local () || l.type () != repository_type::bpkg)
+      throw invalid_argument (invalid_location);
+
     if (!url || (*url)[0] != '.')
       return url;
 
-    const dir_path rp (*url);
+    const path rp (*url);
     auto i (rp.begin ());
 
     static const char* invalid_url ("invalid relative url");
 
-    auto strip ([&i, &rp]() -> bool {
-        if (i != rp.end ())
-        {
-          const auto& c (*i++);
-          if (c == "..")
-            return true;
+    auto strip = [&i, &rp]() -> bool
+    {
+      if (i != rp.end ())
+      {
+        const auto& c (*i++);
+        if (c == "..")
+          return true;
 
-          if (c == ".")
-            return false;
-        }
+        if (c == ".")
+          return false;
+      }
 
-        throw invalid_argument (invalid_url);
-      });
+      throw invalid_argument (invalid_url);
+    };
 
     bool strip_d (strip ()); // Strip domain.
     bool strip_p (strip ()); // Strip path.
@@ -2051,10 +2188,14 @@ namespace bpkg
     // The web interface relative path with the special first two components
     // stripped.
     //
-    const dir_path rpath (i, rp.end ());
+    const path rpath (i, rp.end ());
     assert (rpath.relative ());
 
-    url_parts u (l.string ());
+    repository_url u (l.url ());
+
+    if (strip_d)
+      u.authority->host.value = strip_domain (u.authority->host,
+                                              repository_type::bpkg);
 
     // Web interface URL path part.
     //
@@ -2063,12 +2204,11 @@ namespace bpkg
     // repository location http://a.com/foo/pkg/1/math will wrongly be
     // http://a.com/foo/pkg instead of http://a.com.
     //
-    dir_path ipath (
-      strip_path (
-        u.path,
-        strip_p ? strip_mode::component : strip_mode::version) / rpath);
-
-    static const char* invalid_location ("invalid repository location");
+    path ipath (strip_path (*u.path,
+                            strip_p
+                            ? strip_mode::component
+                            : strip_mode::version) /
+                rpath);
 
     try
     {
@@ -2084,8 +2224,10 @@ namespace bpkg
     if (!ipath.empty () && *ipath.begin () == "..")
       throw invalid_argument (invalid_location);
 
-    return to_string (
-      u.proto, strip_d ? strip_domain (u.host) : u.host, u.port, ipath);
+    // Strip the trailing slash for an empty path.
+    //
+    u.path = !ipath.empty () ? move (ipath) : optional<path> ();
+    return u.string ();
   }
 
   // repository_manifests
@@ -2118,7 +2260,7 @@ namespace bpkg
       throw serialization (s.name (), "base repository manifest expected");
 
     // @@ Should we check that there is location in all except the last
-    // entry?
+    //    entry?
     //
     for (const repository_manifest& r: *this)
       r.serialize (s);
