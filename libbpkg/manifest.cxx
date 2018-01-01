@@ -1419,14 +1419,14 @@ namespace bpkg
                     optional<authority_type>&  authority,
                     optional<path_type>&       path,
                     optional<string_type>&     query,
-                    optional<string_type>&     fragment)
+                    optional<string_type>&     /*fragment*/)
   {
     auto bad_url = [] (const char* d = "invalid URL")
     {
       throw invalid_argument (d);
     };
 
-    auto translate_remote = [&authority, &path, &query, &fragment, &bad_url] ()
+    auto translate_remote = [&authority, &path, &bad_url] ()
     {
       if (!authority || authority->host.empty ())
         bad_url ("invalid host");
