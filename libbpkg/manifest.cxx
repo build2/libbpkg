@@ -1791,7 +1791,9 @@ namespace bpkg
 
     if (remote ())
     {
-      canonical_name_ = strip_domain (url_.authority->host, type_);
+      canonical_name_ = to_string (type_);
+      canonical_name_ += ':';
+      canonical_name_ += strip_domain (url_.authority->host, type_);
 
       // For canonical name and for the HTTP protocol, treat a.com and
       // a.com:80 as the same name. The same rule applies to the HTTPS (port
@@ -1827,7 +1829,7 @@ namespace bpkg
 
         url_ = move (u);
 
-        // Set canonical name to the base location canonical name host
+        // Set canonical name to the base location canonical name 'bpkg:<host>'
         // part. The path part of the canonical name is calculated below.
         //
         if (b.remote ())
@@ -1897,17 +1899,25 @@ namespace bpkg
 
     string cp (sp.relative () ? sp.posix_string () : sp.string ());
 
+    // Don't allow empty canonical names.
+    //
+    if (canonical_name_.empty () && cp.empty ())
+      throw invalid_argument ("empty repository name");
+
     // Note: allow empty paths (e.g., http://stable.cppget.org/1/).
     //
-    if (!canonical_name_.empty () && !cp.empty ()) // If we have host and dir.
-      canonical_name_ += '/';
+    if (!cp.empty ())
+    {
+      if (!canonical_name_.empty ()) // If we have host and dir.
+        canonical_name_ += '/';
+      else                           // If we have just dir.
+      {
+        canonical_name_ = to_string (type_);
+        canonical_name_ += ':';
+      }
+    }
 
     canonical_name_ += cp;
-
-    // But don't allow empty canonical names.
-    //
-    if (canonical_name_.empty ())
-      throw invalid_argument ("empty repository name");
   }
 
   // repository_manifest
