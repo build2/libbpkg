@@ -1524,7 +1524,7 @@ namespace bpkg
   repository_url_traits::string_type repository_url_traits::
   translate_scheme (string_type&                     url,
                     const scheme_type&               scheme,
-                    const optional<authority_type>&  /*authority*/,
+                    const optional<authority_type>&  authority,
                     const optional<path_type>&       path,
                     const optional<string_type>&     /*query*/,
                     const optional<string_type>&     fragment)
@@ -1536,16 +1536,10 @@ namespace bpkg
     case scheme_type::git:   return "git";
     case scheme_type::file:
       {
-        // If there is no fragment present then represent the URL object as a
-        // local path.
-        //
         assert (path);
 
-        if (fragment)
-        {
-          assert (path->absolute ());
+        if (path->absolute () && (fragment || authority))
           return "file";
-        }
 
         url = path->relative () ? path->posix_string () : path->string ();
         return string_type ();

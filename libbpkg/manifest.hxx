@@ -473,7 +473,9 @@ namespace bpkg
   //
   // - For the local URL object the path can be relative or absolute. Query
   //   can not be present. Fragment can not be present for the relative path
-  //   as there is no notation that can be used to represent it.
+  //   as there is no notation that can be used to represent it. The file://
+  //   notation can be enforced for the absolute path by setting the authority
+  //   to an empty object.
   //
   struct LIBBPKG_EXPORT repository_url: butl::basic_url<repository_protocol,
                                                         repository_url_traits>
@@ -598,7 +600,7 @@ namespace bpkg
 
     // URL of an empty location is empty.
     //
-    repository_url
+    const repository_url&
     url () const
     {
       return url_;
