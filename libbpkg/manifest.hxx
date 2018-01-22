@@ -478,26 +478,8 @@ namespace bpkg
   //   the object as a local path if it is absolute and there is no fragment or
   //   authority present.
   //
-  struct LIBBPKG_EXPORT repository_url: butl::basic_url<repository_protocol,
-                                                        repository_url_traits>
-  {
-    using base_type = basic_url<repository_protocol, repository_url_traits>;
-
-    using base_type::base_type;
-
-    // Create an empty URL object.
-    //
-    repository_url () = default;
-
-    // If the argument is an empty string, then create an empty URL object. If
-    // the argument is a local path or a file URL then create a local URL
-    // object. Otherwise create a remote URL object.
-    //
-    // May throw std::invalid_argument (unknown URL schema, incorrect syntax,
-    // unexpected components, etc).
-    //
-    repository_url (const string_type& s): base_type (s) {}
-  };
+  using repository_url = butl::basic_url<repository_protocol,
+                                         repository_url_traits>;
 
   // Repository type.
   //
