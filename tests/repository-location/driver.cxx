@@ -439,6 +439,14 @@ namespace bpkg
       assert (l.canonical_name () == "git:example.com");
     }
     {
+      repository_url u ("http://git.example.com/a/#master");
+      *u.path /= path ("..");
+
+      repository_location l (u, repository_type::git);
+      assert (l.string () == "http://git.example.com/#master");
+      assert (l.canonical_name () == "git:example.com");
+    }
+    {
       repository_location l (loc ("http://a.com/a/b/../c/1/aa/../bb"));
       assert (l.string () == "http://a.com/a/c/1/bb");
       assert (l.canonical_name () == "bpkg:a.com/a/c/bb");
@@ -739,6 +747,42 @@ namespace bpkg
             repository_url (proto::git,
                             repository_url::host_type ("example.com"),
                             dir_path ("test.git")));
+
+    // For an empty URL object all components are absent.
+    //
+    {
+      repository_url u;
+      assert (u.empty () &&
+              !u.authority && !u.path && !u.query && !u.fragment);
+    }
+
+    // Absent path.
+    //
+    assert (repository_url ("git://example.com").string () ==
+            "git://example.com/");
+
+    // Empty path.
+    //
+    assert (repository_url ("git://example.com/").string () ==
+            "git://example.com/");
+
+    // Normalized path.
+    //
+    assert (repository_url ("git://example.com/a/..").string () ==
+            "git://example.com/");
+
+    // No trailing slash.
+    //
+    assert (repository_url ("git://example.com/a/").string () ==
+            "git://example.com/a");
+
+    assert (repository_url ("a/").string () == "a");
+
+#ifndef _WIN32
+    assert (repository_url ("/a/").string () == "/a");
+#else
+    assert (repository_url ("c:/a/").string () == "c:\\a");
+#endif
 
     return 0;
   }

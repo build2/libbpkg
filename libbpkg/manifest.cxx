@@ -1446,6 +1446,20 @@ namespace bpkg
 
       if (path->absolute ())
         bad_url ("absolute path");
+
+      try
+      {
+        path->normalize (false /* actual */, true /* cur_empty */);
+      }
+      catch (const invalid_path& e)
+      {
+        assert (false); // Can't be here as the path is relative.
+      }
+
+      // URL shouldn't go past the root directory of a WEB server.
+      //
+      if (!path->empty () && *path->begin () == "..")
+        bad_url ("invalid path");
     };
 
     if (casecmp (scheme, "http") == 0)
@@ -1495,6 +1509,17 @@ namespace bpkg
         bad_url ("relative path");
 #endif
 
+      assert (path->absolute ());
+
+      try
+      {
+        path->normalize ();
+      }
+      catch (const invalid_path& e)
+      {
+        bad_url ("invalid path"); // Goes past the root directory.
+      }
+
       if (query)
         bad_url ();
 
@@ -1506,7 +1531,7 @@ namespace bpkg
     {
       try
       {
-        path = path_type (url);
+        path = path_type (url).normalize ();
       }
       catch (const invalid_path&)
       {
@@ -1836,9 +1861,12 @@ namespace bpkg
     // and canonical name. So a/b/../c/1/x/../y and a/c/1/y to be considered
     // as same location.
     //
+    // Note that we need to collapse 'example.com/a/..' to 'example.com/',
+    // rather than to 'example.com/.'.
+    //
     try
     {
-      up.normalize ();
+      up.normalize (false /* actual */, remote () /* cur_empty */);
     }
     catch (const invalid_path&)
     {
@@ -2216,7 +2244,7 @@ namespace bpkg
 
     try
     {
-      ipath.normalize (false, true); // Current dir collapses to an empty one.
+      ipath.normalize (false /* actual */, true /* cur_empty */);
     }
     catch (const invalid_path&)
     {

@@ -467,7 +467,9 @@ namespace bpkg
   // Notes:
   //
   // - For an empty URL object all components are absent. For a non-empty one
-  //   the directory path is always present and normalized.
+  //   the path is always present and normalized. The string representation of
+  //   non-empty object with non-empty path never contains the trailing slash
+  //   (except for the root path on POSIX system).
   //
   // - For the remote URL object the host name is in the lower case (IPv4/6 are
   //   not supported) and the path is relative.
@@ -507,6 +509,23 @@ namespace bpkg
     // Create remote, absolute or empty repository location making sure that
     // the URL matches the repository type. Throw std::invalid_argument if the
     // URL object is a relative local path.
+    //
+    // @@ Note that the repository location string representation may differ
+    //    from the original URL in the presence of the trailing slash. This
+    //    may cause problems with some WEB servers that are sensitive to the
+    //    trailing slash presence/absence. For example:
+    //
+    //    $ git clone http://git.sv.gnu.org/r/config.git
+    //    warning: redirecting to http://git.savannah.gnu.org/r/config.git/
+    //
+    //    Also note that we disregard the slash presence/absence on multiple
+    //    levels:
+    //
+    //    - reduce absent path to an empty one in
+    //      repository_url_traits::translate_scheme() (so a.com/ becomes a.com)
+    //    - use path::*string() rather than path::*representation() functions
+    //      in repository_url_traits::translate_*() functions
+    //    - may append slash in repository_location ctor
     //
     explicit
     repository_location (repository_url, repository_type);
