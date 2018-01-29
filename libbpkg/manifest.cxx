@@ -1821,7 +1821,7 @@ namespace bpkg
       uint16_t port (url_.authority->port);
       if (port != 0)
       {
-        uint16_t def_port;
+        uint16_t def_port (0);
 
         switch (url_.scheme)
         {
