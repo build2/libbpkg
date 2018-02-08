@@ -2160,10 +2160,10 @@ namespace bpkg
   {
     static const char* invalid_location ("invalid repository location");
 
-    if (l.local () || l.type () != repository_type::bpkg)
+    if (l.local ())
       throw invalid_argument (invalid_location);
 
-    if (!url || (*url)[0] != '.')
+    if (l.type () != repository_type::bpkg || !url || (*url)[0] != '.')
       return url;
 
     const path rp (*url);

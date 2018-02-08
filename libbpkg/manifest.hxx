@@ -376,7 +376,8 @@ namespace bpkg
     std::vector<requirement_alternatives> requirements;
     std::vector<build_constraint> build_constraints;
 
-    // The following values are only valid in the manifest list.
+    // The following values are only valid in the manifest list (and only for
+    // certain repository types).
     //
     butl::optional<butl::path> location;
     butl::optional<std::string> sha256sum;
@@ -473,9 +474,9 @@ namespace bpkg
   //
   // - For the local URL object the path can be relative or absolute. Query
   //   can not be present. Fragment can not be present for the relative path
-  //   as there is no notation that can be used to represent it. The file://
-  //   notation can be enforced for the absolute path by setting the authority
-  //   to an empty object.
+  //   as there is no notation that can be used to represent it. Represent
+  //   the object as a local path if it is absolute and there is no fragment or
+  //   authority present.
   //
   struct LIBBPKG_EXPORT repository_url: butl::basic_url<repository_protocol,
                                                         repository_url_traits>
@@ -695,13 +696,14 @@ namespace bpkg
   public:
     using email_type = bpkg::email;
 
-    repository_location location;         // bpkg repository location.
+    repository_location location;         // Non-empy for non-base roles.
     butl::optional<repository_role> role;
 
-    // The following values may only be present for the base repository.
+    // The following values may only be present for the base repository (and
+    // only for certain repository types).
     //
     butl::optional<std::string> url;
-    butl::optional<email_type> email;
+    butl::optional<email_type>  email;
     butl::optional<std::string> summary;
     butl::optional<std::string> description;
     butl::optional<std::string> certificate;
@@ -719,11 +721,11 @@ namespace bpkg
     effective_role () const;
 
     // Return the effective web interface URL based on the specified remote
-    // bpkg repository location. If url is not present or doesn't start with
-    // '.', then return it unchanged. Otherwise, process the relative format
-    // as described in the manifest specification. Throw std::invalid_argument
-    // if the relative url format is invalid or if the repository location is
-    // empty or local.
+    // repository location. If url is not present, doesn't start with '.', or
+    // the repository type differs from bpkg, then return it unchanged.
+    // Otherwise, process the relative format as described in the manifest
+    // specification. Throw std::invalid_argument if the relative url format is
+    // invalid or if the repository location is empty or local.
     //
     butl::optional<std::string>
     effective_url (const repository_location&) const;

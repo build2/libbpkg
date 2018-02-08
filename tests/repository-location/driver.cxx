@@ -710,6 +710,11 @@ namespace bpkg
               "http://cppget.org/pkg/foo/misc/stable");
     }
     {
+      repository_location l (loc ("https://git.github.com/test.git#master",
+                                  repository_type::git));
+      assert (effective_url ("../..", l) == "../..");
+    }
+    {
       repository_location l (
         loc ("http://www.cppget.org/foo/bpkg/1/misc/stable"));
 
