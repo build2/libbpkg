@@ -1770,9 +1770,9 @@ namespace bpkg
       }
     case repository_type::git:
       {
-        if (!url_.fragment)
-          throw invalid_argument ("missing branch/tag for git repository");
-
+        // Verify the URL fragment.
+        //
+        git_reference r (url_.fragment);
         break;
       }
     }
@@ -1940,6 +1940,37 @@ namespace bpkg
     }
 
     canonical_name_ += cp;
+  }
+
+  // git_reference
+  //
+  git_reference::
+  git_reference (const optional<string>& frag)
+  {
+    if (frag)
+    {
+      const string& s (*frag);
+
+      size_t p (s.find ('@'));
+      if (p != string::npos)
+      {
+        if (p != 0)
+          branch = string (s, 0, p);
+
+        if (p + 1 != s.size ())
+          commit = string (s, p + 1);
+      }
+      else if (!s.empty ())
+        branch = s;
+    }
+
+    if (!branch && !commit)
+      throw invalid_argument (
+        "missing branch/tag or commit id for git repository");
+
+    if (commit && commit->size () != 40)
+      throw invalid_argument (
+        "git repository commit id must be 40 characters long");
   }
 
   // repository_manifest

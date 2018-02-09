@@ -510,22 +510,24 @@ namespace bpkg
     // the URL matches the repository type. Throw std::invalid_argument if the
     // URL object is a relative local path.
     //
-    // @@ Note that the repository location string representation may differ
-    //    from the original URL in the presence of the trailing slash. This
-    //    may cause problems with some WEB servers that are sensitive to the
-    //    trailing slash presence/absence. For example:
+    // Note that the repository location string representation may differ from
+    // the original URL in the presence of the trailing slash. This may cause
+    // problems with some WEB servers that are sensitive to the trailing slash
+    // presence/absence. For example:
     //
-    //    $ git clone http://git.sv.gnu.org/r/config.git
-    //    warning: redirecting to http://git.savannah.gnu.org/r/config.git/
+    // $ git clone http://git.sv.gnu.org/r/config.git
+    //   warning: redirecting to http://git.savannah.gnu.org/r/config.git/
     //
-    //    Also note that we disregard the slash presence/absence on multiple
-    //    levels:
+    // Also note that we disregard the slash presence/absence on multiple
+    // levels:
     //
-    //    - reduce absent path to an empty one in
-    //      repository_url_traits::translate_scheme() (so a.com/ becomes a.com)
-    //    - use path::*string() rather than path::*representation() functions
-    //      in repository_url_traits::translate_*() functions
-    //    - may append slash in repository_location ctor
+    // - reduce absent path to an empty one in
+    //   repository_url_traits::translate_scheme() (so a.com/ becomes a.com)
+    //
+    // - use path::*string() rather than path::*representation() functions
+    //   in repository_url_traits::translate_*() functions
+    //
+    // - may append slash in repository_location ctor
     //
     explicit
     repository_location (repository_url, repository_type);
@@ -684,6 +686,28 @@ namespace bpkg
   {
     return os << l.string ();
   }
+
+  // Branch and/or commit. At least one of them must be present. If both of
+  // them are present then the commit is expected to belong to the branch
+  // history. Note that the branch member can also denote a tag.
+  //
+  class LIBBPKG_EXPORT git_reference
+  {
+  public:
+    butl::optional<std::string> branch;
+    butl::optional<std::string> commit;
+
+  public:
+    // Parse the [<branch>][@<commit>] repository URL fragment representation.
+    //
+    explicit
+    git_reference (const butl::optional<std::string>&);
+
+    git_reference (butl::optional<std::string> b,
+                   butl::optional<std::string> c)
+        : branch (std::move (b)),
+          commit (std::move (c)) {}
+  };
 
   enum class repository_role
   {

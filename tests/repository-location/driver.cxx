@@ -150,13 +150,25 @@ namespace bpkg
     assert (bad_loc ("c:\\aaa\\bbb"));
 #endif
 
-    // No URL fragment.
+    // Invalid/absent URL fragment.
     //
 #ifndef _WIN32
     assert (bad_loc ("file://localhost/", repository_type::git));
 #else
     assert (bad_loc ("file://localhost/c:/", repository_type::git));
 #endif
+
+    assert (bad_loc ("https://www.example.com/test.git",
+                     repository_type::git));
+
+    assert (bad_loc ("https://www.example.com/test.git#",
+                     repository_type::git));
+
+    assert (bad_loc ("https://www.example.com/test.git#@",
+                     repository_type::git));
+
+    assert (bad_loc ("https://www.example.com/test.git#@123",
+                     repository_type::git));
 
     // Invalid version.
     //
@@ -410,25 +422,25 @@ namespace bpkg
       assert (l.type () == repository_type::bpkg);
     }
     {
-      repository_location l (loc ("git://github.com/test#master",
+      repository_location l (loc ("git://example.com/test#master",
                                   repository_type::git));
-      assert (l.string () == "git://github.com/test#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "git://example.com/test#master");
+      assert (l.canonical_name () == "git:example.com/test");
       assert (l.proto () == proto::git);
       assert (l.type () == repository_type::git);
     }
     {
-      repository_location l (loc ("http://github.com/test.git#master",
+      repository_location l (loc ("http://example.com/test.git#master",
                                   repository_type::git));
-      assert (l.string () == "http://github.com/test.git#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "http://example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test");
       assert (l.proto () == proto::http);
     }
     {
-      repository_location l (loc ("https://github.com/test.git#master",
+      repository_location l (loc ("https://example.com/test.git#master",
                                   repository_type::git));
-      assert (l.string () == "https://github.com/test.git#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "https://example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test");
       assert (l.proto () == proto::https);
       assert (l.type () == repository_type::git);
     }
@@ -487,22 +499,22 @@ namespace bpkg
       assert (l.canonical_name () == "bpkg:www.cppget.org/qw/a/b");
     }
     {
-      repository_location l (loc ("https://git.github.com/test.git#master",
+      repository_location l (loc ("https://git.example.com/test.git#master",
                                   repository_type::git));
-      assert (l.string () == "https://git.github.com/test.git#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "https://git.example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test");
     }
     {
-      repository_location l (loc ("https://scm.github.com/test.git#master",
+      repository_location l (loc ("https://scm.example.com/test.git#master",
                                   repository_type::git));
-      assert (l.string () == "https://scm.github.com/test.git#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "https://scm.example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test");
     }
     {
-      repository_location l (loc ("https://www.github.com/test.git#master",
+      repository_location l (loc ("https://www.example.com/test.git#master",
                                   repository_type::git));
-      assert (l.string () == "https://www.github.com/test.git#master");
-      assert (l.canonical_name () == "git:github.com/test");
+      assert (l.string () == "https://www.example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test");
     }
     {
       repository_location l (loc ("http://cppget.org/qw//1/a//b/"));
@@ -711,14 +723,13 @@ namespace bpkg
               "http://cppget.org/foo/misc/stable");
     }
     {
-      repository_location l (
-        loc ("http://cppget.org/pkg/foo/1/misc/stable"));
+      repository_location l (loc ("http://cppget.org/pkg/foo/1/misc/stable"));
 
       assert (effective_url ("../..", l) ==
               "http://cppget.org/pkg/foo/misc/stable");
     }
     {
-      repository_location l (loc ("https://git.github.com/test.git#master",
+      repository_location l (loc ("https://git.example.com/test.git#master",
                                   repository_type::git));
       assert (effective_url ("../..", l) == "../..");
     }
@@ -726,8 +737,7 @@ namespace bpkg
       repository_location l (
         loc ("http://www.cppget.org/foo/bpkg/1/misc/stable"));
 
-      assert (effective_url ("../../..", l) ==
-              "http://cppget.org/foo/misc");
+      assert (effective_url ("../../..", l) == "http://cppget.org/foo/misc");
     }
     {
       repository_location l (loc ("http://pkg.cppget.org/foo/pkg/1/misc"));
@@ -739,6 +749,21 @@ namespace bpkg
 
       assert (effective_url ("../../../abc", l) ==
               "http://cppget.org/foo/misc/abc");
+    }
+
+    // Repository URL fragments.
+    //
+    {
+      loc ("https://www.example.com/test.git#master", repository_type::git);
+      loc ("https://www.example.com/test.git#master@", repository_type::git);
+
+      loc ("https://www.example.com/test.git#"
+           "@0a53e9ddeaddad63ad106860237bbf53411d11a7",
+           repository_type::git);
+
+      loc ("https://www.example.com/test.git#"
+           "master@0a53e9ddeaddad63ad106860237bbf53411d11a7",
+           repository_type::git);
     }
 
     // repository_url
