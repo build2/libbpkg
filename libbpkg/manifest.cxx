@@ -11,7 +11,7 @@
 #include <cstring>   // strncmp(), strcmp()
 #include <utility>   // move()
 #include <cstdint>   // uint16_t, UINT16_MAX
-#include <algorithm> // find(), replace()
+#include <algorithm> // find(), find_if_not(), replace()
 #include <stdexcept> // invalid_argument
 
 #include <libbutl/path.mxx>
@@ -1961,7 +1961,20 @@ namespace bpkg
           commit = string (s, p + 1);
       }
       else if (!s.empty ())
-        branch = s;
+      {
+        // A 40-characters fragment that consists of only hexadecimal digits is
+        // assumed to be a commit id.
+        //
+        if (s.size () == 40 &&
+            find_if_not (s.begin (), s.end (),
+
+                         // Resolve the required overload.
+                         //
+                         static_cast<bool (*)(char)> (xdigit)) == s.end ())
+          commit = s;
+        else
+          branch = s;
+      }
     }
 
     if (!branch && !commit)

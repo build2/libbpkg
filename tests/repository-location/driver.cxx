@@ -754,16 +754,16 @@ namespace bpkg
     // Repository URL fragments.
     //
     {
-      loc ("https://www.example.com/test.git#master", repository_type::git);
-      loc ("https://www.example.com/test.git#master@", repository_type::git);
+      string branch ("master");
+      string commit ("0a53e9ddeaddad63ad106860237bbf53411d11a7");
 
-      loc ("https://www.example.com/test.git#"
-           "@0a53e9ddeaddad63ad106860237bbf53411d11a7",
-           repository_type::git);
+      assert (*git_reference (branch).branch == branch);
+      assert (*git_reference (commit + "@").branch == commit);
+      assert (*git_reference (commit).commit == commit);
+      assert (*git_reference ("@" + commit).commit == commit);
 
-      loc ("https://www.example.com/test.git#"
-           "master@0a53e9ddeaddad63ad106860237bbf53411d11a7",
-           repository_type::git);
+      git_reference r (branch + "@" + commit);
+      assert (*r.branch == branch && *r.commit == commit);
     }
 
     // repository_url
