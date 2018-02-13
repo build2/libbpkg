@@ -1451,7 +1451,7 @@ namespace bpkg
       {
         path->normalize (false /* actual */, true /* cur_empty */);
       }
-      catch (const invalid_path& e)
+      catch (const invalid_path&)
       {
         assert (false); // Can't be here as the path is relative.
       }
@@ -1515,7 +1515,7 @@ namespace bpkg
       {
         path->normalize ();
       }
-      catch (const invalid_path& e)
+      catch (const invalid_path&)
       {
         bad_url ("invalid path"); // Goes past the root directory.
       }
