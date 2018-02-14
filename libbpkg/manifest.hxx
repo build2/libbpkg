@@ -385,27 +385,47 @@ namespace bpkg
   public:
     package_manifest () = default; // VC export.
 
-    // Create individual package manifest.
-    //
-    package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
-
-    // Create an element of the package list manifest.
-    //
-    package_manifest (butl::manifest_parser&,
-                      butl::manifest_name_value start,
-                      bool ignore_unknown = false);
-
     void
     serialize (butl::manifest_serializer&) const;
-
-  private:
-    package_manifest (butl::manifest_parser&,
-                      butl::manifest_name_value start,
-                      bool in_list,
-                      bool ignore_unknown);
   };
 
-  class LIBBPKG_EXPORT package_manifests: public std::vector<package_manifest>
+  // Create individual package manifest.
+  //
+  LIBBPKG_EXPORT package_manifest
+  bpkg_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT package_manifest
+  git_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+
+  // Create an element of the package list manifest.
+  //
+  LIBBPKG_EXPORT package_manifest
+  bpkg_package_manifest (butl::manifest_parser&,
+                         butl::manifest_name_value start,
+                         bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT package_manifest
+  git_package_manifest (butl::manifest_parser&,
+                        butl::manifest_name_value start,
+                        bool ignore_unknown = false);
+
+  // Serialize.
+  //
+  inline void
+  bpkg_package_manifest (butl::manifest_serializer& s,
+                         const package_manifest& m)
+  {
+    m.serialize (s);
+  }
+
+  // Normally there is no need to serialize git package manifest, unless for
+  // testing.
+  //
+  LIBBPKG_EXPORT void
+  git_package_manifest (butl::manifest_serializer&, const package_manifest&);
+
+  class LIBBPKG_EXPORT bpkg_package_manifests:
+    public std::vector<package_manifest>
   {
   public:
     using base_type = std::vector<package_manifest>;
@@ -417,9 +437,30 @@ namespace bpkg
     std::string sha256sum;
 
   public:
-    package_manifests () = default;
-    package_manifests (butl::manifest_parser&, bool ignore_unknown = false);
+    bpkg_package_manifests () = default;
+    bpkg_package_manifests (butl::manifest_parser&,
+                            bool ignore_unknown = false);
 
+    void
+    serialize (butl::manifest_serializer&) const;
+  };
+
+  class LIBBPKG_EXPORT git_package_manifests:
+    public std::vector<package_manifest>
+  {
+  public:
+    using base_type = std::vector<package_manifest>;
+
+    using base_type::base_type;
+
+  public:
+    git_package_manifests () = default;
+    git_package_manifests (butl::manifest_parser&,
+                           bool ignore_unknown = false);
+
+    // Normally there is no need to serialize git package manifests, unless for
+    // testing.
+    //
     void
     serialize (butl::manifest_serializer&) const;
   };
@@ -443,7 +484,6 @@ namespace bpkg
                       butl::optional<path_type>&,
                       butl::optional<string_type>&,
                       butl::optional<string_type>&);
-
 
     static string_type
     translate_scheme (string_type&,
@@ -475,10 +515,9 @@ namespace bpkg
   //   not supported) and the path is relative.
   //
   // - For the local URL object the path can be relative or absolute. Query
-  //   can not be present. Fragment can not be present for the relative path
-  //   as there is no notation that can be used to represent it. Represent
-  //   the object as a local path if it is absolute and there is no fragment or
-  //   authority present.
+  //   can not be present. Represent the object using the file:// notation if
+  //   it is absolute and the authority or fragment is present. Otherwise
+  //   represent it as a local path, appending the fragment if present.
   //
   using repository_url = butl::basic_url<repository_protocol,
                                          repository_url_traits>;
@@ -498,6 +537,22 @@ namespace bpkg
   {
     return os << to_string (t);
   }
+
+  // Guess the repository type for the URL:
+  //
+  // 1. If scheme is git then git.
+  //
+  // 2. If scheme is http(s), then check if path has the .git extension,
+  //    then git, otherwise bpkg.
+  //
+  // 3. If local (which will normally be without the .git extension), check
+  //    if directory contains the .git/ subdirectory then git, otherwise
+  //    bpkg.
+  //
+  // Can throw system_error in the later case.
+  //
+  LIBBPKG_EXPORT repository_type
+  guess_type (const repository_url&, bool local);
 
   class LIBBPKG_EXPORT repository_location
   {
@@ -538,9 +593,9 @@ namespace bpkg
     // is empty, base itself is relative, or the resulting completed location
     // is invalid.
     //
-    repository_location (repository_url u,
-                         const repository_location& base)
-        : repository_location (std::move (u), repository_type::bpkg, base) {}
+    repository_location (repository_url,
+                         repository_type,
+                         const repository_location& base);
 
     repository_location (const repository_location& l,
                          const repository_location& base)
@@ -669,13 +724,6 @@ namespace bpkg
     }
 
   private:
-    // Used for delegating in public constructor.
-    //
-    repository_location (repository_url,
-                         repository_type,
-                         const repository_location& base);
-
-  private:
     std::string canonical_name_;
     repository_url url_;
     repository_type type_;
@@ -757,16 +805,34 @@ namespace bpkg
 
   public:
     repository_manifest () = default; // VC export.
-    repository_manifest (butl::manifest_parser&, bool ignore_unknown = false);
-    repository_manifest (butl::manifest_parser&,
-                         butl::manifest_name_value start,
-                         bool ignore_unknown = false);
 
     void
     serialize (butl::manifest_serializer&) const;
   };
 
-  class LIBBPKG_EXPORT repository_manifests:
+  // Create individual repository manifest.
+  //
+  LIBBPKG_EXPORT repository_manifest
+  bpkg_repository_manifest (butl::manifest_parser&,
+                            bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT repository_manifest
+  git_repository_manifest (butl::manifest_parser&,
+                           bool ignore_unknown = false);
+
+  // Create an element of the repository list manifest.
+  //
+  LIBBPKG_EXPORT repository_manifest
+  bpkg_repository_manifest (butl::manifest_parser&,
+                            butl::manifest_name_value start,
+                            bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT repository_manifest
+  git_repository_manifest (butl::manifest_parser&,
+                           butl::manifest_name_value start,
+                           bool ignore_unknown = false);
+
+  class LIBBPKG_EXPORT bpkg_repository_manifests:
     public std::vector<repository_manifest>
   {
   public:
@@ -774,8 +840,25 @@ namespace bpkg
 
     using base_type::base_type;
 
-    repository_manifests () = default;
-    repository_manifests (butl::manifest_parser&, bool ignore_unknown = false);
+    bpkg_repository_manifests () = default;
+    bpkg_repository_manifests (butl::manifest_parser&,
+                               bool ignore_unknown = false);
+
+    void
+    serialize (butl::manifest_serializer&) const;
+  };
+
+  class LIBBPKG_EXPORT git_repository_manifests:
+    public std::vector<repository_manifest>
+  {
+  public:
+    using base_type = std::vector<repository_manifest>;
+
+    using base_type::base_type;
+
+    git_repository_manifests () = default;
+    git_repository_manifests (butl::manifest_parser&,
+                              bool ignore_unknown = false);
 
     void
     serialize (butl::manifest_serializer&) const;

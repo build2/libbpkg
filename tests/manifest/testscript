@@ -4,128 +4,262 @@
 
 : packages
 :
-: Roundtrip the package manifest list.
-:
 {
-  : manifest
+  : bpkg
   :
-  $* -p <<EOF >>EOF
-  : 1
-  sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  {
+    : manifest
+    :
+    : Roundtrip the bpkg package manifest list.
+    :
+    $* -bp <<EOF >>EOF
+    : 1
+    sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    :
+    name: libfoo
+    version: 1.2.3+2
+    priority: high; Due to critical bug fix.
+    summary: Modern XML parser
+    license: LGPLv2, MIT; Both required.
+    license: BSD
+    tags: c++, xml, parser, serializer, pull, streaming, modern
+    description: libfoo is a very modern C++ XML parser.
+    changes: 1.2.3+2: applied upstream patch for critical bug bar
+    changes: 1.2.3+1: applied upstream patch for critical bug foo
+    url: http://www.example.org/projects/libfoo/; libfoo project page url
+    doc-url: http://www.example.org/projects/libfoo/man.xhtml; documentation page
+    src-url: http://scm.example.com/?p=odb/libodb.git\;a=tree; source tree
+    package-url: http://www.example.org/projects/libfoo/1.2.3+2; package url
+    email: libfoo-users@example.org; Public mailing list, posts by non-members\
+     are allowed but moderated.
+    package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
+    build-email: libfoo-builds@example.org; Mailing list for bbot notification\
+     emails.
+    depends: libz
+    depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
+    depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
+     C++11 <regex>.
+    depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
+    requires: linux | windows | macosx; symbian is coming.
+    requires: c++11
+    requires: ? ; VC++ 12.0 or later if targeting Windows.
+    requires: ? ; libc++ standard library if using Clang on Mac OS X.
+    requires: zlib; Most Linux/UNIX systems already have one; or get it at\
+     www.zlib.net.
+    build-include: linux*
+    build-include: freebsd*
+    build-exclude: *; Only supports Linux and FreeBSD.
+    location: libfoo-1.2.3+2.tar.bz2
+    sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    :
+    name: libbar
+    version: 3.4A.5+6
+    summary: Modern bar management framework
+    license: LGPLv2
+    tags: c++, xml, modern
+    url: http://www.example.org/projects/libbar/
+    email: libbar-users@example.org
+    build-email:
+    depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
+    build-exclude: *-msvc_14*/i?86-*; Linker crash.
+    location: bar/libbar-3.4A.5+6.tbz
+    sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    :
+    name: libbaz
+    version: 2~3.4A.5+3
+    summary: Modern baz system
+    license: LGPLv2
+    url: http://www.example.org/projects/libbar/
+    email: libbaz-users@example.org
+    location: libbaz/libbaz-2~3.4A.5+3.tar.gz
+    sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    EOF
+  }
+
+  : git
   :
-  name: libfoo
-  version: 1.2.3+2
-  priority: high; Due to critical bug fix.
-  summary: Modern XML parser
-  license: LGPLv2, MIT; Both required.
-  license: BSD
-  tags: c++, xml, parser, serializer, pull, streaming, modern
-  description: libfoo is a very modern C++ XML parser.
-  changes: 1.2.3+2: applied upstream patch for critical bug bar
-  changes: 1.2.3+1: applied upstream patch for critical bug foo
-  url: http://www.example.org/projects/libfoo/; libfoo project page url
-  doc-url: http://www.example.org/projects/libfoo/man.xhtml; documentation page
-  src-url: http://scm.example.com/?p=odb/libodb.git\;a=tree; source tree
-  package-url: http://www.example.org/projects/libfoo/1.2.3+2; package url
-  email: libfoo-users@example.org; Public mailing list, posts by non-members\
-   are allowed but moderated.
-  package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
-  build-email: libfoo-builds@example.org; Mailing list for bbot notification\
-   emails.
-  depends: libz
-  depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
-  depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
-   C++11 <regex>.
-  depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
-  requires: linux | windows | macosx; symbian is coming.
-  requires: c++11
-  requires: ? ; VC++ 12.0 or later if targeting Windows.
-  requires: ? ; libc++ standard library if using Clang on Mac OS X.
-  requires: zlib; Most Linux/UNIX systems already have one; or get it at\
-   www.zlib.net.
-  build-include: linux*
-  build-include: freebsd*
-  build-exclude: *; Only supports Linux and FreeBSD.
-  location: libfoo-1.2.3+2.tar.bz2
-  sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-  :
-  name: libbar
-  version: 3.4A.5+6
-  summary: Modern bar management framework
-  license: LGPLv2
-  tags: c++, xml, modern
-  url: http://www.example.org/projects/libbar/
-  email: libbar-users@example.org
-  build-email:
-  depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
-  build-exclude: *-msvc_14*/i?86-*; Linker crash.
-  location: bar/libbar-3.4A.5+6.tbz
-  sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-  :
-  name: libbaz
-  version: 2~3.4A.5+3
-  summary: Modern baz system
-  license: LGPLv2
-  url: http://www.example.org/projects/libbar/
-  email: libbaz-users@example.org
-  location: libbaz/libbaz-2~3.4A.5+3.tar.gz
-  sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-  EOF
+  {
+    : manifest
+    :
+    : Roundtrip the git package manifest list.
+    :
+    $* -gp <<EOF >>EOF
+    : 1
+    location: hello/
+    :
+    location: mhello/
+    EOF
+
+    : empty
+    :
+    : Roundtrip an empty git package manifest list.
+    :
+    $* -gp <"" >:""
+  }
 }
 
 : repositories
 :
-: Roundtrip the repository manifest list.
-:
 {
-  : manifest
+  : bpkg
   :
-  $* -r <<EOF >>EOF
-  : 1
-  location: http://pkg.example.org/1/math
-  role: prerequisite
+  {
+    : manifest
+    :
+    : Roundtrip the bpkg repository manifest list.
+    :
+    $* -br <<EOF >>EOF
+    : 1
+    location: http://pkg.example.org/1/math
+    type: bpkg
+    role: prerequisite
+    :
+    location: ../stable
+    type: bpkg
+    role: complement
+    :
+    url: http://cppget.org
+    email: repoman@cppget.org; General mailing list.
+    summary: General C++ package repository
+    description: This is the awesome C++ package repository full of exciting\
+     stuff.
+    certificate: \
+    -----BEGIN CERTIFICATE-----
+    MIIFLzCCAxegAwIBAgIJAJ71rMp8mDy1MA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
+    BAoMDkNvZGUgU3ludGhlc2lzMRgwFgYDVQQDDA9uYW1lOmNwcGdldC5vcmcwHhcN
+    MTYwNDA4MTc1NTUwWhcNMTcwNDA4MTc1NTUwWjAzMRcwFQYDVQQKDA5Db2RlIFN5
+    bnRoZXNpczEYMBYGA1UEAwwPbmFtZTpjcHBnZXQub3JnMIICIjANBgkqhkiG9w0B
+    AQEFAAOCAg8AMIICCgKCAgEAwj7lwxkr19ygfNIzQsiKkmyyRG0c5AwMrwvldEk7
+    2UIwz5kNb04zveUzQcfNFhau60+xC980Y4TKA4/ScfinyaDfp1I3pmiv4OSDUoBw
+    9e8a+4Jyo5fuiAXoAYaQyAdwvH1mIbYq1ObRfKW2MTrUXp/HRJAWHHBnv3VmCYBZ
+    dllY1hasA+SBDMBv6iTXkKUIfEdNDk8cjUR3FjxaefIdip9pHR3G0y4iWctS1drq
+    AKLE1J0KIJyPsJCvoZnzIeePaCNL/UtRup9mYi2vxHHFD4Ml5Bbp+gE6vq5XhcQz
+    LeCcGYKB3UjVWuszcpFIoHACw9ja2JUumbTiclUDgLBk8WXJvLjOCNLp9i/MKQws
+    p5CDfrNe2P6u63ZmtW2v0Qpj/6b6JQmqJaMgHQdDEBUFO3bjwm7yyXyvEjj/EAEJ
+    pGziWZjan5NKGgKCX1JChQJloMHhzr42YMvceWTMJjAr07Es9vCsCS2KPvAKY7Mv
+    yewAyK9ucFRDObZVuaFjU+WUTXB1munwO3Jso56EMxeFvu+W1B+m49XS3k/TlBvF
+    HGnkiSaMwLEJvgFVgQPpG2gD39WDFqX28pWdLL4hM+hXUfdeH0OdXfq66CLu7P8d
+    cgkZdHRs5UauxLzm1Qo06aLsm2HXrfDnmsd5ENi7RkiFMx1aLh3/cjZD0uHndQUC
+    LEcCAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBYGA1UdJQEB/wQMMAoGCCsGAQUF
+    BwMDMBoGA1UdEQQTMBGBD2luZm9AY3BwZ2V0Lm9yZzANBgkqhkiG9w0BAQsFAAOC
+    AgEAHLfv2w82bBMgDgsRX8GU/3eK6CnyfRu4Auto1XjyHCrD6qcIdmebC0hihpSg
+    5xSlfVwjPRWBmg3z5/K8ln5jM6KKiWHd47OCfx+DW7wbesq2+6lS1btXpRR2pv7j
+    zG+41Cncu/xVNs9F4CQluVn5xyWFVDUxQfkQqAE46EbkjAmq42y+1ZQnq2Zm47Wr
+    iMRXQtg1yx7Fs2EpVU+sbW4ImuXgv0YbyYbI1lPhvmx8rIL6lybN3evEfIj7crh7
+    5abWPDZzA+1aNL5tiaSNrn3nS/BfJyEYhGMyy0bsekPZiaqGB1q/mgv2rmR/2SRL
+    Tx+T7sthy/IHTOUbDTY0lUhjc6thQMncgGTaD4TC3QaXhdLWzO9XTh0K7U8BOMwh
+    wppr1G5aTXY0PUB0+Hs+IQZ4mVfBvKO0Wn6GgoDAs/mW9qvbWP3ZnpdvhB52a49P
+    g07JQ+R0QgBNQY7t0lT0mOpAPx79Dwc5R8jQCkx4gTr1bWtgyCvza+gpTgUQDOH5
+    nawOIIDOnRv4heFdvgfEQs2oKa3X4bM+BsgOx7OTvnWCzJy0IXo0uBbcTrMv9Z62
+    +KVwnghQdpURRnUpomt03cTwjqVJVrq287owGv8qqnuGcTTi1SgzNNYREFoljY58
+    CCj4yYvTUzXjcAUXaNC5YNw3JEQp8vmciuJwhyUkbifLrHU=
+    -----END CERTIFICATE-----
+    \
+    EOF
+
+    : prerequisite-type
+    :
+    $* -br <<EOI >>EOO
+    : 1
+    location: http://example.org/math.git#master
+    role: prerequisite
+    :
+    location: ../stable.git
+    role: complement
+    :
+    location: git://example.org/foo#master
+    type: git
+    role: prerequisite
+    :
+    location: http://pkg.example.org/1/bar
+    role: prerequisite
+    :
+    url: http://cppget.org
+    EOI
+    : 1
+    location: http://example.org/math.git#master
+    type: git
+    role: prerequisite
+    :
+    location: ../stable.git
+    type: bpkg
+    role: complement
+    :
+    location: git://example.org/foo#master
+    type: git
+    role: prerequisite
+    :
+    location: http://pkg.example.org/1/bar
+    type: bpkg
+    role: prerequisite
+    :
+    url: http://cppget.org
+    EOO
+  }
+
+  : git
   :
-  location: ../stable
-  role: complement
-  :
-  url: http://cppget.org
-  email: repoman@cppget.org; General mailing list.
-  summary: General C++ package repository
-  description: This is the awesome C++ package repository full of exciting\
-   stuff.
-  certificate: \
-  -----BEGIN CERTIFICATE-----
-  MIIFLzCCAxegAwIBAgIJAJ71rMp8mDy1MA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
-  BAoMDkNvZGUgU3ludGhlc2lzMRgwFgYDVQQDDA9uYW1lOmNwcGdldC5vcmcwHhcN
-  MTYwNDA4MTc1NTUwWhcNMTcwNDA4MTc1NTUwWjAzMRcwFQYDVQQKDA5Db2RlIFN5
-  bnRoZXNpczEYMBYGA1UEAwwPbmFtZTpjcHBnZXQub3JnMIICIjANBgkqhkiG9w0B
-  AQEFAAOCAg8AMIICCgKCAgEAwj7lwxkr19ygfNIzQsiKkmyyRG0c5AwMrwvldEk7
-  2UIwz5kNb04zveUzQcfNFhau60+xC980Y4TKA4/ScfinyaDfp1I3pmiv4OSDUoBw
-  9e8a+4Jyo5fuiAXoAYaQyAdwvH1mIbYq1ObRfKW2MTrUXp/HRJAWHHBnv3VmCYBZ
-  dllY1hasA+SBDMBv6iTXkKUIfEdNDk8cjUR3FjxaefIdip9pHR3G0y4iWctS1drq
-  AKLE1J0KIJyPsJCvoZnzIeePaCNL/UtRup9mYi2vxHHFD4Ml5Bbp+gE6vq5XhcQz
-  LeCcGYKB3UjVWuszcpFIoHACw9ja2JUumbTiclUDgLBk8WXJvLjOCNLp9i/MKQws
-  p5CDfrNe2P6u63ZmtW2v0Qpj/6b6JQmqJaMgHQdDEBUFO3bjwm7yyXyvEjj/EAEJ
-  pGziWZjan5NKGgKCX1JChQJloMHhzr42YMvceWTMJjAr07Es9vCsCS2KPvAKY7Mv
-  yewAyK9ucFRDObZVuaFjU+WUTXB1munwO3Jso56EMxeFvu+W1B+m49XS3k/TlBvF
-  HGnkiSaMwLEJvgFVgQPpG2gD39WDFqX28pWdLL4hM+hXUfdeH0OdXfq66CLu7P8d
-  cgkZdHRs5UauxLzm1Qo06aLsm2HXrfDnmsd5ENi7RkiFMx1aLh3/cjZD0uHndQUC
-  LEcCAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBYGA1UdJQEB/wQMMAoGCCsGAQUF
-  BwMDMBoGA1UdEQQTMBGBD2luZm9AY3BwZ2V0Lm9yZzANBgkqhkiG9w0BAQsFAAOC
-  AgEAHLfv2w82bBMgDgsRX8GU/3eK6CnyfRu4Auto1XjyHCrD6qcIdmebC0hihpSg
-  5xSlfVwjPRWBmg3z5/K8ln5jM6KKiWHd47OCfx+DW7wbesq2+6lS1btXpRR2pv7j
-  zG+41Cncu/xVNs9F4CQluVn5xyWFVDUxQfkQqAE46EbkjAmq42y+1ZQnq2Zm47Wr
-  iMRXQtg1yx7Fs2EpVU+sbW4ImuXgv0YbyYbI1lPhvmx8rIL6lybN3evEfIj7crh7
-  5abWPDZzA+1aNL5tiaSNrn3nS/BfJyEYhGMyy0bsekPZiaqGB1q/mgv2rmR/2SRL
-  Tx+T7sthy/IHTOUbDTY0lUhjc6thQMncgGTaD4TC3QaXhdLWzO9XTh0K7U8BOMwh
-  wppr1G5aTXY0PUB0+Hs+IQZ4mVfBvKO0Wn6GgoDAs/mW9qvbWP3ZnpdvhB52a49P
-  g07JQ+R0QgBNQY7t0lT0mOpAPx79Dwc5R8jQCkx4gTr1bWtgyCvza+gpTgUQDOH5
-  nawOIIDOnRv4heFdvgfEQs2oKa3X4bM+BsgOx7OTvnWCzJy0IXo0uBbcTrMv9Z62
-  +KVwnghQdpURRnUpomt03cTwjqVJVrq287owGv8qqnuGcTTi1SgzNNYREFoljY58
-  CCj4yYvTUzXjcAUXaNC5YNw3JEQp8vmciuJwhyUkbifLrHU=
-  -----END CERTIFICATE-----
-  \
-  EOF
+  {
+    : manifest
+    :
+    : Roundtrip the git repository manifest list.
+    :
+    $* -gr <<EOF >>EOF
+    : 1
+    location: http://example.org/math.git#master
+    type: git
+    role: prerequisite
+    :
+    location: ../stable.git#stable
+    type: git
+    role: complement
+    :
+    url: http://cppget.org
+    email: repoman@cppget.org; General mailing list.
+    summary: General C++ package repository
+    description: This is the awesome C++ package repository full of exciting\
+     stuff.
+    EOF
+
+    : prerequisite-type
+    :
+    $* -gr <<EOI >>EOO
+    : 1
+    location: http://example.org/math.git#master
+    role: prerequisite
+    :
+    location: ../stable.git#stable
+    role: complement
+    :
+    location: git://example.org/foo#master
+    type: git
+    role: prerequisite
+    :
+    location: http://pkg.example.org/1/bar
+    role: prerequisite
+    :
+    url: http://cppget.org
+    EOI
+    : 1
+    location: http://example.org/math.git#master
+    type: git
+    role: prerequisite
+    :
+    location: ../stable.git#stable
+    type: git
+    role: complement
+    :
+    location: git://example.org/foo#master
+    type: git
+    role: prerequisite
+    :
+    location: http://pkg.example.org/1/bar
+    type: bpkg
+    role: prerequisite
+    :
+    url: http://cppget.org
+    EOO
+  }
 }
 
 : signature

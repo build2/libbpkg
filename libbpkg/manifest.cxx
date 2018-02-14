@@ -604,26 +604,119 @@ namespace bpkg
 
   // package_manifest
   //
-  package_manifest::
-  package_manifest (parser& p, bool iu)
-      : package_manifest (p, p.next (), false, iu) // Delegate
+  void package_manifest::
+  serialize (serializer& s) const
   {
-    // Make sure this is the end.
+    // @@ Should we check that all non-optional values are specified ?
+    // @@ Should we check that values are valid: name is not empty, version
+    //    release is not empty, sha256sum is a proper string, ...?
+    // @@ Currently we don't know if we are serializing the individual package
+    //    manifest or the package list manifest, so can't ensure all values
+    //    allowed in the current context (*-file values).
     //
-    name_value nv (p.next ());
-    if (!nv.empty ())
-      throw parsing (p.name (), nv.name_line, nv.name_column,
-                     "single package manifest expected");
+
+    s.next ("", "1"); // Start of manifest.
+    s.next ("name", name);
+    s.next ("version", version.string ());
+
+    if (priority)
+    {
+      size_t v (*priority);
+      assert (v < priority_names.size ());
+
+      s.next ("priority",
+              serializer::merge_comment (priority_names[v],
+                                         priority->comment));
+    }
+
+    s.next ("summary", summary);
+
+    for (const auto& la: license_alternatives)
+      s.next ("license",
+              serializer::merge_comment (concatenate (la), la.comment));
+
+    if (!tags.empty ())
+      s.next ("tags", concatenate (tags));
+
+    if (description)
+    {
+      if (description->file)
+        s.next ("description-file",
+                serializer::merge_comment (description->path.string (),
+                                           description->comment));
+      else
+        s.next ("description", description->text);
+    }
+
+    for (const auto& c: changes)
+    {
+      if (c.file)
+        s.next ("changes-file",
+                serializer::merge_comment (c.path.string (), c.comment));
+      else
+        s.next ("changes", c.text);
+    }
+
+    s.next ("url", serializer::merge_comment (url, url.comment));
+    if (doc_url)
+      s.next ("doc-url",
+              serializer::merge_comment (*doc_url, doc_url->comment));
+
+    if (src_url)
+      s.next ("src-url",
+              serializer::merge_comment (*src_url, src_url->comment));
+
+    if (package_url)
+      s.next ("package-url",
+              serializer::merge_comment (*package_url,
+                                         package_url->comment));
+
+    s.next ("email", serializer::merge_comment (email, email.comment));
+
+    if (package_email)
+      s.next ("package-email",
+              serializer::merge_comment (*package_email,
+                                         package_email->comment));
+
+    if (build_email)
+      s.next ("build-email",
+              serializer::merge_comment (*build_email,
+                                         build_email->comment));
+
+    for (const auto& d: dependencies)
+      s.next ("depends",
+              (d.conditional
+               ? (d.buildtime ? "?* " : "? ")
+               : (d.buildtime ? "* " : "")) +
+              serializer::merge_comment (concatenate (d, " | "), d.comment));
+
+    for (const auto& r: requirements)
+      s.next ("requires",
+              (r.conditional
+               ? (r.buildtime ? "?* " : "? ")
+               : (r.buildtime ? "* " : "")) +
+              serializer::merge_comment (concatenate (r, " | "), r.comment));
+
+    for (const auto& c: build_constraints)
+      s.next (c.exclusion ? "build-exclude" : "build-include",
+              serializer::merge_comment (!c.target
+                                         ? c.config
+                                         : c.config + "/" + *c.target,
+                                         c.comment));
+
+    if (location)
+      s.next ("location", location->posix_string ());
+
+    if (sha256sum)
+      s.next ("sha256sum", *sha256sum);
+
+    s.next ("", ""); // End of manifest.
   }
 
-  package_manifest::
-  package_manifest (parser& p, name_value nv, bool iu)
-      : package_manifest (p, nv, true, iu) // Delegate
-  {
-  }
-
-  package_manifest::
-  package_manifest (parser& p, name_value nv, bool il, bool iu)
+  // bpkg_package_manifest
+  //
+  static package_manifest
+  bpkg_package_manifest (parser& p, name_value nv, bool il, bool iu)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -639,7 +732,9 @@ namespace bpkg
     if (nv.value != "1")
       bad_value ("unsupported format version");
 
-    auto add_build_constraint = [&bad_value, this] (bool e, const string& vc)
+    package_manifest r;
+
+    auto add_build_constraint = [&bad_value, &r] (bool e, const string& vc)
     {
       auto vcp (parser::split_comment (vc));
       string v (move (vcp.first));
@@ -657,30 +752,29 @@ namespace bpkg
       if (tg && tg->empty ())
         bad_value ("empty build target pattern");
 
-      build_constraints.emplace_back (e, move (nm), move (tg), move (c));
+      r.build_constraints.emplace_back (e, move (nm), move (tg), move (c));
     };
 
-    auto parse_url = [&bad_value] (const string& v,
-                                   const char* what) -> url_type
+    auto parse_url = [&bad_value] (const string& v, const char* what) -> url
     {
       auto p (parser::split_comment (v));
 
       if (v.empty ())
         bad_value (string ("empty ") + what + " url");
 
-      return url_type (move (p.first), move (p.second));
+      return url (move (p.first), move (p.second));
     };
 
     auto parse_email = [&bad_value] (const string& v,
                                      const char* what,
-                                     bool empty = false) -> email_type
+                                     bool empty = false) -> email
     {
       auto p (parser::split_comment (v));
 
       if (v.empty () && !empty)
         bad_value (string ("empty ") + what + " email");
 
-      return email_type (move (p.first), move (p.second));
+      return email (move (p.first), move (p.second));
     };
 
     for (nv = p.next (); !nv.empty (); nv = p.next ())
@@ -690,22 +784,22 @@ namespace bpkg
 
       if (n == "name")
       {
-        if (!name.empty ())
+        if (!r.name.empty ())
           bad_name ("package name redefinition");
 
         if (v.empty ())
           bad_value ("empty package name");
 
-        name = move (v);
+        r.name = move (v);
       }
       else if (n == "version")
       {
-        if (!version.empty ())
+        if (!r.version.empty ())
           bad_name ("package version redefinition");
 
         try
         {
-          version = version_type (move (v));
+          r.version = version (move (v));
         }
         catch (const invalid_argument& e)
         {
@@ -715,22 +809,22 @@ namespace bpkg
         // Versions like 1.2.3- are forbidden in manifest as intended to be
         // used for version constrains rather than actual releases.
         //
-        if (version.release && version.release->empty ())
+        if (r.version.release && r.version.release->empty ())
           bad_value ("invalid package version release");
       }
       else if (n == "summary")
       {
-        if (!summary.empty ())
+        if (!r.summary.empty ())
           bad_name ("package summary redefinition");
 
         if (v.empty ())
           bad_value ("empty package summary");
 
-        summary = move (v);
+        r.summary = move (v);
       }
       else if (n == "tags")
       {
-        if (!tags.empty ())
+        if (!r.tags.empty ())
           bad_name ("package tags redefinition");
 
         list_parser lp (v.begin (), v.end ());
@@ -739,17 +833,17 @@ namespace bpkg
           if (lv.find_first_of (spaces) != string::npos)
             bad_value ("only single-word tags allowed");
 
-          tags.push_back (move (lv));
+          r.tags.push_back (move (lv));
         }
 
-        if (tags.empty ())
+        if (r.tags.empty ())
           bad_value ("empty package tags specification");
       }
       else if (n == "description")
       {
-        if (description)
+        if (r.description)
         {
-          if (description->file)
+          if (r.description->file)
             bad_name ("package description and description-file are "
                       "mutually exclusive");
           else
@@ -759,16 +853,16 @@ namespace bpkg
         if (v.empty ())
           bad_value ("empty package description");
 
-        description = text_file (move (v));
+        r.description = text_file (move (v));
       }
       else if (n == "description-file")
       {
         if (il)
           bad_name ("package description-file not allowed");
 
-        if (description)
+        if (r.description)
         {
-          if (description->file)
+          if (r.description->file)
             bad_name ("package description-file redefinition");
           else
             bad_name ("package description-file and description are "
@@ -784,14 +878,14 @@ namespace bpkg
         if (p.absolute ())
           bad_value ("package description-file path is absolute");
 
-        description = text_file (move (p), move (vc.second));
+        r.description = text_file (move (p), move (vc.second));
       }
       else if (n == "changes")
       {
         if (v.empty ())
           bad_value ("empty package changes specification");
 
-        changes.emplace_back (move (v));
+        r.changes.emplace_back (move (v));
       }
       else if (n == "changes-file")
       {
@@ -807,60 +901,60 @@ namespace bpkg
         if (p.absolute ())
           bad_value ("package changes-file path is absolute");
 
-        changes.emplace_back (move (p), move (vc.second));
+        r.changes.emplace_back (move (p), move (vc.second));
       }
       else if (n == "url")
       {
-        if (!url.empty ())
+        if (!r.url.empty ())
           bad_name ("project url redefinition");
 
-        url = parse_url (v, "project");
+        r.url = parse_url (v, "project");
       }
       else if (n == "email")
       {
-        if (!email.empty ())
+        if (!r.email.empty ())
           bad_name ("project email redefinition");
 
-        email = parse_email (v, "project");
+        r.email = parse_email (v, "project");
       }
       else if (n == "doc-url")
       {
-        if (doc_url)
+        if (r.doc_url)
           bad_name ("doc url redefinition");
 
-        doc_url = parse_url (v, "doc");
+        r.doc_url = parse_url (v, "doc");
       }
       else if (n == "src-url")
       {
-        if (src_url)
+        if (r.src_url)
           bad_name ("src url redefinition");
 
-        src_url = parse_url (v, "src");
+        r.src_url = parse_url (v, "src");
       }
       else if (n == "package-url")
       {
-        if (package_url)
+        if (r.package_url)
           bad_name ("package url redefinition");
 
-        package_url = parse_url (v, "package");
+        r.package_url = parse_url (v, "package");
       }
       else if (n == "package-email")
       {
-        if (package_email)
+        if (r.package_email)
           bad_name ("package email redefinition");
 
-        package_email = parse_email (v, "package");
+        r.package_email = parse_email (v, "package");
       }
       else if (n == "build-email")
       {
-        if (build_email)
+        if (r.build_email)
           bad_name ("build email redefinition");
 
-        build_email = parse_email (v, "build", true);
+        r.build_email = parse_email (v, "build", true);
       }
       else if (n == "priority")
       {
-        if (priority)
+        if (r.priority)
           bad_name ("package priority redefinition");
 
         auto vc (parser::split_comment (v));
@@ -871,9 +965,9 @@ namespace bpkg
         if (i == e)
           bad_value ("invalid package priority");
 
-        priority =
-          priority_type (static_cast<priority_type::value_type> (i - b),
-                         move (vc.second));
+        r.priority =
+          priority (static_cast<priority::value_type> (i - b),
+                    move (vc.second));
       }
       else if (n == "license")
       {
@@ -887,7 +981,7 @@ namespace bpkg
         if (l.empty ())
           bad_value ("empty package license specification");
 
-        license_alternatives.push_back (move (l));
+        r.license_alternatives.push_back (move (l));
       }
       else if (n == "requires")
       {
@@ -918,7 +1012,7 @@ namespace bpkg
         if (ra.empty () && ra.comment.empty ())
           bad_value ("empty package requirement specification");
 
-        requirements.push_back (move (ra));
+        r.requirements.push_back (move (ra));
       }
       else if (n == "build-include")
       {
@@ -1000,11 +1094,11 @@ namespace bpkg
               if (pos == string::npos)
                 bad_value (no_max_version);
 
-              version_type min_version;
+              version min_version;
 
               try
               {
-                min_version = version_type (string (i, b + pos));
+                min_version = version (string (i, b + pos));
               }
               catch (const invalid_argument& e)
               {
@@ -1027,11 +1121,11 @@ namespace bpkg
               if (pos == string::npos)
                 bad_value (invalid_range);
 
-              version_type max_version;
+              version max_version;
 
               try
               {
-                max_version = version_type (string (i, b + pos));
+                max_version = version (string (i, b + pos));
               }
               catch (const invalid_argument& e)
               {
@@ -1101,11 +1195,11 @@ namespace bpkg
               if (pos == string::npos)
                 bad_value ("no prerequisite package version specified");
 
-              version_type v;
+              version v;
 
               try
               {
-                v = version_type (lv.c_str () + pos);
+                v = version (lv.c_str () + pos);
               }
               catch (const invalid_argument& e)
               {
@@ -1141,14 +1235,14 @@ namespace bpkg
         if (da.empty ())
           bad_value ("empty package dependency specification");
 
-        dependencies.push_back (da);
+        r.dependencies.push_back (da);
       }
       else if (n == "location")
       {
         if (!il)
           bad_name ("package location not allowed");
 
-        if (location)
+        if (r.location)
           bad_name ("package location redefinition");
 
         try
@@ -1161,7 +1255,7 @@ namespace bpkg
           if (l.absolute ())
             bad_value ("absolute package location");
 
-          location = move (l);
+          r.location = move (l);
         }
         catch (const invalid_path&)
         {
@@ -1173,13 +1267,13 @@ namespace bpkg
         if (!il)
           bad_name ("package sha256sum not allowed");
 
-        if (sha256sum)
+        if (r.sha256sum)
           bad_name ("package sha256sum redefinition");
 
         if (!valid_sha256 (v))
           bad_value ("invalid package sha256sum");
 
-        sha256sum = move (v);
+        r.sha256sum = move (v);
       }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in package manifest");
@@ -1187,140 +1281,151 @@ namespace bpkg
 
     // Verify all non-optional values were specified.
     //
-    if (name.empty ())
+    if (r.name.empty ())
       bad_value ("no package name specified");
-    else if (version.empty ())
+    else if (r.version.empty ())
       bad_value ("no package version specified");
-    else if (summary.empty ())
+    else if (r.summary.empty ())
       bad_value ("no package summary specified");
-    else if (url.empty ())
+    else if (r.url.empty ())
       bad_value ("no project url specified");
-    else if (email.empty ())
+    else if (r.email.empty ())
       bad_value ("no project email specified");
-    else if (license_alternatives.empty ())
+    else if (r.license_alternatives.empty ())
       bad_value ("no project license specified");
 
     if (il)
     {
-      if (!location)
+      if (!r.location)
         bad_name ("no package location specified");
 
-      if (!sha256sum)
+      if (!r.sha256sum)
         bad_name ("no package sha256sum specified");
     }
+
+    return r;
   }
 
-  void package_manifest::
-  serialize (serializer& s) const
+  package_manifest
+  bpkg_package_manifest (parser& p, bool iu)
   {
-    // @@ Should we check that all non-optional values are specified ?
-    // @@ Should we check that values are valid: name is not empty, version
-    //    release is not empty, sha256sum is a proper string, ...?
-    // @@ Currently we don't know if we are serializing the individual package
-    //    manifest or the package list manifest, so can't ensure all values
-    //    allowed in the current context (location, sha256sum, *-file values).
+    package_manifest r (bpkg_package_manifest (p, p.next (), false, iu));
+
+    // Make sure this is the end.
     //
+    name_value nv (p.next ());
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single package manifest expected");
 
+    return r;
+  }
+
+  package_manifest
+  bpkg_package_manifest (parser& p, name_value nv, bool iu)
+  {
+    return bpkg_package_manifest (p, nv, true, iu);
+  }
+
+  // git_package_manifest
+  //
+  package_manifest
+  git_package_manifest (parser& p, name_value nv, bool iu)
+  {
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
+    // Make sure this is the start and we support the version.
+    //
+    if (!nv.name.empty ())
+      bad_name ("start of package manifest expected");
+
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
+
+    package_manifest r;
+
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    {
+      string& n (nv.name);
+      string& v (nv.value);
+
+      if (n == "location")
+      {
+        if (r.location)
+          bad_name ("package location redefinition");
+
+        try
+        {
+          path l (v);
+
+          if (l.empty ())
+            bad_value ("empty package location");
+
+          if (l.absolute ())
+            bad_value ("absolute package location");
+
+          // Make sure that the path is a directory (contains the trailing
+          // slash).
+          //
+          if (!l.to_directory ())
+            l = path_cast<dir_path> (move (l));
+
+          r.location = move (l);
+        }
+        catch (const invalid_path&)
+        {
+          bad_value ("invalid package location");
+        }
+      }
+      else if (!iu)
+        bad_name ("unknown name '" + n + "' in package manifest");
+    }
+
+    if (!r.location)
+      bad_name ("no package location specified");
+
+    return r;
+  }
+
+  package_manifest
+  git_package_manifest (parser& p, bool iu)
+  {
+    package_manifest r (git_package_manifest (p, p.next (), iu));
+
+    // Make sure this is the end.
+    //
+    name_value nv (p.next ());
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single package manifest expected");
+
+    return r;
+  }
+
+  void
+  git_package_manifest (serializer& s, const package_manifest& m)
+  {
     s.next ("", "1"); // Start of manifest.
-    s.next ("name", name);
-    s.next ("version", version.string ());
 
-    if (priority)
-    {
-      size_t v (*priority);
-      assert (v < priority_names.size ());
+    auto bad_value ([&s](const string& d) {
+        throw serialization (s.name (), d);});
 
-      s.next ("priority",
-              serializer::merge_comment (priority_names[v],
-                                         priority->comment));
-    }
+    if (!m.location)
+      bad_value ("no valid location");
 
-    s.next ("summary", summary);
-
-    for (const auto& la: license_alternatives)
-      s.next ("license",
-              serializer::merge_comment (concatenate (la), la.comment));
-
-    if (!tags.empty ())
-      s.next ("tags", concatenate (tags));
-
-    if (description)
-    {
-      if (description->file)
-        s.next ("description-file",
-                serializer::merge_comment (description->path.string (),
-                                           description->comment));
-      else
-        s.next ("description", description->text);
-    }
-
-    for (const auto& c: changes)
-    {
-      if (c.file)
-        s.next ("changes-file",
-                serializer::merge_comment (c.path.string (), c.comment));
-      else
-        s.next ("changes", c.text);
-    }
-
-    s.next ("url", serializer::merge_comment (url, url.comment));
-    if (doc_url)
-      s.next ("doc-url",
-              serializer::merge_comment (*doc_url, doc_url->comment));
-
-    if (src_url)
-      s.next ("src-url",
-              serializer::merge_comment (*src_url, src_url->comment));
-
-    if (package_url)
-      s.next ("package-url",
-              serializer::merge_comment (*package_url, package_url->comment));
-
-    s.next ("email", serializer::merge_comment (email, email.comment));
-
-    if (package_email)
-      s.next ("package-email",
-              serializer::merge_comment (*package_email,
-                                         package_email->comment));
-
-    if (build_email)
-      s.next ("build-email",
-              serializer::merge_comment (*build_email, build_email->comment));
-
-    for (const auto& d: dependencies)
-      s.next ("depends",
-              (d.conditional
-               ? (d.buildtime ? "?* " : "? ")
-               : (d.buildtime ? "* " : "")) +
-              serializer::merge_comment (concatenate (d, " | "), d.comment));
-
-    for (const auto& r: requirements)
-      s.next ("requires",
-              (r.conditional
-               ? (r.buildtime ? "?* " : "? ")
-               : (r.buildtime ? "* " : "")) +
-              serializer::merge_comment (concatenate (r, " | "), r.comment));
-
-    for (const auto& c: build_constraints)
-      s.next (c.exclusion ? "build-exclude" : "build-include",
-              serializer::merge_comment (!c.target
-                                         ? c.config
-                                         : c.config + "/" + *c.target,
-                                         c.comment));
-
-    if (location)
-      s.next ("location", location->posix_string ());
-
-    if (sha256sum)
-      s.next ("sha256sum", *sha256sum);
+    s.next ("location", m.location->posix_representation ());
 
     s.next ("", ""); // End of manifest.
   }
 
-  // package_manifests
+  // bpkg_package_manifests
   //
-  package_manifests::
-  package_manifests (parser& p, bool iu)
+  bpkg_package_manifests::
+  bpkg_package_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
 
@@ -1367,10 +1472,10 @@ namespace bpkg
     // Parse package manifests.
     //
     for (nv = p.next (); !nv.empty (); nv = p.next ())
-      push_back (package_manifest (p, nv, iu));
+      push_back (bpkg_package_manifest (p, nv, iu));
   }
 
-  void package_manifests::
+  void bpkg_package_manifests::
   serialize (serializer& s) const
   {
     // Serialize the package list manifest.
@@ -1386,11 +1491,10 @@ namespace bpkg
     for (const package_manifest& p: *this)
     {
       auto bad_value = [&p, &s](const string& d)
-        {
-          throw
-            serialization (
-              s.name (), d + " for " + p.name + "-" + p.version.string ());
-        };
+      {
+        throw serialization (
+          s.name (), d + " for " + p.name + "-" + p.version.string ());
+      };
 
       if (p.description && p.description->file)
         bad_value ("forbidden description-file");
@@ -1405,8 +1509,30 @@ namespace bpkg
       if (!p.sha256sum)
         bad_value ("no valid sha256sum");
 
-      p.serialize (s);
+      bpkg_package_manifest (s, p);
     }
+
+    s.next ("", ""); // End of stream.
+  }
+
+  // git_package_manifests
+  //
+  git_package_manifests::
+  git_package_manifests (parser& p, bool iu)
+  {
+    // Parse package manifests.
+    //
+    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+      push_back (git_package_manifest (p, nv, iu));
+  }
+
+  void git_package_manifests::
+  serialize (serializer& s) const
+  {
+    // Serialize package manifests.
+    //
+    for (const package_manifest& p: *this)
+      git_package_manifest (s, p);
 
     s.next ("", ""); // End of stream.
   }
@@ -1419,7 +1545,7 @@ namespace bpkg
                     optional<authority_type>&  authority,
                     optional<path_type>&       path,
                     optional<string_type>&     query,
-                    optional<string_type>&     /*fragment*/)
+                    optional<string_type>&     fragment)
   {
     auto bad_url = [] (const char* d = "invalid URL")
     {
@@ -1531,7 +1657,15 @@ namespace bpkg
     {
       try
       {
-        path = path_type (url).normalize ();
+        size_t p (url.find ('#'));
+
+        if (p != string::npos)
+        {
+          path = path_type (url.substr (0, p)).normalize ();
+          fragment = url.substr (p + 1); // Note: set after path normalization.
+        }
+        else
+          path = path_type (url).normalize ();
       }
       catch (const invalid_path&)
       {
@@ -1567,6 +1701,15 @@ namespace bpkg
           return "file";
 
         url = path->relative () ? path->posix_string () : path->string ();
+
+        if (fragment)
+        {
+          assert (path->relative ());
+
+          url += '#';
+          url += *fragment;
+        }
+
         return string_type ();
       }
     }
@@ -1632,6 +1775,36 @@ namespace bpkg
          if (t == "bpkg") return repository_type::bpkg;
     else if (t == "git")  return repository_type::git;
     else throw invalid_argument ("invalid repository type '" + t + "'");
+  }
+
+  repository_type
+  guess_type (const repository_url& url, bool local)
+  {
+    switch (url.scheme)
+    {
+    case repository_protocol::git:
+      {
+        return repository_type::git;
+      }
+    case repository_protocol::http:
+    case repository_protocol::https:
+      {
+        return url.path->extension () == "git"
+          ? repository_type::git
+          : repository_type::bpkg;
+      }
+    case repository_protocol::file:
+      {
+        return local &&
+          dir_exists (path_cast<dir_path> (*url.path) / dir_path (".git"),
+                      false)
+          ? repository_type::git
+          : repository_type::bpkg;
+      }
+    }
+
+    assert (false); // Can't be here.
+    return repository_type::bpkg;
   }
 
   // repository_location
@@ -1777,20 +1950,10 @@ namespace bpkg
       }
     }
 
-    // Base repository location is only meaningful for bpkg repository, and
-    // can not be a relative path.
+    // Base repository location can not be a relative path.
     //
-    if (!b.empty ())
-    {
-      if (type_ != repository_type::bpkg)
-        throw invalid_argument ("unexpected base location");
-
-      if (b.type ()  != repository_type::bpkg)
-        throw invalid_argument ("invalid base location");
-
-      if (b.relative ())
-        throw invalid_argument ("base location is relative filesystem path");
-    }
+    if (!b.empty () && b.relative ())
+      throw invalid_argument ("base location is relative filesystem path");
 
     path& up (*url_.path);
 
@@ -1845,6 +2008,10 @@ namespace bpkg
         //
         repository_url u (b.url ());
         *u.path /= up;
+
+        // Override the base repository fragment.
+        //
+        u.fragment = move (url_.fragment);
 
         url_ = move (u);
 
@@ -1988,229 +2155,6 @@ namespace bpkg
 
   // repository_manifest
   //
-  repository_manifest::
-  repository_manifest (parser& p, bool iu)
-      : repository_manifest (p, p.next (), iu) // Delegate
-  {
-    // Make sure this is the end.
-    //
-    name_value nv (p.next ());
-    if (!nv.empty ())
-      throw parsing (p.name (), nv.name_line, nv.name_column,
-                     "single repository manifest expected");
-  }
-
-  repository_manifest::
-  repository_manifest (parser& p, name_value nv, bool iu)
-  {
-    auto bad_name ([&p, &nv](const string& d) {
-        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
-
-    auto bad_value ([&p, &nv](const string& d) {
-        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
-
-    // Make sure this is the start and we support the version.
-    //
-    if (!nv.name.empty ())
-      bad_name ("start of repository manifest expected");
-
-    if (nv.value != "1")
-      bad_value ("unsupported format version");
-
-    for (nv = p.next (); !nv.empty (); nv = p.next ())
-    {
-      string& n (nv.name);
-      string& v (nv.value);
-
-      if (n == "location")
-      {
-        if (!location.empty ())
-          bad_name ("location redefinition");
-
-        if (v.empty ())
-          bad_value ("empty location");
-
-        try
-        {
-          // Call prerequisite repository location constructor, do not
-          // ammend relative path.
-          //
-          location = repository_location (repository_url (move (v)),
-                                          repository_location ());
-        }
-        catch (const invalid_argument& e)
-        {
-          bad_value (e.what ());
-        }
-      }
-      else if (n == "role")
-      {
-        if (role)
-          bad_name ("role redefinition");
-
-        auto b (repository_role_names.cbegin ());
-        auto e (repository_role_names.cend ());
-        auto i (find (b, e, v));
-
-        if (i == e)
-          bad_value ("unrecognized role");
-
-        role = static_cast<repository_role> (i - b);
-      }
-      else if (n == "url")
-      {
-        if (url)
-          bad_name ("url redefinition");
-
-        if (v.empty ())
-          bad_value ("empty url");
-
-        url = move (v);
-      }
-      else if (n == "email")
-      {
-        if (email)
-          bad_name ("email redefinition");
-
-        auto vc (parser::split_comment (v));
-
-        if (vc.first.empty ())
-          bad_value ("empty email");
-
-        email = email_type (move (vc.first), move (vc.second));
-      }
-      else if (n == "summary")
-      {
-        if (summary)
-          bad_name ("summary redefinition");
-
-        if (v.empty ())
-          bad_value ("empty summary");
-
-        summary = move (v);
-      }
-      else if (n == "description")
-      {
-        if (description)
-          bad_name ("description redefinition");
-
-        if (v.empty ())
-          bad_value ("empty description");
-
-        description = move (v);
-      }
-      else if (n == "certificate")
-      {
-        if (certificate)
-          bad_name ("certificate redefinition");
-
-        if (v.empty ())
-          bad_value ("empty certificate");
-
-        certificate = move (v);
-      }
-      else if (!iu)
-        bad_name ("unknown name '" + n + "' in repository manifest");
-    }
-
-    // Verify all non-optional values were specified.
-    //
-    // - location can be omitted
-    // - role can be omitted
-    //
-    if (role && location.empty () != (*role == repository_role::base))
-      bad_value ("invalid role");
-
-    if (effective_role () != repository_role::base)
-    {
-      if (url)
-        bad_value ("url not allowed");
-
-      if (email)
-        bad_value ("email not allowed");
-
-      if (summary)
-        bad_value ("summary not allowed");
-
-      if (description)
-        bad_value ("description not allowed");
-
-      if (certificate)
-        bad_value ("certificate not allowed");
-    }
-  }
-
-  void repository_manifest::
-  serialize (serializer& s) const
-  {
-    auto bad_value ([&s](const string& d) {
-        throw serialization (s.name (), d);});
-
-    s.next ("", "1"); // Start of manifest.
-
-    if (!location.empty ())
-    {
-      if (location.remote () && location.type () != repository_type::bpkg)
-        bad_value ("invalid repository location");
-
-      s.next ("location", location.string ());
-    }
-
-    if (role)
-    {
-      if (location.empty () != (*role == repository_role::base))
-        bad_value ("invalid role");
-
-      auto r (static_cast<size_t> (*role));
-      assert (r < repository_role_names.size ());
-      s.next ("role", repository_role_names[r]);
-    }
-
-    bool b (effective_role () == repository_role::base);
-
-    if (url)
-    {
-      if (!b)
-        bad_value ("url not allowed");
-
-      s.next ("url", *url);
-    }
-
-    if (email)
-    {
-      if (!b)
-        bad_value ("email not allowed");
-
-      s.next ("email", serializer::merge_comment (*email, email->comment));
-    }
-
-    if (summary)
-    {
-      if (!b)
-        bad_value ("summary not allowed");
-
-      s.next ("summary", *summary);
-    }
-
-    if (description)
-    {
-      if (!b)
-        bad_value ("description not allowed");
-
-      s.next ("description", *description);
-    }
-
-    if (certificate)
-    {
-      if (!b)
-        bad_value ("certificate not allowed");
-
-      s.next ("certificate", *certificate);
-    }
-
-    s.next ("", ""); // End of manifest.
-  }
-
   repository_role repository_manifest::
   effective_role () const
   {
@@ -2306,15 +2250,317 @@ namespace bpkg
     return u.string ();
   }
 
-  // repository_manifests
+  static repository_manifest
+  parse_repository_manifest (parser& p,
+                             name_value nv,
+                             repository_type base_type,
+                             bool iu)
+  {
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+
+    // Make sure this is the start and we support the version.
+    //
+    if (!nv.name.empty ())
+      bad_name ("start of repository manifest expected");
+
+    if (nv.value != "1")
+      bad_value ("unsupported format version");
+
+    repository_manifest r;
+
+    // The repository type value can go after the location value. So we need to
+    // postpone the location value parsing until we went though all other
+    // values.
+    //
+    optional<repository_type> type;
+    optional<name_value> location;
+
+    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    {
+      string& n (nv.name);
+      string& v (nv.value);
+
+      if (n == "location")
+      {
+        if (location)
+          bad_name ("location redefinition");
+
+        if (v.empty ())
+          bad_value ("empty location");
+
+        location = move (nv);
+      }
+      else if (n == "type")
+      {
+        if (type)
+          bad_name ("type redefinition");
+
+        try
+        {
+          type = to_repository_type (v);
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (e.what ());
+        }
+      }
+      else if (n == "role")
+      {
+        if (r.role)
+          bad_name ("role redefinition");
+
+        auto b (repository_role_names.cbegin ());
+        auto e (repository_role_names.cend ());
+        auto i (find (b, e, v));
+
+        if (i == e)
+          bad_value ("unrecognized role");
+
+        r.role = static_cast<repository_role> (i - b);
+      }
+      else if (n == "url")
+      {
+        if (r.url)
+          bad_name ("url redefinition");
+
+        if (v.empty ())
+          bad_value ("empty url");
+
+        r.url = move (v);
+      }
+      else if (n == "email")
+      {
+        if (r.email)
+          bad_name ("email redefinition");
+
+        auto vc (parser::split_comment (v));
+
+        if (vc.first.empty ())
+          bad_value ("empty email");
+
+        r.email = email (move (vc.first), move (vc.second));
+      }
+      else if (n == "summary")
+      {
+        if (r.summary)
+          bad_name ("summary redefinition");
+
+        if (v.empty ())
+          bad_value ("empty summary");
+
+        r.summary = move (v);
+      }
+      else if (n == "description")
+      {
+        if (r.description)
+          bad_name ("description redefinition");
+
+        if (v.empty ())
+          bad_value ("empty description");
+
+        r.description = move (v);
+      }
+      else if (n == "certificate")
+      {
+        if (base_type != repository_type::bpkg)
+          bad_name ("certificate not allowed");
+
+        if (r.certificate)
+          bad_name ("certificate redefinition");
+
+        if (v.empty ())
+          bad_value ("empty certificate");
+
+        r.certificate = move (v);
+      }
+      else if (!iu)
+        bad_name ("unknown name '" + n + "' in repository manifest");
+    }
+
+    // Parse location.
+    //
+    if (location)
+    try
+    {
+      repository_url u (move (location->value));
+
+      // If the prerequisite repository type is not specified explicitly then
+      // we consider it to be the base repository type for the relative
+      // location or guess it otherwise.
+      //
+      if (!type)
+        type = u.scheme == repository_protocol::file && u.path->relative ()
+          ? base_type
+          : guess_type (u, false); // Can't throw.
+
+      // Call prerequisite repository location constructor, do not amend
+      // relative path.
+      //
+      r.location = repository_location (u, *type, repository_location ());
+    }
+    catch (const invalid_argument& e)
+    {
+      nv = move (*location); // Restore as bad_value() uses its line/column.
+      bad_value (e.what ());
+    }
+
+    // Verify that all non-optional values were specified.
+    //
+    // - location can be omitted
+    // - role can be omitted
+    //
+    if (r.role && r.location.empty () != (*r.role == repository_role::base))
+      bad_value ("invalid role");
+
+    if (r.effective_role () != repository_role::base)
+    {
+      if (r.url)
+        bad_value ("url not allowed");
+
+      if (r.email)
+        bad_value ("email not allowed");
+
+      if (r.summary)
+        bad_value ("summary not allowed");
+
+      if (r.description)
+        bad_value ("description not allowed");
+
+      if (r.certificate)
+        bad_value ("certificate not allowed");
+    }
+
+    return r;
+  }
+
+  void repository_manifest::
+  serialize (serializer& s) const
+  {
+    auto bad_value ([&s](const string& d) {
+        throw serialization (s.name (), d);});
+
+    s.next ("", "1"); // Start of manifest.
+
+    if (!location.empty ())
+    {
+      s.next ("location", location.string ());
+      s.next ("type", to_string (location.type ()));
+    }
+
+    if (role)
+    {
+      if (location.empty () != (*role == repository_role::base))
+        bad_value ("invalid role");
+
+      auto r (static_cast<size_t> (*role));
+      assert (r < repository_role_names.size ());
+      s.next ("role", repository_role_names[r]);
+    }
+
+    bool b (effective_role () == repository_role::base);
+
+    if (url)
+    {
+      if (!b)
+        bad_value ("url not allowed");
+
+      s.next ("url", *url);
+    }
+
+    if (email)
+    {
+      if (!b)
+        bad_value ("email not allowed");
+
+      s.next ("email", serializer::merge_comment (*email, email->comment));
+    }
+
+    if (summary)
+    {
+      if (!b)
+        bad_value ("summary not allowed");
+
+      s.next ("summary", *summary);
+    }
+
+    if (description)
+    {
+      if (!b)
+        bad_value ("description not allowed");
+
+      s.next ("description", *description);
+    }
+
+    if (certificate)
+    {
+      if (!b)
+        bad_value ("certificate not allowed");
+
+      s.next ("certificate", *certificate);
+    }
+
+    s.next ("", ""); // End of manifest.
+  }
+
+  // bpkg_repository_manifest
   //
-  repository_manifests::
-  repository_manifests (parser& p, bool iu)
+  repository_manifest
+  bpkg_repository_manifest (parser& p, bool iu)
+  {
+    repository_manifest r (bpkg_repository_manifest (p, p.next (), iu));
+
+    // Make sure this is the end.
+    //
+    name_value nv (p.next ());
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single repository manifest expected");
+
+    return r;
+  }
+
+  repository_manifest
+  bpkg_repository_manifest (parser& p, name_value nv, bool iu)
+  {
+    return parse_repository_manifest (p, nv, repository_type::bpkg, iu);
+  }
+
+  // git_repository_manifest
+  //
+  repository_manifest
+  git_repository_manifest (parser& p, bool iu)
+  {
+    repository_manifest r (git_repository_manifest (p, p.next (), iu));
+
+    // Make sure this is the end.
+    //
+    name_value nv (p.next ());
+    if (!nv.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "single repository manifest expected");
+
+    return r;
+  }
+
+  repository_manifest
+  git_repository_manifest (parser& p, name_value nv, bool iu)
+  {
+    return parse_repository_manifest (p, nv, repository_type::git, iu);
+  }
+
+  // bpkg_repository_manifests
+  //
+  bpkg_repository_manifests::
+  bpkg_repository_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
     while (!nv.empty ())
     {
-      push_back (repository_manifest (p, nv, iu));
+      push_back (bpkg_repository_manifest (p, nv, iu));
       nv = p.next ();
 
       // Make sure there is location in all except the last entry.
@@ -2329,7 +2575,45 @@ namespace bpkg
                      "base repository manifest expected");
   }
 
-  void repository_manifests::
+  void bpkg_repository_manifests::
+  serialize (serializer& s) const
+  {
+    if (empty () || !back ().location.empty ())
+      throw serialization (s.name (), "base repository manifest expected");
+
+    // @@ Should we check that there is location in all except the last
+    //    entry?
+    //
+    for (const repository_manifest& r: *this)
+      r.serialize (s);
+
+    s.next ("", ""); // End of stream.
+  }
+
+  // git_repository_manifests
+  //
+  git_repository_manifests::
+  git_repository_manifests (parser& p, bool iu)
+  {
+    name_value nv (p.next ());
+    while (!nv.empty ())
+    {
+      push_back (git_repository_manifest (p, nv, iu));
+      nv = p.next ();
+
+      // Make sure there is location in all except the last entry.
+      //
+      if (back ().location.empty () && !nv.empty ())
+        throw parsing (p.name (), nv.name_line, nv.name_column,
+                       "repository location expected");
+    }
+
+    if (empty () || !back ().location.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "base repository manifest expected");
+  }
+
+  void git_repository_manifests::
   serialize (serializer& s) const
   {
     if (empty () || !back ().location.empty ())
