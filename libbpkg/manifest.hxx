@@ -715,6 +715,25 @@ namespace bpkg
       return url_.fragment;
     }
 
+    bool
+    archive_based () const
+    {
+      switch (type ())
+      {
+      case repository_type::bpkg: return true;
+      case repository_type::git:  return false;
+      }
+
+      assert (false); // Can't be here.
+      return false;
+    }
+
+    bool
+    version_control_based () const
+    {
+      return !archive_based ();
+    }
+
     // String representation of an empty location is the empty string.
     //
     std::string
