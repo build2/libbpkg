@@ -11,7 +11,7 @@
 #include <cstring>   // strncmp(), strcmp()
 #include <utility>   // move()
 #include <cstdint>   // uint16_t, UINT16_MAX
-#include <algorithm> // find(), find_if_not(), replace()
+#include <algorithm> // find(), find_if_not(), find_first_of(), replace()
 #include <stdexcept> // invalid_argument
 
 #include <libbutl/path.mxx>
@@ -2016,11 +2016,13 @@ namespace bpkg
         url_ = move (u);
 
         // Set canonical name to the base location canonical name 'bpkg:<host>'
-        // part. The path part of the canonical name is calculated below.
+        // part. The '<path>[#<fragment>]' part of the canonical name is
+        // calculated below.
         //
         if (b.remote ())
           canonical_name_ =
-            b.canonical_name_.substr (0, b.canonical_name_.find ("/"));
+            b.canonical_name_.substr (0,
+                                      b.canonical_name_.find_first_of ("/#"));
       }
     }
 
@@ -2088,7 +2090,7 @@ namespace bpkg
 
     string cp (sp.relative () ? sp.posix_string () : sp.string ());
 
-    // Don't allow empty canonical names.
+    // Don't allow canonical names without both host and path parts.
     //
     if (canonical_name_.empty () && cp.empty ())
       throw invalid_argument ("empty repository name");
@@ -2107,6 +2109,12 @@ namespace bpkg
     }
 
     canonical_name_ += cp;
+
+    if (url_.fragment)
+    {
+      canonical_name_ += '#';
+      canonical_name_ += *url_.fragment;
+    }
   }
 
   // git_reference
