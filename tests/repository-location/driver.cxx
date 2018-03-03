@@ -27,7 +27,7 @@ namespace bpkg
   }
 
   inline static repository_location
-  loc (const string& l, repository_type t = repository_type::bpkg)
+  loc (const string& l, repository_type t = repository_type::pkg)
   {
     return repository_location (repository_url (l), t);
   }
@@ -35,13 +35,13 @@ namespace bpkg
   inline static repository_location
   loc (const string& l,
        const repository_location& b,
-       repository_type t = repository_type::bpkg)
+       repository_type t = repository_type::pkg)
   {
     return repository_location (repository_url (l), t, b);
   }
 
   inline static bool
-  bad_loc (const string& l, repository_type t = repository_type::bpkg)
+  bad_loc (const string& l, repository_type t = repository_type::pkg)
   {
     try
     {
@@ -57,7 +57,7 @@ namespace bpkg
   inline static bool
   bad_loc (const string& l,
            const repository_location& b,
-           repository_type t = repository_type::bpkg)
+           repository_type t = repository_type::pkg)
   {
     try
     {
@@ -75,7 +75,7 @@ namespace bpkg
   {
     istringstream is (":1\nurl: " + l);
     manifest_parser mp (is, "");
-    repository_manifest m (bpkg_repository_manifest (mp));
+    repository_manifest m (pkg_repository_manifest (mp));
 
     optional<string> u (m.effective_url (r));
     assert (u);
@@ -257,52 +257,52 @@ namespace bpkg
     {
       repository_location l (loc ("/1/aa/bb", loc ()));
       assert (l.string () == "/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:/aa/bb");
-      assert (l.type () == repository_type::bpkg);
+      assert (l.canonical_name () == "pkg:/aa/bb");
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("/pkg/1/aa/bb", loc ()));
       assert (l.string () == "/pkg/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:aa/bb");
+      assert (l.canonical_name () == "pkg:aa/bb");
     }
     {
       repository_location l (loc ("/var/bpkg/1", loc ()));
       assert (l.string () == "/var/bpkg/1");
-      assert (l.canonical_name () == "bpkg:/var/bpkg");
+      assert (l.canonical_name () == "pkg:/var/bpkg");
     }
     {
       repository_location l (loc ("/1", loc ()));
       assert (l.string () == "/1");
-      assert (l.canonical_name () == "bpkg:/");
+      assert (l.canonical_name () == "pkg:/");
     }
     {
       repository_location l (loc ("/var/pkg/1/example.org/math/testing",
                                   loc ()));
       assert (l.string () == "/var/pkg/1/example.org/math/testing");
-      assert (l.canonical_name () == "bpkg:example.org/math/testing");
+      assert (l.canonical_name () == "pkg:example.org/math/testing");
     }
     {
       repository_location l (loc ("/var/pkg/example.org/1/math/testing",
                                   loc ()));
       assert (l.string () == "/var/pkg/example.org/1/math/testing");
-      assert (l.canonical_name () == "bpkg:/var/pkg/example.org/math/testing");
+      assert (l.canonical_name () == "pkg:/var/pkg/example.org/math/testing");
     }
     {
       repository_location l (loc ("/a/b/../c/1/aa/../bb", loc ()));
       assert (l.string () == "/a/c/1/bb");
-      assert (l.canonical_name () == "bpkg:/a/c/bb");
+      assert (l.canonical_name () == "pkg:/a/c/bb");
     }
     {
       repository_location l (loc ("/a/b/../c/pkg/1/aa/../bb", loc ()));
       assert (l.string () == "/a/c/pkg/1/bb");
-      assert (l.canonical_name () == "bpkg:bb");
+      assert (l.canonical_name () == "pkg:bb");
     }
     {
       repository_location l (loc ("file:///repo/1/path"));
       assert (l.url () == loc ("file:/repo/1/path").url ());
       assert (l.url () == loc ("/repo/1/path").url ());
       assert (l.string () == "/repo/1/path");
-      assert (l.canonical_name () == "bpkg:/repo/path");
+      assert (l.canonical_name () == "pkg:/repo/path");
     }
     {
       repository_location l (loc ("file:/git/repo#branch",
@@ -325,24 +325,24 @@ namespace bpkg
     {
       repository_location l (loc ("c:\\1\\aa\\bb", loc ()));
       assert (l.string () == "c:\\1\\aa\\bb");
-      assert (l.canonical_name () == "bpkg:c:\\aa\\bb");
-      assert (l.type () == repository_type::bpkg);
+      assert (l.canonical_name () == "pkg:c:\\aa\\bb");
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("c:/1/aa/bb", loc ()));
       assert (l.string () == "c:\\1\\aa\\bb");
-      assert (l.canonical_name () == "bpkg:c:\\aa\\bb");
+      assert (l.canonical_name () == "pkg:c:\\aa\\bb");
     }
     {
       repository_location l (loc ("c:\\pkg\\1\\aa\\bb", loc ()));
       assert (l.string () == "c:\\pkg\\1\\aa\\bb");
-      assert (l.canonical_name () == "bpkg:aa/bb");
+      assert (l.canonical_name () == "pkg:aa/bb");
     }
     {
       repository_location l (loc ("c:\\var\\pkg\\1\\example.org\\math\\tst",
                                   loc ()));
       assert (l.string () == "c:\\var\\pkg\\1\\example.org\\math\\tst");
-      assert (l.canonical_name () == "bpkg:example.org/math/tst");
+      assert (l.canonical_name () == "pkg:example.org/math/tst");
     }
     {
       repository_location l (loc ("c:\\var\\pkg\\example.org\\1\\math\\tst",
@@ -350,25 +350,25 @@ namespace bpkg
       assert (l.string () == "c:\\var\\pkg\\example.org\\1\\math\\tst");
 
       assert (l.canonical_name () ==
-              "bpkg:c:\\var\\pkg\\example.org\\math\\tst");
+              "pkg:c:\\var\\pkg\\example.org\\math\\tst");
     }
     {
       repository_location l (loc ("c:/a/b/../c/1/aa/../bb", loc ()));
 
       assert (l.string () == "c:\\a\\c\\1\\bb");
-      assert (l.canonical_name () == "bpkg:c:\\a\\c\\bb");
+      assert (l.canonical_name () == "pkg:c:\\a\\c\\bb");
     }
     {
       repository_location l (loc ("c:/a/b/../c/pkg/1/aa/../bb", loc ()));
       assert (l.string () == "c:\\a\\c\\pkg\\1\\bb");
-      assert (l.canonical_name () == "bpkg:bb");
+      assert (l.canonical_name () == "pkg:bb");
     }
     {
       repository_location l (loc ("file:///c:/repo/1/path"));
       assert (l.url () == loc ("file:/c:/repo/1/path").url ());
       assert (l.url () == loc ("c:/repo/1/path").url ());
       assert (l.string () == "c:\\repo\\1\\path");
-      assert (l.canonical_name () == "bpkg:c:\\repo\\path");
+      assert (l.canonical_name () == "pkg:c:\\repo\\path");
     }
     {
       repository_location l (loc ("file:/c:/git/repo#branch",
@@ -397,44 +397,44 @@ namespace bpkg
     {
       repository_location l (loc ("http://www.a.com:80/1/aa/bb"));
       assert (l.string () == "http://www.a.com:80/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com/aa/bb");
       assert (l.proto () == proto::http);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("https://www.a.com:443/1/aa/bb"));
       assert (l.string () == "https://www.a.com:443/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com/aa/bb");
       assert (l.proto () == proto::https);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("http://www.a.com:8080/dd/1/aa/bb"));
       assert (l.string () == "http://www.a.com:8080/dd/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com:8080/dd/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com:8080/dd/aa/bb");
       assert (l.proto () == proto::http);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("http://www.a.com:8080/dd/pkg/1/aa/bb"));
       assert (l.string () == "http://www.a.com:8080/dd/pkg/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com:8080/dd/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com:8080/dd/aa/bb");
       assert (l.proto () == proto::http);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("http://www.a.com:8080/bpkg/dd/1/aa/bb"));
       assert (l.string () == "http://www.a.com:8080/bpkg/dd/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com:8080/bpkg/dd/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com:8080/bpkg/dd/aa/bb");
       assert (l.proto () == proto::http);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("https://www.a.com:444/dd/1/aa/bb"));
       assert (l.string () == "https://www.a.com:444/dd/1/aa/bb");
-      assert (l.canonical_name () == "bpkg:a.com:444/dd/aa/bb");
+      assert (l.canonical_name () == "pkg:a.com:444/dd/aa/bb");
       assert (l.proto () == proto::https);
-      assert (l.type () == repository_type::bpkg);
+      assert (l.type () == repository_type::pkg);
     }
     {
       repository_location l (loc ("git://example.com/test#master",
@@ -477,42 +477,42 @@ namespace bpkg
     {
       repository_location l (loc ("http://a.com/a/b/../c/1/aa/../bb"));
       assert (l.string () == "http://a.com/a/c/1/bb");
-      assert (l.canonical_name () == "bpkg:a.com/a/c/bb");
+      assert (l.canonical_name () == "pkg:a.com/a/c/bb");
     }
     {
       repository_location l (loc ("https://a.com/a/b/../c/1/aa/../bb"));
       assert (l.string () == "https://a.com/a/c/1/bb");
-      assert (l.canonical_name () == "bpkg:a.com/a/c/bb");
+      assert (l.canonical_name () == "pkg:a.com/a/c/bb");
     }
     {
       repository_location l (loc ("http://www.CPPget.org/qw/1/a/b/"));
       assert (l.string () == "http://www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://pkg.CPPget.org/qw/1/a/b/"));
       assert (l.string () == "http://pkg.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://bpkg.CPPget.org/qw/1/a/b/"));
       assert (l.string () == "http://bpkg.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://abc.cppget.org/qw/1/a/b/"));
       assert (l.string () == "http://abc.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:abc.cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:abc.cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://pkg.www.cppget.org/qw/1/a/b/"));
       assert (l.string () == "http://pkg.www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:www.cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:www.cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://bpkg.www.cppget.org/qw/1/a/b/"));
       assert (l.string () == "http://bpkg.www.cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:www.cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:www.cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("https://git.example.com/test.git#master",
@@ -535,61 +535,61 @@ namespace bpkg
     {
       repository_location l (loc ("http://cppget.org/qw//1/a//b/"));
       assert (l.string () == "http://cppget.org/qw/1/a/b");
-      assert (l.canonical_name () == "bpkg:cppget.org/qw/a/b");
+      assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
     }
     {
       repository_location l (loc ("http://stable.cppget.org/1/"));
-      assert (l.canonical_name () == "bpkg:stable.cppget.org");
+      assert (l.canonical_name () == "pkg:stable.cppget.org");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("../../1/math", l1));
       assert (l2.string () == "http://stable.cppget.org/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/math");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("../../pkg/1/math", l1));
       assert (l2.string () == "http://stable.cppget.org/pkg/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/math");
     }
     {
       repository_location l1 (loc ("https://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("../../1/math", l1));
       assert (l2.string () == "https://stable.cppget.org/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/math");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("../math", l1));
       assert (l2.string () == "http://stable.cppget.org/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/math");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("math/..", l1));
       assert (l2.string () == "http://stable.cppget.org/1/misc");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/misc");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/misc");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc (".", l1));
       assert (l2.string () == "http://stable.cppget.org/1/misc");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org/misc");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org/misc");
     }
     {
       repository_location l1 (loc ("http://www.stable.cppget.org:8080/1"));
 
       repository_location l2 (loc ("../1/math", l1));
       assert (l2.string () == "http://www.stable.cppget.org:8080/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org:8080/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org:8080/math");
       assert (l2.proto () == proto::http);
     }
     {
       repository_location l1 (loc ("https://www.stable.cppget.org:444/1"));
       repository_location l2 (loc ("../1/math", l1));
       assert (l2.string () == "https://www.stable.cppget.org:444/1/math");
-      assert (l2.canonical_name () == "bpkg:stable.cppget.org:444/math");
+      assert (l2.canonical_name () == "pkg:stable.cppget.org:444/math");
       assert (l2.proto () == proto::https);
     }
     {
@@ -615,25 +615,25 @@ namespace bpkg
       repository_location l1 (loc ("/var/r1/1/misc"));
       repository_location l2 (loc ("../../../r2/1/math", l1));
       assert (l2.string () == "/var/r2/1/math");
-      assert (l2.canonical_name () == "bpkg:/var/r2/math");
+      assert (l2.canonical_name () == "pkg:/var/r2/math");
     }
     {
       repository_location l1 (loc ("/var/1/misc"));
       repository_location l2 (loc ("../math", l1));
       assert (l2.string () == "/var/1/math");
-      assert (l2.canonical_name () == "bpkg:/var/math");
+      assert (l2.canonical_name () == "pkg:/var/math");
     }
     {
       repository_location l1 (loc ("/var/1/stable"));
       repository_location l2 (loc ("/var/1/test", l1));
       assert (l2.string () == "/var/1/test");
-      assert (l2.canonical_name () == "bpkg:/var/test");
+      assert (l2.canonical_name () == "pkg:/var/test");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("/var/1/test", l1));
       assert (l2.string () == "/var/1/test");
-      assert (l2.canonical_name () == "bpkg:/var/test");
+      assert (l2.canonical_name () == "pkg:/var/test");
     }
     {
       repository_location l1 (loc ("/var/1/stable"));
@@ -646,25 +646,25 @@ namespace bpkg
       repository_location l1 (loc ("c:/var/r1/1/misc"));
       repository_location l2 (loc ("../../../r2/1/math", l1));
       assert (l2.string () == "c:\\var\\r2\\1\\math");
-      assert (l2.canonical_name () == "bpkg:c:\\var\\r2\\math");
+      assert (l2.canonical_name () == "pkg:c:\\var\\r2\\math");
     }
     {
       repository_location l1 (loc ("c:/var/1/misc"));
       repository_location l2 (loc ("../math", l1));
       assert (l2.string () == "c:\\var\\1\\math");
-      assert (l2.canonical_name () == "bpkg:c:\\var\\math");
+      assert (l2.canonical_name () == "pkg:c:\\var\\math");
     }
     {
       repository_location l1 (loc ("c:/var/1/stable"));
       repository_location l2 (loc ("c:\\var\\1\\test", l1));
       assert (l2.string () == "c:\\var\\1\\test");
-      assert (l2.canonical_name () == "bpkg:c:\\var\\test");
+      assert (l2.canonical_name () == "pkg:c:\\var\\test");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
       repository_location l2 (loc ("c:/var/1/test", l1));
       assert (l2.string () == "c:\\var\\1\\test");
-      assert (l2.canonical_name () == "bpkg:c:\\var\\test");
+      assert (l2.canonical_name () == "pkg:c:\\var\\test");
     }
     {
       repository_location l1 (loc ("c:/var/1/stable"));
@@ -677,7 +677,7 @@ namespace bpkg
       repository_location l1 (loc ("http://www.cppget.org/1/stable"));
       repository_location l2 (loc ("http://abc.com/1/test", l1));
       assert (l2.string () == "http://abc.com/1/test");
-      assert (l2.canonical_name () == "bpkg:abc.com/test");
+      assert (l2.canonical_name () == "pkg:abc.com/test");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/"));

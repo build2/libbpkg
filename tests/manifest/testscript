@@ -5,14 +5,14 @@
 : packages
 :
 {
-  : bpkg
+  : pkg
   :
   {
     : manifest
     :
-    : Roundtrip the bpkg package manifest list.
+    : Roundtrip the pkg package manifest list.
     :
-    $* -bp <<EOF >>EOF
+    $* -pp <<EOF >>EOF
     : 1
     sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
     :
@@ -101,21 +101,21 @@
 : repositories
 :
 {
-  : bpkg
+  : pkg
   :
   {
     : manifest
     :
-    : Roundtrip the bpkg repository manifest list.
+    : Roundtrip the pkg repository manifest list.
     :
-    $* -br <<EOF >>EOF
+    $* -pr <<EOF >>EOF
     : 1
     location: http://pkg.example.org/1/math
-    type: bpkg
+    type: pkg
     role: prerequisite
     :
     location: ../stable
-    type: bpkg
+    type: pkg
     role: complement
     :
     url: http://cppget.org
@@ -159,7 +159,7 @@
 
     : prerequisite-type
     :
-    $* -br <<EOI >>EOO
+    $* -pr <<EOI >>EOO
     : 1
     location: http://example.org/math.git#master
     role: prerequisite
@@ -182,7 +182,7 @@
     role: prerequisite
     :
     location: ../stable.git
-    type: bpkg
+    type: pkg
     role: complement
     :
     location: git://example.org/foo#master
@@ -190,7 +190,7 @@
     role: prerequisite
     :
     location: http://pkg.example.org/1/bar
-    type: bpkg
+    type: pkg
     role: prerequisite
     :
     url: http://cppget.org
@@ -254,7 +254,7 @@
     role: prerequisite
     :
     location: http://pkg.example.org/1/bar
-    type: bpkg
+    type: pkg
     role: prerequisite
     :
     url: http://cppget.org

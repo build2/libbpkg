@@ -392,7 +392,7 @@ namespace bpkg
   // Create individual package manifest.
   //
   LIBBPKG_EXPORT package_manifest
-  bpkg_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+  pkg_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
   LIBBPKG_EXPORT package_manifest
   git_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
@@ -400,9 +400,9 @@ namespace bpkg
   // Create an element of the package list manifest.
   //
   LIBBPKG_EXPORT package_manifest
-  bpkg_package_manifest (butl::manifest_parser&,
-                         butl::manifest_name_value start,
-                         bool ignore_unknown = false);
+  pkg_package_manifest (butl::manifest_parser&,
+                        butl::manifest_name_value start,
+                        bool ignore_unknown = false);
 
   LIBBPKG_EXPORT package_manifest
   git_package_manifest (butl::manifest_parser&,
@@ -412,8 +412,8 @@ namespace bpkg
   // Serialize.
   //
   inline void
-  bpkg_package_manifest (butl::manifest_serializer& s,
-                         const package_manifest& m)
+  pkg_package_manifest (butl::manifest_serializer& s,
+                        const package_manifest& m)
   {
     m.serialize (s);
   }
@@ -424,7 +424,7 @@ namespace bpkg
   LIBBPKG_EXPORT void
   git_package_manifest (butl::manifest_serializer&, const package_manifest&);
 
-  class LIBBPKG_EXPORT bpkg_package_manifests:
+  class LIBBPKG_EXPORT pkg_package_manifests:
     public std::vector<package_manifest>
   {
   public:
@@ -437,9 +437,9 @@ namespace bpkg
     std::string sha256sum;
 
   public:
-    bpkg_package_manifests () = default;
-    bpkg_package_manifests (butl::manifest_parser&,
-                            bool ignore_unknown = false);
+    pkg_package_manifests () = default;
+    pkg_package_manifests (butl::manifest_parser&,
+                           bool ignore_unknown = false);
 
     void
     serialize (butl::manifest_serializer&) const;
@@ -524,7 +524,7 @@ namespace bpkg
 
   // Repository type.
   //
-  enum class repository_type {bpkg, git};
+  enum class repository_type {pkg, git};
 
   LIBBPKG_EXPORT std::string
   to_string (repository_type);
@@ -543,11 +543,10 @@ namespace bpkg
   // 1. If scheme is git then git.
   //
   // 2. If scheme is http(s), then check if path has the .git extension,
-  //    then git, otherwise bpkg.
+  //    then git, otherwise pkg.
   //
   // 3. If local (which will normally be without the .git extension), check
-  //    if directory contains the .git/ subdirectory then git, otherwise
-  //    bpkg.
+  //    if directory contains the .git/ subdirectory then git, otherwise pkg.
   //
   // Can throw system_error in the later case.
   //
@@ -587,7 +586,7 @@ namespace bpkg
     explicit
     repository_location (repository_url, repository_type);
 
-    // Create a potentially relative bpkg repository location. If base is not
+    // Create a potentially relative pkg repository location. If base is not
     // empty, use it to complete the relative location to the remote/absolute
     // one. Throw std::invalid_argument if base is not empty but the location
     // is empty, base itself is relative, or the resulting completed location
@@ -720,8 +719,8 @@ namespace bpkg
     {
       switch (type ())
       {
-      case repository_type::bpkg: return true;
-      case repository_type::git:  return false;
+      case repository_type::pkg: return true;
+      case repository_type::git: return false;
       }
 
       assert (false); // Can't be here.
@@ -814,7 +813,7 @@ namespace bpkg
 
     // Return the effective web interface URL based on the specified remote
     // repository location. If url is not present, doesn't start with '.', or
-    // the repository type differs from bpkg, then return it unchanged.
+    // the repository type differs from pkg, then return it unchanged.
     // Otherwise, process the relative format as described in the manifest
     // specification. Throw std::invalid_argument if the relative url format is
     // invalid or if the repository location is empty or local.
@@ -832,8 +831,8 @@ namespace bpkg
   // Create individual repository manifest.
   //
   LIBBPKG_EXPORT repository_manifest
-  bpkg_repository_manifest (butl::manifest_parser&,
-                            bool ignore_unknown = false);
+  pkg_repository_manifest (butl::manifest_parser&,
+                           bool ignore_unknown = false);
 
   LIBBPKG_EXPORT repository_manifest
   git_repository_manifest (butl::manifest_parser&,
@@ -842,16 +841,16 @@ namespace bpkg
   // Create an element of the repository list manifest.
   //
   LIBBPKG_EXPORT repository_manifest
-  bpkg_repository_manifest (butl::manifest_parser&,
-                            butl::manifest_name_value start,
-                            bool ignore_unknown = false);
+  pkg_repository_manifest (butl::manifest_parser&,
+                           butl::manifest_name_value start,
+                           bool ignore_unknown = false);
 
   LIBBPKG_EXPORT repository_manifest
   git_repository_manifest (butl::manifest_parser&,
                            butl::manifest_name_value start,
                            bool ignore_unknown = false);
 
-  class LIBBPKG_EXPORT bpkg_repository_manifests:
+  class LIBBPKG_EXPORT pkg_repository_manifests:
     public std::vector<repository_manifest>
   {
   public:
@@ -859,9 +858,9 @@ namespace bpkg
 
     using base_type::base_type;
 
-    bpkg_repository_manifests () = default;
-    bpkg_repository_manifests (butl::manifest_parser&,
-                               bool ignore_unknown = false);
+    pkg_repository_manifests () = default;
+    pkg_repository_manifests (butl::manifest_parser&,
+                              bool ignore_unknown = false);
 
     void
     serialize (butl::manifest_serializer&) const;

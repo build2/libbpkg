@@ -713,10 +713,10 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
-  // bpkg_package_manifest
+  // pkg_package_manifest
   //
   static package_manifest
-  bpkg_package_manifest (parser& p, name_value nv, bool il, bool iu)
+  pkg_package_manifest (parser& p, name_value nv, bool il, bool iu)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -1307,9 +1307,9 @@ namespace bpkg
   }
 
   package_manifest
-  bpkg_package_manifest (parser& p, bool iu)
+  pkg_package_manifest (parser& p, bool iu)
   {
-    package_manifest r (bpkg_package_manifest (p, p.next (), false, iu));
+    package_manifest r (pkg_package_manifest (p, p.next (), false, iu));
 
     // Make sure this is the end.
     //
@@ -1322,9 +1322,9 @@ namespace bpkg
   }
 
   package_manifest
-  bpkg_package_manifest (parser& p, name_value nv, bool iu)
+  pkg_package_manifest (parser& p, name_value nv, bool iu)
   {
-    return bpkg_package_manifest (p, nv, true, iu);
+    return pkg_package_manifest (p, nv, true, iu);
   }
 
   // git_package_manifest
@@ -1422,10 +1422,10 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
-  // bpkg_package_manifests
+  // pkg_package_manifests
   //
-  bpkg_package_manifests::
-  bpkg_package_manifests (parser& p, bool iu)
+  pkg_package_manifests::
+  pkg_package_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
 
@@ -1472,10 +1472,10 @@ namespace bpkg
     // Parse package manifests.
     //
     for (nv = p.next (); !nv.empty (); nv = p.next ())
-      push_back (bpkg_package_manifest (p, nv, iu));
+      push_back (pkg_package_manifest (p, nv, iu));
   }
 
-  void bpkg_package_manifests::
+  void pkg_package_manifests::
   serialize (serializer& s) const
   {
     // Serialize the package list manifest.
@@ -1509,7 +1509,7 @@ namespace bpkg
       if (!p.sha256sum)
         bad_value ("no valid sha256sum");
 
-      bpkg_package_manifest (s, p);
+      pkg_package_manifest (s, p);
     }
 
     s.next ("", ""); // End of stream.
@@ -1761,8 +1761,8 @@ namespace bpkg
   {
     switch (t)
     {
-    case repository_type::bpkg: return "bpkg";
-    case repository_type::git:  return "git";
+    case repository_type::pkg: return "pkg";
+    case repository_type::git: return "git";
     }
 
     assert (false); // Can't be here.
@@ -1772,8 +1772,8 @@ namespace bpkg
   repository_type
   to_repository_type (const string& t)
   {
-         if (t == "bpkg") return repository_type::bpkg;
-    else if (t == "git")  return repository_type::git;
+         if (t == "pkg") return repository_type::pkg;
+    else if (t == "git") return repository_type::git;
     else throw invalid_argument ("invalid repository type '" + t + "'");
   }
 
@@ -1791,7 +1791,7 @@ namespace bpkg
       {
         return url.path->extension () == "git"
           ? repository_type::git
-          : repository_type::bpkg;
+          : repository_type::pkg;
       }
     case repository_protocol::file:
       {
@@ -1799,12 +1799,12 @@ namespace bpkg
           dir_exists (path_cast<dir_path> (*url.path) / dir_path (".git"),
                       false)
           ? repository_type::git
-          : repository_type::bpkg;
+          : repository_type::pkg;
       }
     }
 
     assert (false); // Can't be here.
-    return repository_type::bpkg;
+    return repository_type::pkg;
   }
 
   // repository_location
@@ -1818,7 +1818,7 @@ namespace bpkg
 
     switch (type)
     {
-    case repository_type::bpkg:
+    case repository_type::pkg:
       {
         bool bpkg (false);
         if (host.compare (0, 4, "www.") == 0 ||
@@ -1858,7 +1858,7 @@ namespace bpkg
       return e != nullptr && strcmp (e, "git") == 0 ? p.base () : p;
     }
 
-    // Should be bpkg repository location path.
+    // Should be pkg repository location path.
     //
     assert (!p.empty () && *p.begin () != "..");
 
@@ -1934,10 +1934,10 @@ namespace bpkg
     //
     switch (t)
     {
-    case repository_type::bpkg:
+    case repository_type::pkg:
       {
         if (url_.scheme == repository_protocol::git)
-          throw invalid_argument ("unsupported scheme for bpkg repository");
+          throw invalid_argument ("unsupported scheme for pkg repository");
 
         break;
       }
@@ -1962,7 +1962,7 @@ namespace bpkg
     //
     switch (t)
     {
-    case repository_type::bpkg:
+    case repository_type::pkg:
     case repository_type::git:
       {
         if (!up.to_directory ())
@@ -2015,7 +2015,7 @@ namespace bpkg
 
         url_ = move (u);
 
-        // Set canonical name to the base location canonical name 'bpkg:<host>'
+        // Set canonical name to the base location canonical name 'pkg:<host>'
         // part. The '<path>[#<fragment>]' part of the canonical name is
         // calculated below.
         //
@@ -2042,12 +2042,12 @@ namespace bpkg
       throw invalid_argument ("invalid path");
     }
 
-    // For bpkg repository we need to check path for emptiness before
+    // For pkg repository we need to check path for emptiness before
     // proceeding further as a valid non empty location can not have an empty
     // URL object path member (which can be the case for the remote location,
     // but not for the relative or absolute).
     //
-    if (type_ == repository_type::bpkg && up.empty ())
+    if (type_ == repository_type::pkg && up.empty ())
       throw invalid_argument ("empty path");
 
     // Need to check that URL path do not go past the root directory of a WEB
@@ -2066,12 +2066,12 @@ namespace bpkg
       return;
     }
 
-    // Canonical name <prefix>/<path> part for the bpkg repository, and the
+    // Canonical name <prefix>/<path> part for the pkg repository, and the
     // full path with the .git extension stripped for the git repository.
     //
     path sp;
 
-    if (type_ == repository_type::bpkg)
+    if (type_ == repository_type::pkg)
     {
       sp = strip_path (up,
                        remote ()
@@ -2187,7 +2187,7 @@ namespace bpkg
     if (l.local ())
       throw invalid_argument (invalid_location);
 
-    if (l.type () != repository_type::bpkg || !url || (*url)[0] != '.')
+    if (l.type () != repository_type::pkg || !url || (*url)[0] != '.')
       return url;
 
     const path rp (*url);
@@ -2223,7 +2223,7 @@ namespace bpkg
 
     if (strip_d)
       u.authority->host.value = strip_domain (u.authority->host,
-                                              repository_type::bpkg);
+                                              repository_type::pkg);
 
     // Web interface URL path part.
     //
@@ -2374,7 +2374,7 @@ namespace bpkg
       }
       else if (n == "certificate")
       {
-        if (base_type != repository_type::bpkg)
+        if (base_type != repository_type::pkg)
           bad_name ("certificate not allowed");
 
         if (r.certificate)
@@ -2514,12 +2514,12 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
-  // bpkg_repository_manifest
+  // pkg_repository_manifest
   //
   repository_manifest
-  bpkg_repository_manifest (parser& p, bool iu)
+  pkg_repository_manifest (parser& p, bool iu)
   {
-    repository_manifest r (bpkg_repository_manifest (p, p.next (), iu));
+    repository_manifest r (pkg_repository_manifest (p, p.next (), iu));
 
     // Make sure this is the end.
     //
@@ -2532,9 +2532,9 @@ namespace bpkg
   }
 
   repository_manifest
-  bpkg_repository_manifest (parser& p, name_value nv, bool iu)
+  pkg_repository_manifest (parser& p, name_value nv, bool iu)
   {
-    return parse_repository_manifest (p, nv, repository_type::bpkg, iu);
+    return parse_repository_manifest (p, nv, repository_type::pkg, iu);
   }
 
   // git_repository_manifest
@@ -2560,15 +2560,15 @@ namespace bpkg
     return parse_repository_manifest (p, nv, repository_type::git, iu);
   }
 
-  // bpkg_repository_manifests
+  // pkg_repository_manifests
   //
-  bpkg_repository_manifests::
-  bpkg_repository_manifests (parser& p, bool iu)
+  pkg_repository_manifests::
+  pkg_repository_manifests (parser& p, bool iu)
   {
     name_value nv (p.next ());
     while (!nv.empty ())
     {
-      push_back (bpkg_repository_manifest (p, nv, iu));
+      push_back (pkg_repository_manifest (p, nv, iu));
       nv = p.next ();
 
       // Make sure there is location in all except the last entry.
@@ -2583,7 +2583,7 @@ namespace bpkg
                      "base repository manifest expected");
   }
 
-  void bpkg_repository_manifests::
+  void pkg_repository_manifests::
   serialize (serializer& s) const
   {
     if (empty () || !back ().location.empty ())

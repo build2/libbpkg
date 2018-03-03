@@ -21,9 +21,9 @@ using namespace bpkg;
 // Read and parse manifest from STDIN and serialize it to STDOUT. The
 // following options specify the manifest type.
 //
-// -bp  parse bpkg package manifest list
+// -pp  parse pkg package manifest list
 // -gp  parse git package manifest list
-// -br  parse bpkg repository manifest list
+// -pr  parse pkg repository manifest list
 // -gr  parse git repository manifest list
 // -s  parse signature manifest
 //
@@ -39,10 +39,10 @@ main (int argc, char* argv[])
   manifest_parser     p (cin,  "stdin");
   manifest_serializer s (cout, "stdout");
 
-  if (opt == "-bp")
-    bpkg_package_manifests (p).serialize (s);
-  else if (opt == "-br")
-    bpkg_repository_manifests (p).serialize (s);
+  if (opt == "-pp")
+    pkg_package_manifests (p).serialize (s);
+  else if (opt == "-pr")
+    pkg_repository_manifests (p).serialize (s);
   else if (opt == "-gp")
     git_package_manifests (p).serialize (s);
   else if (opt == "-gr")
