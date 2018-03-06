@@ -395,12 +395,20 @@ namespace bpkg
   pkg_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
   LIBBPKG_EXPORT package_manifest
+  dir_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT package_manifest
   git_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
   // Create an element of the package list manifest.
   //
   LIBBPKG_EXPORT package_manifest
   pkg_package_manifest (butl::manifest_parser&,
+                        butl::manifest_name_value start,
+                        bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT package_manifest
+  dir_package_manifest (butl::manifest_parser&,
                         butl::manifest_name_value start,
                         bool ignore_unknown = false);
 
@@ -418,9 +426,12 @@ namespace bpkg
     m.serialize (s);
   }
 
-  // Normally there is no need to serialize git package manifest, unless for
-  // testing.
+  // Normally there is no need to serialize dir and git package manifests,
+  // unless for testing.
   //
+  LIBBPKG_EXPORT void
+  dir_package_manifest (butl::manifest_serializer&, const package_manifest&);
+
   LIBBPKG_EXPORT void
   git_package_manifest (butl::manifest_serializer&, const package_manifest&);
 
@@ -441,6 +452,26 @@ namespace bpkg
     pkg_package_manifests (butl::manifest_parser&,
                            bool ignore_unknown = false);
 
+    void
+    serialize (butl::manifest_serializer&) const;
+  };
+
+  class LIBBPKG_EXPORT dir_package_manifests:
+    public std::vector<package_manifest>
+  {
+  public:
+    using base_type = std::vector<package_manifest>;
+
+    using base_type::base_type;
+
+  public:
+    dir_package_manifests () = default;
+    dir_package_manifests (butl::manifest_parser&,
+                           bool ignore_unknown = false);
+
+    // Normally there is no need to serialize dir package manifests, unless for
+    // testing.
+    //
     void
     serialize (butl::manifest_serializer&) const;
   };
@@ -524,7 +555,7 @@ namespace bpkg
 
   // Repository type.
   //
-  enum class repository_type {pkg, git};
+  enum class repository_type {pkg, dir, git};
 
   LIBBPKG_EXPORT std::string
   to_string (repository_type);
@@ -537,6 +568,15 @@ namespace bpkg
   {
     return os << to_string (t);
   }
+
+  // Repository basis.
+  //
+  enum class repository_basis
+  {
+    archive,
+    directory,
+    version_control
+  };
 
   // Guess the repository type for the URL:
   //
@@ -656,6 +696,20 @@ namespace bpkg
       return type_;
     }
 
+    repository_basis
+    basis () const
+    {
+      switch (type ())
+      {
+      case repository_type::pkg: return repository_basis::archive;
+      case repository_type::dir: return repository_basis::directory;
+      case repository_type::git: return repository_basis::version_control;
+      }
+
+      assert (false); // Can't be here.
+      return repository_basis::archive;
+    }
+
     // URL of an empty location is empty.
     //
     const repository_url&
@@ -717,20 +771,19 @@ namespace bpkg
     bool
     archive_based () const
     {
-      switch (type ())
-      {
-      case repository_type::pkg: return true;
-      case repository_type::git: return false;
-      }
+      return basis () == repository_basis::archive;
+    }
 
-      assert (false); // Can't be here.
-      return false;
+    bool
+    directory_based () const
+    {
+      return basis () == repository_basis::directory;
     }
 
     bool
     version_control_based () const
     {
-      return !archive_based ();
+      return basis () == repository_basis::version_control;
     }
 
     // String representation of an empty location is the empty string.
@@ -835,6 +888,10 @@ namespace bpkg
                            bool ignore_unknown = false);
 
   LIBBPKG_EXPORT repository_manifest
+  dir_repository_manifest (butl::manifest_parser&,
+                           bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT repository_manifest
   git_repository_manifest (butl::manifest_parser&,
                            bool ignore_unknown = false);
 
@@ -842,6 +899,11 @@ namespace bpkg
   //
   LIBBPKG_EXPORT repository_manifest
   pkg_repository_manifest (butl::manifest_parser&,
+                           butl::manifest_name_value start,
+                           bool ignore_unknown = false);
+
+  LIBBPKG_EXPORT repository_manifest
+  dir_repository_manifest (butl::manifest_parser&,
                            butl::manifest_name_value start,
                            bool ignore_unknown = false);
 
@@ -860,6 +922,22 @@ namespace bpkg
 
     pkg_repository_manifests () = default;
     pkg_repository_manifests (butl::manifest_parser&,
+                              bool ignore_unknown = false);
+
+    void
+    serialize (butl::manifest_serializer&) const;
+  };
+
+  class LIBBPKG_EXPORT dir_repository_manifests:
+    public std::vector<repository_manifest>
+  {
+  public:
+    using base_type = std::vector<repository_manifest>;
+
+    using base_type::base_type;
+
+    dir_repository_manifests () = default;
+    dir_repository_manifests (butl::manifest_parser&,
                               bool ignore_unknown = false);
 
     void

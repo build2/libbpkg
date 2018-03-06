@@ -201,6 +201,10 @@ namespace bpkg
     assert (bad_loc ("file:/abc", repository_type::git));
 #endif
 
+    // Can't be remote.
+    //
+    assert (bad_loc ("http://example.com/dir", repository_type::dir));
+
     // Invalid web interface URL.
     //
     assert (bad_url (".a/..", loc ("http://stable.cppget.org/1/misc")));
@@ -321,6 +325,11 @@ namespace bpkg
       assert (l.string () == "file:/#master");
       assert (l.canonical_name () == "git:/#master");
     }
+    {
+      repository_location l (loc ("/home/user/repo", repository_type::dir));
+      assert (l.string () == "/home/user/repo");
+      assert (l.canonical_name () == "dir:/home/user/repo");
+    }
 #else
     {
       repository_location l (loc ("c:\\1\\aa\\bb", loc ()));
@@ -387,6 +396,11 @@ namespace bpkg
                                   repository_type::git));
       assert (l.string () == "file:/c:#master");
       assert (l.canonical_name () == "git:c:#master");
+    }
+    {
+      repository_location l (loc ("c:\\user\\repo", repository_type::dir));
+      assert (l.string () == "c:\\user\\repo");
+      assert (l.canonical_name () == "dir:c:\\user\\repo");
     }
 #endif
     {

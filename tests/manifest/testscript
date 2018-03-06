@@ -260,6 +260,37 @@
     url: http://cppget.org
     EOO
   }
+
+  : dir
+  :
+  {
+    : manifest
+    :
+    : Roundtrip the dir repository manifest list.
+    :
+    $* -dr <<EOF >>EOF
+    : 1
+    location: ../stable
+    type: dir
+    role: complement
+    :
+    EOF
+
+    : prerequisite-with-fragment
+    :
+    $* -dr <<EOI >>EOO
+    : 1
+    location: ../stable.git#stable
+    role: complement
+    :
+    EOI
+    : 1
+    location: ../stable.git
+    type: dir
+    role: complement
+    :
+    EOO
+  }
 }
 
 : signature
