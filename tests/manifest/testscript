@@ -76,12 +76,18 @@
     EOF
   }
 
-  : git
+  : dir
   :
   {
-    : manifest
+    : empty
     :
-    : Roundtrip the git package manifest list.
+    : Roundtrip an empty dir package manifest list.
+    :
+    $* -gp <"" >:""
+
+    : non-empty
+    :
+    : Roundtrip the dir package manifest list.
     :
     $* -gp <<EOF >>EOF
     : 1
@@ -90,11 +96,16 @@
     location: mhello/
     EOF
 
-    : empty
+    : duplicate
     :
-    : Roundtrip an empty git package manifest list.
+    $* -gp <<EOI 2>'stdin:5:1: error: duplicate package manifest' != 0
+    : 1
+    location: hello/
     :
-    $* -gp <"" >:""
+    location: hello/
+    :
+    location: mhello/
+    EOI
   }
 }
 

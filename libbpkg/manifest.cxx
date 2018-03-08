@@ -1515,7 +1515,7 @@ namespace bpkg
     // Parse package manifests.
     //
     for (nv = p.next (); !nv.empty (); nv = p.next ())
-      push_back (pkg_package_manifest (p, nv, iu));
+      push_back (pkg_package_manifest (p, move (nv), iu));
   }
 
   void pkg_package_manifests::
@@ -1558,26 +1558,55 @@ namespace bpkg
     s.next ("", ""); // End of stream.
   }
 
+  // Parse package directory manifests.
+  //
+  static void
+  parse_directory_manifests (parser& p, bool iu, vector<package_manifest>& ms)
+  {
+    // Normally, such manifests are created manually, so let's check for
+    // duplicates.
+    //
+    for (name_value nv (p.next ()); !nv.empty (); )
+    {
+      package_manifest pm (dir_package_manifest (p, move (nv), iu));
+      nv = p.next ();
+
+      for (const auto& m: ms)
+      {
+        if (m.location == pm.location)
+          throw parsing (p.name (),
+                         nv.name_line, nv.name_column,
+                         "duplicate package manifest");
+      }
+
+      ms.push_back (move (pm));
+    }
+  }
+
+  // Serialize package directory manifests.
+  //
+  static void
+  serialize_directory_manifests (serializer& s,
+                                 const vector<package_manifest>& ms)
+  {
+    for (const package_manifest& m: ms)
+      serialize_directory_manifest (s, m);
+
+    s.next ("", ""); // End of stream.
+  }
+
   // dir_package_manifests
   //
   dir_package_manifests::
   dir_package_manifests (parser& p, bool iu)
   {
-    // Parse package manifests.
-    //
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
-      push_back (dir_package_manifest (p, nv, iu));
+    parse_directory_manifests (p, iu, *this);
   }
 
   void dir_package_manifests::
   serialize (serializer& s) const
   {
-    // Serialize package manifests.
-    //
-    for (const package_manifest& p: *this)
-      dir_package_manifest (s, p);
-
-    s.next ("", ""); // End of stream.
+    serialize_directory_manifests (s, *this);
   }
 
   // git_package_manifests
@@ -1585,21 +1614,13 @@ namespace bpkg
   git_package_manifests::
   git_package_manifests (parser& p, bool iu)
   {
-    // Parse package manifests.
-    //
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
-      push_back (git_package_manifest (p, nv, iu));
+    parse_directory_manifests (p, iu, *this);
   }
 
   void git_package_manifests::
   serialize (serializer& s) const
   {
-    // Serialize package manifests.
-    //
-    for (const package_manifest& p: *this)
-      git_package_manifest (s, p);
-
-    s.next ("", ""); // End of stream.
+    serialize_directory_manifests (s, *this);
   }
 
   // repository_url_traits
@@ -2705,7 +2726,7 @@ namespace bpkg
     name_value nv (p.next ());
     while (!nv.empty ())
     {
-      ms.push_back (parse_repository_manifest (p, nv, base_type, iu));
+      ms.push_back (parse_repository_manifest (p, move (nv), base_type, iu));
       nv = p.next ();
 
       // Make sure there is location in all except the last entry.

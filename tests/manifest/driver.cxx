@@ -41,20 +41,30 @@ main (int argc, char* argv[])
   manifest_parser     p (cin,  "stdin");
   manifest_serializer s (cout, "stdout");
 
-  if (opt == "-pp")
-    pkg_package_manifests (p).serialize (s);
-  else if (opt == "-dp")
-    dir_package_manifests (p).serialize (s);
-  else if (opt == "-gp")
-    git_package_manifests (p).serialize (s);
-  else if (opt == "-pr")
-    pkg_repository_manifests (p).serialize (s);
-  else if (opt == "-dr")
-    dir_repository_manifests (p).serialize (s);
-  else if (opt == "-gr")
-    git_repository_manifests (p).serialize (s);
-  else if (opt == "-s")
-    signature_manifest (p).serialize (s);
-  else
-    assert (false);
+  try
+  {
+    if (opt == "-pp")
+      pkg_package_manifests (p).serialize (s);
+    else if (opt == "-dp")
+      dir_package_manifests (p).serialize (s);
+    else if (opt == "-gp")
+      git_package_manifests (p).serialize (s);
+    else if (opt == "-pr")
+      pkg_repository_manifests (p).serialize (s);
+    else if (opt == "-dr")
+      dir_repository_manifests (p).serialize (s);
+    else if (opt == "-gr")
+      git_repository_manifests (p).serialize (s);
+    else if (opt == "-s")
+      signature_manifest (p).serialize (s);
+    else
+      assert (false);
+  }
+  catch (const manifest_parsing& e)
+  {
+    cerr << e << endl;
+    return 1;
+  }
+
+  return 0;
 }
