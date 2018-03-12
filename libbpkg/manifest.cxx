@@ -134,11 +134,16 @@ namespace bpkg
   // version
   //
   version::
-  version (uint16_t e, std::string u, optional<std::string> l, uint16_t r)
+  version (uint16_t e,
+           std::string u,
+           optional<std::string> l,
+           uint16_t r,
+           uint32_t i)
       : epoch (e),
         upstream (move (u)),
         release (move (l)),
         revision (r),
+        iteration (i),
         canonical_upstream (
           data_type (upstream.c_str (), data_type::parse::upstream).
             canonical_upstream),
@@ -159,11 +164,14 @@ namespace bpkg
 
       if (revision != 0)
         throw invalid_argument ("revision for empty version");
+
+      if (iteration != 0)
+        throw invalid_argument ("iteration for empty version");
     }
-    else if (release && release->empty () && revision != 0)
-      // Empty release signifies the earliest possible release. Revision is
-      // meaningless in such a context.
-      //
+    // Empty release signifies the earliest possible release. Revision and/or
+    // iteration are meaningless in such a context.
+    //
+    else if (release && release->empty () && (revision != 0 || iteration != 0))
       throw invalid_argument ("revision for earliest possible release");
   }
 
@@ -444,7 +452,7 @@ namespace bpkg
   }
 
   string version::
-  string (bool ignore_revision) const
+  string (bool ignore_revision, bool ignore_iteration) const
   {
     using std::to_string; // Hidden by to_string (repository_type).
 
@@ -459,10 +467,19 @@ namespace bpkg
       v += *release;
     }
 
-    if (!ignore_revision && revision != 0)
+    if (!ignore_revision)
     {
-      v += '+';
-      v += to_string (revision);
+      if (revision != 0)
+      {
+        v += '+';
+        v += to_string (revision);
+      }
+
+      if (!ignore_iteration && iteration != 0)
+      {
+        v += '#';
+        v += to_string (iteration);
+      }
     }
 
     return v;

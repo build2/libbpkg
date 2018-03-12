@@ -40,11 +40,12 @@ namespace bpkg
   bad_version (uint16_t e,
                const string& u,
                const optional<string>& l,
-               uint16_t r)
+               uint16_t r,
+               uint32_t i = 0)
   {
     try
     {
-      version bv (e, u, l, r);
+      version bv (e, u, l, r, i);
       return false;
     }
     catch (const invalid_argument&)
@@ -54,15 +55,20 @@ namespace bpkg
   }
 
   static bool
-  bad_version (uint16_t e, const string& u, const char* l, uint16_t r)
+  bad_version (uint16_t e,
+               const string& u,
+               const char* l,
+               uint16_t r,
+               uint32_t i = 0)
   {
-    return bad_version (e, u, string (l), r);
+    return bad_version (e, u, string (l), r, i);
   }
 
   static bool
   test_constructor (const version& v)
   {
-    return v == version (v.epoch, v.upstream, v.release, v.revision);
+    return v ==
+      version (v.epoch, v.upstream, v.release, v.revision, v.iteration);
   }
 
   int
@@ -111,6 +117,7 @@ namespace bpkg
       assert (bad_version ("1.2.3-~"));       // Invalid release.
       assert (bad_version ("0-"));            // Illegal version.
       assert (bad_version ("0.0-"));          // Same.
+      assert (bad_version ("1.2.3+1#1"));     // Unexpected iteration.
 
       assert (bad_version (0, "1", "", 1));      // Revision for empty release.
       assert (bad_version (1, "1~1.1", "", 2));  // Epoch in upstream.
@@ -120,9 +127,10 @@ namespace bpkg
       assert (bad_version (1, "1", "1.1-1", 2)); // Release in release.
       assert (bad_version (1, "1", "1.1+1", 2)); // Revision in release.
 
-      assert (bad_version (1, "", "", 0));  // Unexpected epoch.
-      assert (bad_version (0, "", "1", 0)); // Unexpected release.
-      assert (bad_version (0, "", "", 1));  // Unexpected revision.
+      assert (bad_version (1, "", "", 0));     // Unexpected epoch.
+      assert (bad_version (0, "", "1", 0));    // Unexpected release.
+      assert (bad_version (0, "", "", 1));     // Unexpected revision.
+      assert (bad_version (0, "", "", 0, 1));  // Unexpected iteration.
 
       {
         version v1;
@@ -280,7 +288,7 @@ namespace bpkg
       }
 
       {
-        version v (1, "1", nullopt, 2);
+        version v (1, "1", nullopt, 2, 0);
         assert (v.string () == "1~1+2");
         assert (!v.release);
         assert (v.canonical_release == "~");
@@ -288,11 +296,22 @@ namespace bpkg
       }
 
       {
-        version v (1, "1", string (), 0);
+        version v (1, "1", string (), 0, 0);
         assert (v.string () == "1~1-");
         assert (v.release && v.release->empty ());
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
+      }
+
+      {
+        version v (1, "2.0", nullopt, 3, 4);
+        assert (v.string (false, false) == "1~2.0+3#4");
+        assert (v.string (true,  true)  == "1~2.0");
+        assert (v.string (true,  false) == "1~2.0");
+        assert (v.string (false, true)  == "1~2.0+3");
+
+        assert (version (1, "2.0", nullopt, 0, 3).string () == "1~2.0#3");
+        assert (version (1, "2.0", nullopt, 3, 0).string () == "1~2.0+3");
       }
 
       assert (version ("a") == version ("a"));
@@ -335,9 +354,24 @@ namespace bpkg
       assert (version ("1.0-alpha") > version ("1.0-1"));
       assert (version ("1.0-alpha") == version ("1.0-alpha.0"));
 
-      assert (version (1, "2.0", nullopt, 3) == version ("1~2+3"));
-      assert (version (1, "2.0", string (), 0) == version ("1~2-"));
-      assert (version (0, "", string (), 0) == version ());
+      assert (version (1, "2.0", nullopt, 3, 0) == version ("1~2+3"));
+      assert (version (1, "2.0", string (), 0, 0) == version ("1~2-"));
+      assert (version (0, "", string (), 0, 0) == version ());
+
+      assert (version (1, "2.0", nullopt, 3, 4).compare (
+              version (1, "2.0", nullopt, 3, 4)) == 0);
+
+      assert (version (1, "2.0", nullopt, 3, 4).compare (
+              version (1, "2.0", nullopt, 4, 3)) < 0);
+
+      assert (version (1, "2.0", nullopt, 3, 4).compare (
+              version (1, "2.0", nullopt, 3, 5)) < 0);
+
+      assert (version (1, "2.0", nullopt, 3, 4).compare (
+                version (1, "2.0", nullopt, 3, 5), false, true) == 0);
+
+      assert (version (1, "2.0", nullopt, 3, 4).compare (
+              version (1, "2.0", nullopt, 5, 6), true) == 0);
     }
     catch (const exception& e)
     {

@@ -37,6 +37,7 @@ namespace bpkg
     const std::string upstream;
     const butl::optional<std::string> release;
     const std::uint16_t revision;
+    const std::uint32_t iteration;
 
     // Upstream part canonical representation.
     //
@@ -49,7 +50,7 @@ namespace bpkg
     // Create a special empty version. It is less than any other valid
     // version (and is conceptually equivalent to 0-).
     //
-    version (): epoch (0), release (""), revision (0) {}
+    version (): epoch (0), release (""), revision (0), iteration (0) {}
 
     // Throw std::invalid_argument if the passed string is not a valid
     // version representation.
@@ -60,24 +61,28 @@ namespace bpkg
     explicit
     version (const char* v): version (data_type (v, data_type::parse::full)) {}
 
-    // Create the version object from separate epoch, upstream, release, and
-    // revision parts.
+    // Create the version object from separate epoch, upstream, release,
+    // revision, and iteration parts.
     //
     // Note that it is possible (and legal) to create the special empty
-    // version via this interface as version(0, string(), string(), 0).
+    // version via this interface as version(0, string(), string(), 0, 0).
     //
     version (std::uint16_t epoch,
              std::string upstream,
              butl::optional<std::string> release,
-             std::uint16_t revision);
+             std::uint16_t revision,
+             std::uint32_t iteration);
 
     version (version&&) = default;
     version (const version&) = default;
     version& operator= (version&&);
     version& operator= (const version&);
 
+    // If the revision is ignored, then the iteration (that semantically
+    // extends the revision) is also ignored, regardless of the argument.
+    //
     std::string
-    string (bool ignore_revision = false) const;
+    string (bool ignore_revision = false, bool ignore_iteration = false) const;
 
     bool
     operator< (const version& v) const noexcept {return compare (v) < 0;}
@@ -97,8 +102,13 @@ namespace bpkg
     bool
     operator!= (const version& v) const noexcept {return compare (v) != 0;}
 
+    // If the revision is ignored, then the iteration is also ignored,
+    // regardless of the argument (see above for details).
+    //
     int
-    compare (const version& v, bool ignore_revision = false) const noexcept
+    compare (const version& v,
+             bool ignore_revision = false,
+             bool ignore_iteration = false) const noexcept
     {
       if (epoch != v.epoch)
         return epoch < v.epoch ? -1 : 1;
@@ -109,8 +119,14 @@ namespace bpkg
       if (int c = canonical_release.compare (v.canonical_release))
         return c;
 
-      if (!ignore_revision && revision != v.revision)
-        return revision < v.revision ? -1 : 1;
+      if (!ignore_revision)
+      {
+        if (revision != v.revision)
+          return revision < v.revision ? -1 : 1;
+
+        if (!ignore_iteration && iteration != v.iteration)
+          return iteration < v.iteration ? -1 : 1;
+      }
 
       return 0;
     }
@@ -119,8 +135,12 @@ namespace bpkg
     empty () const noexcept
     {
       bool e (upstream.empty ());
+
       assert (!e ||
-              (epoch == 0 && release && release->empty () && revision == 0));
+              (epoch == 0 &&
+               release && release->empty () &&
+               revision == 0 && iteration == 0));
+
       return e;
     }
 
@@ -131,6 +151,9 @@ namespace bpkg
 
       data_type (const char*, parse);
 
+      // Note that there is no iteration component as it can't be present in
+      // the string representation passed to the ctor.
+      //
       std::uint16_t epoch;
       std::string upstream;
       butl::optional<std::string> release;
@@ -145,6 +168,7 @@ namespace bpkg
           upstream (std::move (d.upstream)),
           release (std::move (d.release)),
           revision (d.revision),
+          iteration (0),
           canonical_upstream (std::move (d.canonical_upstream)),
           canonical_release (std::move (d.canonical_release)) {}
   };
