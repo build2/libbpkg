@@ -384,6 +384,7 @@ namespace bpkg
 
   public:
     package_manifest () = default; // VC export.
+    package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
 
     void
     serialize (butl::manifest_serializer&) const;
@@ -391,8 +392,11 @@ namespace bpkg
 
   // Create individual package manifest.
   //
-  LIBBPKG_EXPORT package_manifest
-  pkg_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+  inline package_manifest
+  pkg_package_manifest (butl::manifest_parser& p, bool ignore_unknown = false)
+  {
+    return package_manifest (p, ignore_unknown);
+  }
 
   LIBBPKG_EXPORT package_manifest
   dir_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
