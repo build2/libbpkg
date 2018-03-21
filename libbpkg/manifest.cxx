@@ -10,7 +10,7 @@
 #include <cassert>
 #include <cstring>   // strncmp(), strcmp()
 #include <utility>   // move()
-#include <cstdint>   // uint16_t, UINT16_MAX
+#include <cstdint>   // uint*_t, UINT16_MAX
 #include <algorithm> // find(), find_if_not(), find_first_of(), replace()
 #include <stdexcept> // invalid_argument
 
@@ -188,17 +188,21 @@ namespace bpkg
       if (!empty ())
         append (1, '.');
 
-      bool zo (false); // Digit-only zero component.
+      bool zo (false); // Digit zero-only component.
       if (numeric)
       {
-        if (end - begin > 16)
+        size_t n (end - begin);
+
+        if (n > 16)
           throw invalid_argument ("16 digits maximum allowed in a component");
 
-        append (16 - (end - begin), '0'); // Add padding zeros.
+        append (16 - n, '0'); // Add padding zeros.
+        append (begin, n);
 
-        string c (begin, end);
-        append (c);
-        zo = stoul (c) == 0;
+        // See if all zero.
+        //
+        for (; begin != end && *begin == '0'; ++begin) ;
+        zo = (begin == end);
       }
       else
         append (lcase (begin, end - begin));
@@ -228,18 +232,24 @@ namespace bpkg
 
     assert (v != nullptr);
 
-    auto bad_arg ([](const string& d) {throw invalid_argument (d);});
+    auto bad_arg = [](const string& d) {throw invalid_argument (d);};
 
-    auto uint16 (
-      [&bad_arg](const string& s, const char* what) -> uint16_t
+    auto uint16 = [&bad_arg](const string& s, const char* what) -> uint16_t
+    {
+      try
       {
-        unsigned long long v (stoull (s));
+        uint64_t v (stoull (s));
 
-        if (v > UINT16_MAX) // From <cstdint>.
-          bad_arg (string (what) + " should be 2-byte unsigned integer");
+        if (v <= UINT16_MAX) // From <cstdint>.
+          return static_cast<uint16_t> (v);
+      }
+      catch (const std::exception&)
+      {
+        // Fall through.
+      }
 
-        return static_cast<uint16_t> (v);
-      });
+      bad_arg (string (what) + " should be 2-byte unsigned integer");
+    };
 
     enum class mode {epoch, upstream, release, revision};
     mode m (pr == parse::full
@@ -1992,8 +2002,15 @@ namespace bpkg
 
     // Validate the version. At the moment the only valid value is 1.
     //
-    if (stoul (*i) != 1)
-      throw invalid_argument ("unsupported repository version");
+    try
+    {
+      if (stoul (*i) != 1)
+        throw invalid_argument ("unsupported repository version");
+    }
+    catch (const std::exception&)
+    {
+      throw invalid_argument ("invalid repository version");
+    }
 
     path res (rb, i);
 
