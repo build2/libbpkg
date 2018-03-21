@@ -249,6 +249,9 @@ namespace bpkg
       }
 
       bad_arg (string (what) + " should be 2-byte unsigned integer");
+
+      assert (false); // Can't be here.
+      return 0;
     };
 
     enum class mode {epoch, upstream, release, revision};
