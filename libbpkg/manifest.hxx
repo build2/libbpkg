@@ -834,25 +834,28 @@ namespace bpkg
     return os << l.string ();
   }
 
-  // Branch and/or commit. At least one of them must be present. If both of
-  // them are present then the commit is expected to belong to the branch
-  // history. Note that the branch member can also denote a tag.
+  // Git refname and/or commit. At least one of them must be present. If both
+  // are present then the commit is expected to belong to the history of the
+  // specified ref (e.g., tag or branch). Note that the name member can also
+  // be an abbreviated commit id (full, 40-character commit ids should always
+  // be stored in the commit member since then may refer to an unadvertised
+  // commit).
   //
-  class LIBBPKG_EXPORT git_reference
+  class LIBBPKG_EXPORT git_ref_filter
   {
   public:
-    butl::optional<std::string> branch;
+    butl::optional<std::string> name;
     butl::optional<std::string> commit;
 
   public:
-    // Parse the [<branch>][@<commit>] repository URL fragment representation.
+    // Parse the [<name>][@<commit>] repository URL fragment representation.
     //
     explicit
-    git_reference (const butl::optional<std::string>&);
+    git_ref_filter (const std::string&);
 
-    git_reference (butl::optional<std::string> b,
-                   butl::optional<std::string> c)
-        : branch (std::move (b)),
+    git_ref_filter (butl::optional<std::string> n,
+                    butl::optional<std::string> c)
+        : name (std::move (n)),
           commit (std::move (c)) {}
   };
 

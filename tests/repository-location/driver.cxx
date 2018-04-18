@@ -154,17 +154,8 @@ namespace bpkg
     assert (bad_loc ("c:\\aaa\\bbb"));
 #endif
 
-    // Invalid/absent URL fragment.
+    // Invalid URL fragment.
     //
-#ifndef _WIN32
-    assert (bad_loc ("file://localhost/", repository_type::git));
-#else
-    assert (bad_loc ("file://localhost/c:/", repository_type::git));
-#endif
-
-    assert (bad_loc ("https://www.example.com/test.git",
-                     repository_type::git));
-
     assert (bad_loc ("https://www.example.com/test.git#",
                      repository_type::git));
 
@@ -320,6 +311,11 @@ namespace bpkg
       assert (l.canonical_name () == "git:/git/repo#branch");
     }
     {
+      repository_location l (loc ("file://localhost/", repository_type::git));
+      assert (l.string () == "/");
+      assert (l.canonical_name () == "git:/");
+    }
+    {
       repository_location l (loc ("file://localhost/#master",
                                   repository_type::git));
       assert (l.string () == "file:/#master");
@@ -392,6 +388,12 @@ namespace bpkg
       assert (l.canonical_name () == "git:c:\\git\\repo#branch");
     }
     {
+      repository_location l (loc ("file://localhost/c:/",
+                                  repository_type::git));
+      assert (l.string () == "c:");
+      assert (l.canonical_name () == "git:c:");
+    }
+    {
       repository_location l (loc ("file://localhost/c:/#master",
                                   repository_type::git));
       assert (l.string () == "file:/c:#master");
@@ -449,6 +451,14 @@ namespace bpkg
       assert (l.canonical_name () == "pkg:a.com:444/dd/aa/bb");
       assert (l.proto () == proto::https);
       assert (l.type () == repository_type::pkg);
+    }
+    {
+      repository_location l (loc ("https://www.example.com/test.git",
+                                  repository_type::git));
+      assert (l.string () == "https://www.example.com/test.git");
+      assert (l.canonical_name () == "git:example.com/test");
+      assert (l.proto () == proto::https);
+      assert (l.type () == repository_type::git);
     }
     {
       repository_location l (loc ("git://example.com/test#master",
@@ -805,13 +815,13 @@ namespace bpkg
       string branch ("master");
       string commit ("0a53e9ddeaddad63ad106860237bbf53411d11a7");
 
-      assert (*git_reference (branch).branch == branch);
-      assert (*git_reference (commit + "@").branch == commit);
-      assert (*git_reference (commit).commit == commit);
-      assert (*git_reference ("@" + commit).commit == commit);
+      assert (*git_ref_filter (branch).name == branch);
+      assert (*git_ref_filter (commit + "@").name == commit);
+      assert (*git_ref_filter (commit).commit == commit);
+      assert (*git_ref_filter ("@" + commit).commit == commit);
 
-      git_reference r (branch + "@" + commit);
-      assert (*r.branch == branch && *r.commit == commit);
+      git_ref_filter r (branch + "@" + commit);
+      assert (*r.name == branch && *r.commit == commit);
     }
 
     // repository_url

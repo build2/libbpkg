@@ -2092,7 +2092,9 @@ namespace bpkg
       {
         // Verify the URL fragment.
         //
-        git_reference r (url_.fragment);
+        if (url_.fragment)
+          git_ref_filter r (*url_.fragment);
+
         break;
       }
     }
@@ -2286,44 +2288,39 @@ namespace bpkg
     }
   }
 
-  // git_reference
+  // git_ref_filter
   //
-  git_reference::
-  git_reference (const optional<string>& frag)
+  git_ref_filter::
+  git_ref_filter (const string& frag)
   {
-    if (frag)
+    size_t p (frag.find ('@'));
+    if (p != string::npos)
     {
-      const string& s (*frag);
+      if (p != 0)
+        name = string (frag, 0, p);
 
-      size_t p (s.find ('@'));
-      if (p != string::npos)
-      {
-        if (p != 0)
-          branch = string (s, 0, p);
+      if (p + 1 != frag.size ())
+        commit = string (frag, p + 1);
+    }
+    else if (!frag.empty ())
+    {
+      // A 40-characters fragment that consists of only hexadecimal digits is
+      // assumed to be a commit id.
+      //
+      if (frag.size () == 40 &&
+          find_if_not (frag.begin (), frag.end (),
 
-        if (p + 1 != s.size ())
-          commit = string (s, p + 1);
-      }
-      else if (!s.empty ())
-      {
-        // A 40-characters fragment that consists of only hexadecimal digits is
-        // assumed to be a commit id.
-        //
-        if (s.size () == 40 &&
-            find_if_not (s.begin (), s.end (),
-
-                         // Resolve the required overload.
-                         //
-                         static_cast<bool (*)(char)> (xdigit)) == s.end ())
-          commit = s;
-        else
-          branch = s;
-      }
+                       // Resolve the required overload.
+                       //
+                       static_cast<bool (*)(char)> (xdigit)) == frag.end ())
+        commit = frag;
+      else
+        name = frag;
     }
 
-    if (!branch && !commit)
+    if (!name && !commit)
       throw invalid_argument (
-        "missing branch/tag or commit id for git repository");
+        "missing reference name or commit id for git repository");
 
     if (commit && commit->size () != 40)
       throw invalid_argument (
