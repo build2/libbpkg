@@ -2093,7 +2093,7 @@ namespace bpkg
         // Verify the URL fragment.
         //
         if (url_.fragment)
-          git_ref_filter r (*url_.fragment);
+          parse_git_ref_filters (*url_.fragment);
 
         break;
       }
@@ -2325,6 +2325,19 @@ namespace bpkg
     if (commit && commit->size () != 40)
       throw invalid_argument (
         "git repository commit id must be 40 characters long");
+  }
+
+  git_ref_filters
+  parse_git_ref_filters (const string& s)
+  {
+    git_ref_filters r;
+    for (size_t p (0); p != string::npos; )
+    {
+      size_t e (s.find (',', p));
+      r.emplace_back (string (s, p, e != string::npos ? e - p : e));
+      p = e != string::npos ? e + 1 : e;
+    }
+    return r;
   }
 
   // repository_manifest

@@ -19,6 +19,7 @@ using namespace butl;
 namespace bpkg
 {
   using butl::optional;
+  using butl::nullopt;
 
   inline static repository_location
   loc ()
@@ -99,6 +100,12 @@ namespace bpkg
     return true;
   }
 
+  inline static bool
+  operator== (const git_ref_filter& x, const git_ref_filter& y)
+  {
+    return x.commit == y.commit && x.name == y.name;
+  }
+
   int
   main (int argc, char* argv[])
   {
@@ -157,6 +164,9 @@ namespace bpkg
     // Invalid URL fragment.
     //
     assert (bad_loc ("https://www.example.com/test.git#",
+                     repository_type::git));
+
+    assert (bad_loc ("https://www.example.com/test.git#,",
                      repository_type::git));
 
     assert (bad_loc ("https://www.example.com/test.git#@",
@@ -812,16 +822,20 @@ namespace bpkg
     // Repository URL fragments.
     //
     {
-      string branch ("master");
-      string commit ("0a53e9ddeaddad63ad106860237bbf53411d11a7");
+      string n ("master");
+      string c ("0a53e9ddeaddad63ad106860237bbf53411d11a7");
 
-      assert (*git_ref_filter (branch).name == branch);
-      assert (*git_ref_filter (commit + "@").name == commit);
-      assert (*git_ref_filter (commit).commit == commit);
-      assert (*git_ref_filter ("@" + commit).commit == commit);
+      assert (git_ref_filter (n) == git_ref_filter (n, nullopt));
+      assert (git_ref_filter (c + "@") == git_ref_filter (c, nullopt));
+      assert (git_ref_filter (c) == git_ref_filter (nullopt, c));
+      assert (git_ref_filter ("@" + c) == git_ref_filter (nullopt, c));
+      assert (git_ref_filter (n + "@" + c) == git_ref_filter (n, c));
 
-      git_ref_filter r (branch + "@" + commit);
-      assert (*r.name == branch && *r.commit == commit);
+      assert (parse_git_ref_filters ("tag") ==
+              git_ref_filters ({git_ref_filter ("tag")}));
+
+      assert (parse_git_ref_filters ("a,b") ==
+              git_ref_filters ({git_ref_filter ("a"), git_ref_filter ("b")}));
     }
 
     // repository_url

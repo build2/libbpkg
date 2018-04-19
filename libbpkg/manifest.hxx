@@ -849,6 +849,8 @@ namespace bpkg
 
   public:
     // Parse the [<name>][@<commit>] repository URL fragment representation.
+    // Throw std::invalid_argument if the filter representation format is
+    // invalid.
     //
     explicit
     git_ref_filter (const std::string&);
@@ -858,6 +860,14 @@ namespace bpkg
         : name (std::move (n)),
           commit (std::move (c)) {}
   };
+
+  using git_ref_filters = std::vector<git_ref_filter>;
+
+  // Parse a comma-separated list of git reference filters. Throw
+  // std::invalid_argument if the filter list format is invalid.
+  //
+  LIBBPKG_EXPORT git_ref_filters
+  parse_git_ref_filters (const std::string&);
 
   enum class repository_role
   {
