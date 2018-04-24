@@ -405,6 +405,7 @@ namespace bpkg
     //
     butl::optional<butl::path> location;
     butl::optional<std::string> sha256sum;
+    butl::optional<std::string> fragment;
 
   public:
     package_manifest () = default; // VC export.
@@ -892,6 +893,11 @@ namespace bpkg
     butl::optional<std::string> summary;
     butl::optional<std::string> description;
     butl::optional<std::string> certificate;
+
+    // The repository fragment id this repository belongs to (may only be
+    // present for multi-fragment repositories).
+    //
+    butl::optional<std::string> fragment;
 
     // Return the effective role of the repository. If the role is not
     // explicitly specified (see the role member above), then calculate

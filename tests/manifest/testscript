@@ -107,6 +107,21 @@
     location: mhello/
     EOI
   }
+
+  : git
+  :
+  {
+    : fragment
+    :
+    $* -gp <<EOF >>EOF
+    : 1
+    location: hello/
+    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+    :
+    location: mhello/
+    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+    EOF
+  }
 }
 
 : repositories
@@ -224,6 +239,37 @@
     location: ../stable.git#stable
     type: git
     role: complement
+    :
+    url: http://cppget.org
+    email: repoman@cppget.org; General mailing list.
+    summary: General C++ package repository
+    description: This is the awesome C++ package repository full of exciting\
+     stuff.
+    EOF
+
+    : fragment
+    :
+    $* -gr <<EOF >>EOF
+    : 1
+    location: http://example.org/math.git#master
+    type: git
+    role: prerequisite
+    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+    :
+    location: ../stable.git#stable
+    type: git
+    role: complement
+    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+    :
+    location: http://example.org/math.git#master
+    type: git
+    role: prerequisite
+    fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
+    :
+    location: ../stable.git#stable
+    type: git
+    role: complement
+    fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
     :
     url: http://cppget.org
     email: repoman@cppget.org; General mailing list.

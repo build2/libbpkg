@@ -1196,6 +1196,19 @@ namespace bpkg
 
         m.sha256sum = move (v);
       }
+      else if (n == "fragment")
+      {
+        if (!il)
+          bad_name ("package repository fragment not allowed");
+
+        if (m.fragment)
+          bad_name ("package repository fragment redefinition");
+
+        if (v.empty ())
+          bad_value ("empty package repository fragment");
+
+        m.fragment = move (v);
+      }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in package manifest");
     }
@@ -1354,6 +1367,9 @@ namespace bpkg
     if (sha256sum)
       s.next ("sha256sum", *sha256sum);
 
+    if (fragment)
+      s.next ("fragment", *fragment);
+
     s.next ("", ""); // End of manifest.
   }
 
@@ -1412,6 +1428,16 @@ namespace bpkg
           bad_value ("invalid package location");
         }
       }
+      else if (n == "fragment")
+      {
+        if (r.fragment)
+          bad_name ("package repository fragment redefinition");
+
+        if (v.empty ())
+          bad_value ("empty package repository fragment");
+
+        r.fragment = move (v);
+      }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in package manifest");
     }
@@ -1451,6 +1477,9 @@ namespace bpkg
       bad_value ("no valid location");
 
     s.next ("location", m.location->posix_representation ());
+
+    if (m.fragment)
+      s.next ("fragment", *m.fragment);
 
     s.next ("", ""); // End of manifest.
   }
@@ -2564,6 +2593,16 @@ namespace bpkg
 
         r.certificate = move (v);
       }
+      else if (n == "fragment")
+      {
+        if (r.fragment)
+          bad_name ("fragment redefinition");
+
+        if (v.empty ())
+          bad_value ("empty fragment");
+
+        r.fragment = move (v);
+      }
       else if (!iu)
         bad_name ("unknown name '" + n + "' in repository manifest");
     }
@@ -2716,6 +2755,9 @@ namespace bpkg
 
       s.next ("certificate", *certificate);
     }
+
+    if (fragment)
+      s.next ("fragment", *fragment);
 
     s.next ("", ""); // End of manifest.
   }
