@@ -103,7 +103,8 @@ namespace bpkg
   inline static bool
   operator== (const git_ref_filter& x, const git_ref_filter& y)
   {
-    return x.commit == y.commit && x.name == y.name;
+    return x.commit == y.commit && x.name == y.name &&
+           x.exclusion == y.exclusion;
   }
 
   int
@@ -825,16 +826,25 @@ namespace bpkg
       string n ("master");
       string c ("0a53e9ddeaddad63ad106860237bbf53411d11a7");
 
-      assert (git_ref_filter (n) == git_ref_filter (n, nullopt));
-      assert (git_ref_filter (c + "@") == git_ref_filter (c, nullopt));
-      assert (git_ref_filter (c) == git_ref_filter (nullopt, c));
-      assert (git_ref_filter ("@" + c) == git_ref_filter (nullopt, c));
-      assert (git_ref_filter (n + "@" + c) == git_ref_filter (n, c));
+      assert (git_ref_filter () == git_ref_filter (nullopt, nullopt, false));
+      assert (git_ref_filter (n) == git_ref_filter (n, nullopt, false));
+      assert (git_ref_filter ('+' + n) == git_ref_filter (n, nullopt, false));
+      assert (git_ref_filter ('-' + n) == git_ref_filter (n, nullopt, true));
+      assert (git_ref_filter (c + "@") == git_ref_filter (c, nullopt, false));
+      assert (git_ref_filter (c) == git_ref_filter (nullopt, c, false));
+      assert (git_ref_filter ("@" + c) == git_ref_filter (nullopt, c, false));
+      assert (git_ref_filter (n + "@" + c) == git_ref_filter (n, c, false));
 
-      assert (parse_git_ref_filters ("tag") ==
+      assert (parse_git_ref_filters (nullopt) ==
+              git_ref_filters {git_ref_filter ()});
+
+      assert (parse_git_ref_filters (string ("tag")) ==
               git_ref_filters ({git_ref_filter ("tag")}));
 
-      assert (parse_git_ref_filters ("a,b") ==
+      assert (parse_git_ref_filters (string ("#tag")) ==
+              git_ref_filters ({git_ref_filter (), git_ref_filter ("tag")}));
+
+      assert (parse_git_ref_filters (string ("a,b")) ==
               git_ref_filters ({git_ref_filter ("a"), git_ref_filter ("b")}));
     }
 

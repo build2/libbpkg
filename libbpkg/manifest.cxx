@@ -2320,36 +2320,43 @@ namespace bpkg
   // git_ref_filter
   //
   git_ref_filter::
-  git_ref_filter (const string& frag)
+  git_ref_filter (const string& rf)
   {
-    size_t p (frag.find ('@'));
+    exclusion = rf[0] == '-';
+
+    // Strip the leading +/-.
+    //
+    const string& s (exclusion || rf[0] == '+' ? string (rf, 1) : rf);
+
+    size_t p (s.find ('@'));
+
     if (p != string::npos)
     {
       if (p != 0)
-        name = string (frag, 0, p);
+        name = string (s, 0, p);
 
-      if (p + 1 != frag.size ())
-        commit = string (frag, p + 1);
+      if (p + 1 != s.size ())
+        commit = string (s, p + 1);
     }
-    else if (!frag.empty ())
+    else if (!s.empty ())
     {
       // A 40-characters fragment that consists of only hexadecimal digits is
       // assumed to be a commit id.
       //
-      if (frag.size () == 40 &&
-          find_if_not (frag.begin (), frag.end (),
+      if (s.size () == 40 &&
+          find_if_not (s.begin (), s.end (),
 
                        // Resolve the required overload.
                        //
-                       static_cast<bool (*)(char)> (xdigit)) == frag.end ())
-        commit = frag;
+                       static_cast<bool (*)(char)> (xdigit)) == s.end ())
+        commit = s;
       else
-        name = frag;
+        name = s;
     }
 
     if (!name && !commit)
       throw invalid_argument (
-        "missing reference name or commit id for git repository");
+        "missing refname or commit id for git repository");
 
     if (commit && commit->size () != 40)
       throw invalid_argument (
@@ -2357,10 +2364,20 @@ namespace bpkg
   }
 
   git_ref_filters
-  parse_git_ref_filters (const string& s)
+  parse_git_ref_filters (const optional<string>& fs)
   {
+    if (!fs)
+      return git_ref_filters ({git_ref_filter ()});
+
+    const string& s (*fs);
+
     git_ref_filters r;
-    for (size_t p (0); p != string::npos; )
+    bool def (s[0] == '#');
+
+    if (def)
+      r.push_back (git_ref_filter ());
+
+    for (size_t p (def ? 1 : 0); p != string::npos; )
     {
       size_t e (s.find (',', p));
       r.emplace_back (string (s, p, e != string::npos ? e - p : e));

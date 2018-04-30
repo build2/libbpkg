@@ -835,40 +835,51 @@ namespace bpkg
     return os << l.string ();
   }
 
-  // Git refname and/or commit. At least one of them must be present. If both
-  // are present then the commit is expected to belong to the history of the
-  // specified ref (e.g., tag or branch). Note that the name member can also
-  // be an abbreviated commit id (full, 40-character commit ids should always
-  // be stored in the commit member since then may refer to an unadvertised
-  // commit).
+  // Git refname/pattern and/or commit. If none of them is present then the
+  // default reference set is assumed. If both are present then the commit is
+  // expected to belong to the history of the specified refs (e.g., tag or
+  // branch). Note that the name member can also be an abbreviated commit id
+  // (full, 40-character commit ids should always be stored in the commit
+  // member since they may refer to an unadvertised commit).
   //
   class LIBBPKG_EXPORT git_ref_filter
   {
   public:
     butl::optional<std::string> name;
     butl::optional<std::string> commit;
+    bool exclusion = false;
 
   public:
-    // Parse the [<name>][@<commit>] repository URL fragment representation.
-    // Throw std::invalid_argument if the filter representation format is
-    // invalid.
+    git_ref_filter () = default; // Default reference set.
+
+    // Parse the [+|-][<name>][@<commit>] reference filter representation.
+    // Throw std::invalid_argument if the string is empty or the filter
+    // representation format is invalid.
     //
     explicit
     git_ref_filter (const std::string&);
 
     git_ref_filter (butl::optional<std::string> n,
-                    butl::optional<std::string> c)
+                    butl::optional<std::string> c,
+                    bool e)
         : name (std::move (n)),
-          commit (std::move (c)) {}
+          commit (std::move (c)),
+          exclusion (e) {}
+
+    bool
+    default_refs () const {return !name && !commit;}
   };
 
   using git_ref_filters = std::vector<git_ref_filter>;
 
-  // Parse a comma-separated list of git reference filters. Throw
+  // Parse a comma-separated list of git reference filters. If the argument
+  // starts with the '#' character then prepend the resulting list with the
+  // default reference set filter (see above). If the argument is absent then
+  // return the list containing a single default reference set filter. Throw
   // std::invalid_argument if the filter list format is invalid.
   //
   LIBBPKG_EXPORT git_ref_filters
-  parse_git_ref_filters (const std::string&);
+  parse_git_ref_filters (const butl::optional<std::string>&);
 
   enum class repository_role
   {
