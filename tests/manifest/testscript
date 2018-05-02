@@ -199,6 +199,7 @@
     :
     location: http://pkg.example.org/1/bar
     role: prerequisite
+    trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B3:A2:B0:6C:EF:66:A4:BE:65
     :
     url: http://cppget.org
     EOI
@@ -218,6 +219,8 @@
     location: http://pkg.example.org/1/bar
     type: pkg
     role: prerequisite
+    trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B\
+    3:A2:B0:6C:EF:66:A4:BE:65
     :
     url: http://cppget.org
     EOO

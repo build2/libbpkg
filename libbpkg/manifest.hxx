@@ -905,6 +905,12 @@ namespace bpkg
     butl::optional<std::string> description;
     butl::optional<std::string> certificate;
 
+    // The repository fingerprint to trust. May only be present for the
+    // prerequisite or complement repository and only for repository types
+    // that support authentication (currently only pkg).
+    //
+    butl::optional<std::string> trust;
+
     // The repository fragment id this repository belongs to (may only be
     // present for multi-fragment repositories).
     //

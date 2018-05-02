@@ -17,7 +17,7 @@
 #include <libbutl/path.mxx>
 #include <libbutl/base64.mxx>
 #include <libbutl/utility.mxx>             // casecmp(), lcase(), alpha(),
-                                           // digit()
+                                           // digit(), xdigit()
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
 
@@ -55,9 +55,31 @@ namespace bpkg
     if (s.size () != 64)
       return false;
 
-    for (const auto& c: s)
+    for (const char& c: s)
     {
       if ((c < 'a' || c > 'f' ) && !digit (c))
+        return false;
+    }
+
+    return true;
+  }
+
+  inline static bool
+  valid_fingerprint (const string& s) noexcept
+  {
+    size_t n (s.size ());
+    if (n != 32 * 3 - 1)
+      return false;
+
+    for (size_t i (0); i != n; ++i)
+    {
+      char c (s[i]);
+      if ((i + 1) % 3 == 0) // Must be the colon,
+      {
+        if (c != ':')
+          return false;
+      }
+      else if (!xdigit (c)) // Must be a hex digit.
         return false;
     }
 
@@ -2610,6 +2632,16 @@ namespace bpkg
 
         r.certificate = move (v);
       }
+      else if (n == "trust")
+      {
+        if (r.trust)
+          bad_name ("trust redefinition");
+
+        if (!valid_fingerprint (v))
+          bad_value ("invalid fingerprint");
+
+        r.trust = move (v);
+      }
       else if (n == "fragment")
       {
         if (r.fragment)
@@ -2662,15 +2694,22 @@ namespace bpkg
       bad_value (e.what ());
     }
 
-    // Verify that all non-optional values were specified.
+    // Verify that all non-optional values were specified and the optional ones
+    // are allowed.
     //
     // - location can be omitted
     // - role can be omitted
+    // - trust, url, email, summary, description and certificate are allowed
     //
     if (r.role && r.location.empty () != (*r.role == repository_role::base))
       bad_value ("invalid role");
 
-    if (r.effective_role () != repository_role::base)
+    bool base (r.effective_role () == repository_role::base);
+
+    if (r.trust && (base || r.location.type () != repository_type::pkg))
+      bad_value ("trust not allowed");
+
+    if (!base)
     {
       if (r.url)
         bad_value ("url not allowed");
@@ -2771,6 +2810,16 @@ namespace bpkg
         bad_value ("certificate not allowed");
 
       s.next ("certificate", *certificate);
+    }
+
+    if (trust)
+    {
+      assert (b || !location.empty ());
+
+      if (b || location.type () != repository_type::pkg)
+        bad_value ("trust not allowed");
+
+      s.next ("trust", *trust);
     }
 
     if (fragment)
