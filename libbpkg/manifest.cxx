@@ -55,7 +55,7 @@ namespace bpkg
     if (s.size () != 64)
       return false;
 
-    for (const char& c: s)
+    for (char c: s)
     {
       if ((c < 'a' || c > 'f' ) && !digit (c))
         return false;
@@ -2410,22 +2410,6 @@ namespace bpkg
 
   // repository_manifest
   //
-  repository_role repository_manifest::
-  effective_role () const
-  {
-    if (role)
-    {
-      if (location.empty () != (*role == repository_role::base))
-        throw logic_error ("invalid role");
-
-      return *role;
-    }
-    else
-      return location.empty ()
-        ? repository_role::base
-        : repository_role::prerequisite;
-  }
-
   optional<string> repository_manifest::
   effective_url (const repository_location& l) const
   {
@@ -2701,10 +2685,12 @@ namespace bpkg
     // - role can be omitted
     // - trust, url, email, summary, description and certificate are allowed
     //
-    if (r.role && r.location.empty () != (*r.role == repository_role::base))
-      bad_value ("invalid role");
-
     bool base (r.effective_role () == repository_role::base);
+
+    if (r.location.empty () != base)
+      throw logic_error (r.location.empty ()
+                         ? "no location specified"
+                         : "location not allowed");
 
     if (r.trust && (base || r.location.type () != repository_type::pkg))
       bad_value ("trust not allowed");
@@ -2752,6 +2738,12 @@ namespace bpkg
     auto bad_value ([&s](const string& d) {
         throw serialization (s.name (), d);});
 
+    bool b (effective_role () == repository_role::base);
+
+    if (location.empty () != b)
+      throw logic_error (
+        location.empty () ? "no location specified" : "location not allowed");
+
     s.next ("", "1"); // Start of manifest.
 
     if (!location.empty ())
@@ -2762,15 +2754,10 @@ namespace bpkg
 
     if (role)
     {
-      if (location.empty () != (*role == repository_role::base))
-        bad_value ("invalid role");
-
       auto r (static_cast<size_t> (*role));
       assert (r < repository_role_names.size ());
       s.next ("role", repository_role_names[r]);
     }
-
-    bool b (effective_role () == repository_role::base);
 
     if (url)
     {
@@ -2828,6 +2815,20 @@ namespace bpkg
     s.next ("", ""); // End of manifest.
   }
 
+  static repository_manifest empty_base;
+
+  const repository_manifest&
+  find_base_repository (const vector<repository_manifest>& ms) noexcept
+  {
+    for (const repository_manifest& m: ms)
+    {
+      if (m.effective_role () == repository_role::base)
+        return m;
+    }
+
+    return empty_base;
+  }
+
   // pkg_repository_manifest
   //
   repository_manifest
@@ -2878,22 +2879,23 @@ namespace bpkg
                               bool iu,
                               vector<repository_manifest>& ms)
   {
-    name_value nv (p.next ());
-    while (!nv.empty ())
+    bool base (false);
+
+    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
     {
-      ms.push_back (parse_repository_manifest (p, move (nv), base_type, iu));
-      nv = p.next ();
+      ms.push_back (parse_repository_manifest (p, nv, base_type, iu));
 
-      // Make sure there is location in all except the last entry.
+      // Make sure that there is a single base repository manifest in the
+      // list.
       //
-      if (ms.back ().location.empty () && !nv.empty ())
-        throw parsing (p.name (), nv.name_line, nv.name_column,
-                       "repository location expected");
+      if (ms.back ().effective_role () == repository_role::base)
+      {
+        if (base)
+          throw parsing (p.name (), nv.name_line, nv.name_column,
+                         "base repository manifest redefinition");
+        base = true;
+      }
     }
-
-    if (ms.empty () || !ms.back ().location.empty ())
-      throw parsing (p.name (), nv.name_line, nv.name_column,
-                     "base repository manifest expected");
   }
 
   // Serialize the repository manifest list.
@@ -2902,12 +2904,6 @@ namespace bpkg
   serialize_repository_manifests (serializer& s,
                                   const vector<repository_manifest>& ms)
   {
-    if (ms.empty () || !ms.back ().location.empty ())
-      throw serialization (s.name (), "base repository manifest expected");
-
-    // @@ Should we check that there is location in all except the last
-    //    entry?
-    //
     for (const repository_manifest& r: ms)
       r.serialize (s);
 

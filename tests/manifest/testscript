@@ -13,67 +13,67 @@
     : Roundtrip the pkg package manifest list.
     :
     $* -pp <<EOF >>EOF
-    : 1
-    sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    :
-    name: libfoo
-    version: 1.2.3+2
-    priority: high; Due to critical bug fix.
-    summary: Modern XML parser
-    license: LGPLv2, MIT; Both required.
-    license: BSD
-    tags: c++, xml, parser, serializer, pull, streaming, modern
-    description: libfoo is a very modern C++ XML parser.
-    changes: 1.2.3+2: applied upstream patch for critical bug bar
-    changes: 1.2.3+1: applied upstream patch for critical bug foo
-    url: http://www.example.org/projects/libfoo/; libfoo project page url
-    doc-url: http://www.example.org/projects/libfoo/man.xhtml; documentation page
-    src-url: http://scm.example.com/?p=odb/libodb.git\;a=tree; source tree
-    package-url: http://www.example.org/projects/libfoo/1.2.3+2; package url
-    email: libfoo-users@example.org; Public mailing list, posts by non-members\
-     are allowed but moderated.
-    package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
-    build-email: libfoo-builds@example.org; Mailing list for bbot notification\
-     emails.
-    depends: libz
-    depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
-    depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
-     C++11 <regex>.
-    depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
-    requires: linux | windows | macosx; symbian is coming.
-    requires: c++11
-    requires: ? ; VC++ 12.0 or later if targeting Windows.
-    requires: ? ; libc++ standard library if using Clang on Mac OS X.
-    requires: zlib; Most Linux/UNIX systems already have one; or get it at\
-     www.zlib.net.
-    build-include: linux*
-    build-include: freebsd*
-    build-exclude: *; Only supports Linux and FreeBSD.
-    location: libfoo-1.2.3+2.tar.bz2
-    sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    :
-    name: libbar
-    version: 3.4A.5+6
-    summary: Modern bar management framework
-    license: LGPLv2
-    tags: c++, xml, modern
-    url: http://www.example.org/projects/libbar/
-    email: libbar-users@example.org
-    build-email:
-    depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
-    build-exclude: *-msvc_14*/i?86-*; Linker crash.
-    location: bar/libbar-3.4A.5+6.tbz
-    sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    :
-    name: libbaz
-    version: 2~3.4A.5+3
-    summary: Modern baz system
-    license: LGPLv2
-    url: http://www.example.org/projects/libbar/
-    email: libbaz-users@example.org
-    location: libbaz/libbaz-2~3.4A.5+3.tar.gz
-    sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    EOF
+      : 1
+      sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      :
+      name: libfoo
+      version: 1.2.3+2
+      priority: high; Due to critical bug fix.
+      summary: Modern XML parser
+      license: LGPLv2, MIT; Both required.
+      license: BSD
+      tags: c++, xml, parser, serializer, pull, streaming, modern
+      description: libfoo is a very modern C++ XML parser.
+      changes: 1.2.3+2: applied upstream patch for critical bug bar
+      changes: 1.2.3+1: applied upstream patch for critical bug foo
+      url: http://www.example.org/projects/libfoo/; libfoo project page url
+      doc-url: http://www.example.org/projects/libfoo/man.xhtml; documentation page
+      src-url: http://scm.example.com/?p=odb/libodb.git\;a=tree; source tree
+      package-url: http://www.example.org/projects/libfoo/1.2.3+2; package url
+      email: libfoo-users@example.org; Public mailing list, posts by non-members\
+       are allowed but moderated.
+      package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
+      build-email: libfoo-builds@example.org; Mailing list for bbot notification\
+       emails.
+      depends: libz
+      depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
+      depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
+       C++11 <regex>.
+      depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
+      requires: linux | windows | macosx; symbian is coming.
+      requires: c++11
+      requires: ? ; VC++ 12.0 or later if targeting Windows.
+      requires: ? ; libc++ standard library if using Clang on Mac OS X.
+      requires: zlib; Most Linux/UNIX systems already have one; or get it at\
+       www.zlib.net.
+      build-include: linux*
+      build-include: freebsd*
+      build-exclude: *; Only supports Linux and FreeBSD.
+      location: libfoo-1.2.3+2.tar.bz2
+      sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      :
+      name: libbar
+      version: 3.4A.5+6
+      summary: Modern bar management framework
+      license: LGPLv2
+      tags: c++, xml, modern
+      url: http://www.example.org/projects/libbar/
+      email: libbar-users@example.org
+      build-email:
+      depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
+      build-exclude: *-msvc_14*/i?86-*; Linker crash.
+      location: bar/libbar-3.4A.5+6.tbz
+      sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      :
+      name: libbaz
+      version: 2~3.4A.5+3
+      summary: Modern baz system
+      license: LGPLv2
+      url: http://www.example.org/projects/libbar/
+      email: libbaz-users@example.org
+      location: libbaz/libbaz-2~3.4A.5+3.tar.gz
+      sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      EOF
   }
 
   : dir
@@ -90,22 +90,22 @@
     : Roundtrip the dir package manifest list.
     :
     $* -gp <<EOF >>EOF
-    : 1
-    location: hello/
-    :
-    location: mhello/
-    EOF
+      : 1
+      location: hello/
+      :
+      location: mhello/
+      EOF
 
     : duplicate
     :
     $* -gp <<EOI 2>'stdin:5:1: error: duplicate package manifest' != 0
-    : 1
-    location: hello/
-    :
-    location: hello/
-    :
-    location: mhello/
-    EOI
+      : 1
+      location: hello/
+      :
+      location: hello/
+      :
+      location: mhello/
+      EOI
   }
 
   : git
@@ -114,27 +114,31 @@
     : fragment
     :
     $* -gp <<EOF >>EOF
-    : 1
-    location: hello/
-    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
-    :
-    location: mhello/
-    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
-    EOF
+      : 1
+      location: hello/
+      fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      location: mhello/
+      fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+      EOF
   }
 }
 
 : repositories
 :
 {
-  : pkg
+  : base-manifest-redefinition
   :
-  {
-    : manifest
+  $* -pr <<EOI 2>'stdin:3:1: error: base repository manifest redefinition' != 0
+    : 1
+    url: http://cppget.org
     :
-    : Roundtrip the pkg repository manifest list.
-    :
-    $* -pr <<EOF >>EOF
+    url: http://cppget.org
+    EOI
+
+  : no-base
+  :
+  $* -pr <<EOO >>EOO
     : 1
     location: http://pkg.example.org/1/math
     type: pkg
@@ -143,87 +147,105 @@
     location: ../stable
     type: pkg
     role: complement
+    EOO
+
+  : pkg
+  :
+  {
+    : manifest
     :
-    url: http://cppget.org
-    email: repoman@cppget.org; General mailing list.
-    summary: General C++ package repository
-    description: This is the awesome C++ package repository full of exciting\
-     stuff.
-    certificate: \
-    -----BEGIN CERTIFICATE-----
-    MIIFLzCCAxegAwIBAgIJAJ71rMp8mDy1MA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
-    BAoMDkNvZGUgU3ludGhlc2lzMRgwFgYDVQQDDA9uYW1lOmNwcGdldC5vcmcwHhcN
-    MTYwNDA4MTc1NTUwWhcNMTcwNDA4MTc1NTUwWjAzMRcwFQYDVQQKDA5Db2RlIFN5
-    bnRoZXNpczEYMBYGA1UEAwwPbmFtZTpjcHBnZXQub3JnMIICIjANBgkqhkiG9w0B
-    AQEFAAOCAg8AMIICCgKCAgEAwj7lwxkr19ygfNIzQsiKkmyyRG0c5AwMrwvldEk7
-    2UIwz5kNb04zveUzQcfNFhau60+xC980Y4TKA4/ScfinyaDfp1I3pmiv4OSDUoBw
-    9e8a+4Jyo5fuiAXoAYaQyAdwvH1mIbYq1ObRfKW2MTrUXp/HRJAWHHBnv3VmCYBZ
-    dllY1hasA+SBDMBv6iTXkKUIfEdNDk8cjUR3FjxaefIdip9pHR3G0y4iWctS1drq
-    AKLE1J0KIJyPsJCvoZnzIeePaCNL/UtRup9mYi2vxHHFD4Ml5Bbp+gE6vq5XhcQz
-    LeCcGYKB3UjVWuszcpFIoHACw9ja2JUumbTiclUDgLBk8WXJvLjOCNLp9i/MKQws
-    p5CDfrNe2P6u63ZmtW2v0Qpj/6b6JQmqJaMgHQdDEBUFO3bjwm7yyXyvEjj/EAEJ
-    pGziWZjan5NKGgKCX1JChQJloMHhzr42YMvceWTMJjAr07Es9vCsCS2KPvAKY7Mv
-    yewAyK9ucFRDObZVuaFjU+WUTXB1munwO3Jso56EMxeFvu+W1B+m49XS3k/TlBvF
-    HGnkiSaMwLEJvgFVgQPpG2gD39WDFqX28pWdLL4hM+hXUfdeH0OdXfq66CLu7P8d
-    cgkZdHRs5UauxLzm1Qo06aLsm2HXrfDnmsd5ENi7RkiFMx1aLh3/cjZD0uHndQUC
-    LEcCAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBYGA1UdJQEB/wQMMAoGCCsGAQUF
-    BwMDMBoGA1UdEQQTMBGBD2luZm9AY3BwZ2V0Lm9yZzANBgkqhkiG9w0BAQsFAAOC
-    AgEAHLfv2w82bBMgDgsRX8GU/3eK6CnyfRu4Auto1XjyHCrD6qcIdmebC0hihpSg
-    5xSlfVwjPRWBmg3z5/K8ln5jM6KKiWHd47OCfx+DW7wbesq2+6lS1btXpRR2pv7j
-    zG+41Cncu/xVNs9F4CQluVn5xyWFVDUxQfkQqAE46EbkjAmq42y+1ZQnq2Zm47Wr
-    iMRXQtg1yx7Fs2EpVU+sbW4ImuXgv0YbyYbI1lPhvmx8rIL6lybN3evEfIj7crh7
-    5abWPDZzA+1aNL5tiaSNrn3nS/BfJyEYhGMyy0bsekPZiaqGB1q/mgv2rmR/2SRL
-    Tx+T7sthy/IHTOUbDTY0lUhjc6thQMncgGTaD4TC3QaXhdLWzO9XTh0K7U8BOMwh
-    wppr1G5aTXY0PUB0+Hs+IQZ4mVfBvKO0Wn6GgoDAs/mW9qvbWP3ZnpdvhB52a49P
-    g07JQ+R0QgBNQY7t0lT0mOpAPx79Dwc5R8jQCkx4gTr1bWtgyCvza+gpTgUQDOH5
-    nawOIIDOnRv4heFdvgfEQs2oKa3X4bM+BsgOx7OTvnWCzJy0IXo0uBbcTrMv9Z62
-    +KVwnghQdpURRnUpomt03cTwjqVJVrq287owGv8qqnuGcTTi1SgzNNYREFoljY58
-    CCj4yYvTUzXjcAUXaNC5YNw3JEQp8vmciuJwhyUkbifLrHU=
-    -----END CERTIFICATE-----
-    \
-    EOF
+    : Roundtrip the pkg repository manifest list.
+    :
+    $* -pr <<EOF >>EOF
+      : 1
+      location: http://pkg.example.org/1/math
+      type: pkg
+      role: prerequisite
+      :
+      location: ../stable
+      type: pkg
+      role: complement
+      :
+      url: http://cppget.org
+      email: repoman@cppget.org; General mailing list.
+      summary: General C++ package repository
+      description: This is the awesome C++ package repository full of exciting\
+       stuff.
+      certificate: \
+      -----BEGIN CERTIFICATE-----
+      MIIFLzCCAxegAwIBAgIJAJ71rMp8mDy1MA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
+      BAoMDkNvZGUgU3ludGhlc2lzMRgwFgYDVQQDDA9uYW1lOmNwcGdldC5vcmcwHhcN
+      MTYwNDA4MTc1NTUwWhcNMTcwNDA4MTc1NTUwWjAzMRcwFQYDVQQKDA5Db2RlIFN5
+      bnRoZXNpczEYMBYGA1UEAwwPbmFtZTpjcHBnZXQub3JnMIICIjANBgkqhkiG9w0B
+      AQEFAAOCAg8AMIICCgKCAgEAwj7lwxkr19ygfNIzQsiKkmyyRG0c5AwMrwvldEk7
+      2UIwz5kNb04zveUzQcfNFhau60+xC980Y4TKA4/ScfinyaDfp1I3pmiv4OSDUoBw
+      9e8a+4Jyo5fuiAXoAYaQyAdwvH1mIbYq1ObRfKW2MTrUXp/HRJAWHHBnv3VmCYBZ
+      dllY1hasA+SBDMBv6iTXkKUIfEdNDk8cjUR3FjxaefIdip9pHR3G0y4iWctS1drq
+      AKLE1J0KIJyPsJCvoZnzIeePaCNL/UtRup9mYi2vxHHFD4Ml5Bbp+gE6vq5XhcQz
+      LeCcGYKB3UjVWuszcpFIoHACw9ja2JUumbTiclUDgLBk8WXJvLjOCNLp9i/MKQws
+      p5CDfrNe2P6u63ZmtW2v0Qpj/6b6JQmqJaMgHQdDEBUFO3bjwm7yyXyvEjj/EAEJ
+      pGziWZjan5NKGgKCX1JChQJloMHhzr42YMvceWTMJjAr07Es9vCsCS2KPvAKY7Mv
+      yewAyK9ucFRDObZVuaFjU+WUTXB1munwO3Jso56EMxeFvu+W1B+m49XS3k/TlBvF
+      HGnkiSaMwLEJvgFVgQPpG2gD39WDFqX28pWdLL4hM+hXUfdeH0OdXfq66CLu7P8d
+      cgkZdHRs5UauxLzm1Qo06aLsm2HXrfDnmsd5ENi7RkiFMx1aLh3/cjZD0uHndQUC
+      LEcCAwEAAaNGMEQwDgYDVR0PAQH/BAQDAgeAMBYGA1UdJQEB/wQMMAoGCCsGAQUF
+      BwMDMBoGA1UdEQQTMBGBD2luZm9AY3BwZ2V0Lm9yZzANBgkqhkiG9w0BAQsFAAOC
+      AgEAHLfv2w82bBMgDgsRX8GU/3eK6CnyfRu4Auto1XjyHCrD6qcIdmebC0hihpSg
+      5xSlfVwjPRWBmg3z5/K8ln5jM6KKiWHd47OCfx+DW7wbesq2+6lS1btXpRR2pv7j
+      zG+41Cncu/xVNs9F4CQluVn5xyWFVDUxQfkQqAE46EbkjAmq42y+1ZQnq2Zm47Wr
+      iMRXQtg1yx7Fs2EpVU+sbW4ImuXgv0YbyYbI1lPhvmx8rIL6lybN3evEfIj7crh7
+      5abWPDZzA+1aNL5tiaSNrn3nS/BfJyEYhGMyy0bsekPZiaqGB1q/mgv2rmR/2SRL
+      Tx+T7sthy/IHTOUbDTY0lUhjc6thQMncgGTaD4TC3QaXhdLWzO9XTh0K7U8BOMwh
+      wppr1G5aTXY0PUB0+Hs+IQZ4mVfBvKO0Wn6GgoDAs/mW9qvbWP3ZnpdvhB52a49P
+      g07JQ+R0QgBNQY7t0lT0mOpAPx79Dwc5R8jQCkx4gTr1bWtgyCvza+gpTgUQDOH5
+      nawOIIDOnRv4heFdvgfEQs2oKa3X4bM+BsgOx7OTvnWCzJy0IXo0uBbcTrMv9Z62
+      +KVwnghQdpURRnUpomt03cTwjqVJVrq287owGv8qqnuGcTTi1SgzNNYREFoljY58
+      CCj4yYvTUzXjcAUXaNC5YNw3JEQp8vmciuJwhyUkbifLrHU=
+      -----END CERTIFICATE-----
+      \
+      EOF
 
     : prerequisite-type
     :
     $* -pr <<EOI >>EOO
-    : 1
-    location: http://example.org/math.git#master
-    role: prerequisite
-    :
-    location: ../stable.git
-    role: complement
-    :
-    location: git://example.org/foo#master
-    type: git
-    role: prerequisite
-    :
-    location: http://pkg.example.org/1/bar
-    role: prerequisite
-    trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B3:A2:B0:6C:EF:66:A4:BE:65
-    :
-    url: http://cppget.org
-    EOI
-    : 1
-    location: http://example.org/math.git#master
-    type: git
-    role: prerequisite
-    :
-    location: ../stable.git
-    type: pkg
-    role: complement
-    :
-    location: git://example.org/foo#master
-    type: git
-    role: prerequisite
-    :
-    location: http://pkg.example.org/1/bar
-    type: pkg
-    role: prerequisite
-    trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B\
-    3:A2:B0:6C:EF:66:A4:BE:65
-    :
-    url: http://cppget.org
-    EOO
+      : 1
+      url: http://cppget.org
+      :
+      location: http://example.org/math.git#master
+      role: prerequisite
+      :
+      location: ../stable.git
+      role: complement
+      :
+      location: git://example.org/foo#master
+      type: git
+      role: prerequisite
+      :
+      location: http://pkg.example.org/1/bar
+      role: prerequisite
+      trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B3:A2:B0:6C:EF:66:A4:BE:65
+      EOI
+      : 1
+      url: http://cppget.org
+      :
+      location: http://example.org/math.git#master
+      type: git
+      role: prerequisite
+      :
+      location: ../stable.git
+      type: pkg
+      role: complement
+      :
+      location: git://example.org/foo#master
+      type: git
+      role: prerequisite
+      :
+      location: http://pkg.example.org/1/bar
+      type: pkg
+      role: prerequisite
+      trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B\
+      3:A2:B0:6C:EF:66:A4:BE:65
+      EOO
   }
 
   : git
@@ -234,91 +256,91 @@
     : Roundtrip the git repository manifest list.
     :
     $* -gr <<EOF >>EOF
-    : 1
-    location: http://example.org/math.git#master
-    type: git
-    role: prerequisite
-    :
-    location: ../stable.git#stable
-    type: git
-    role: complement
-    :
-    url: http://cppget.org
-    email: repoman@cppget.org; General mailing list.
-    summary: General C++ package repository
-    description: This is the awesome C++ package repository full of exciting\
-     stuff.
-    EOF
+      : 1
+      location: http://example.org/math.git#master
+      type: git
+      role: prerequisite
+      :
+      location: ../stable.git#stable
+      type: git
+      role: complement
+      :
+      url: http://cppget.org
+      email: repoman@cppget.org; General mailing list.
+      summary: General C++ package repository
+      description: This is the awesome C++ package repository full of exciting\
+       stuff.
+      EOF
 
     : fragment
     :
     $* -gr <<EOF >>EOF
-    : 1
-    location: http://example.org/math.git#master
-    type: git
-    role: prerequisite
-    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
-    :
-    location: ../stable.git#stable
-    type: git
-    role: complement
-    fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
-    :
-    location: http://example.org/math.git#master
-    type: git
-    role: prerequisite
-    fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
-    :
-    location: ../stable.git#stable
-    type: git
-    role: complement
-    fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
-    :
-    url: http://cppget.org
-    email: repoman@cppget.org; General mailing list.
-    summary: General C++ package repository
-    description: This is the awesome C++ package repository full of exciting\
-     stuff.
-    EOF
+      : 1
+      location: http://example.org/math.git#master
+      type: git
+      role: prerequisite
+      fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      location: ../stable.git#stable
+      type: git
+      role: complement
+      fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      location: http://example.org/math.git#master
+      type: git
+      role: prerequisite
+      fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      location: ../stable.git#stable
+      type: git
+      role: complement
+      fragment: abc1232d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      url: http://cppget.org
+      email: repoman@cppget.org; General mailing list.
+      summary: General C++ package repository
+      description: This is the awesome C++ package repository full of exciting\
+       stuff.
+      EOF
 
     : prerequisite-type
     :
     $* -gr <<EOI >>EOO
-    : 1
-    location: http://example.org/math.git#master
-    role: prerequisite
-    :
-    location: ../stable.git#stable
-    role: complement
-    :
-    location: git://example.org/foo#master
-    type: git
-    role: prerequisite
-    :
-    location: http://pkg.example.org/1/bar
-    role: prerequisite
-    :
-    url: http://cppget.org
-    EOI
-    : 1
-    location: http://example.org/math.git#master
-    type: git
-    role: prerequisite
-    :
-    location: ../stable.git#stable
-    type: git
-    role: complement
-    :
-    location: git://example.org/foo#master
-    type: git
-    role: prerequisite
-    :
-    location: http://pkg.example.org/1/bar
-    type: pkg
-    role: prerequisite
-    :
-    url: http://cppget.org
-    EOO
+      : 1
+      location: http://example.org/math.git#master
+      role: prerequisite
+      :
+      location: ../stable.git#stable
+      role: complement
+      :
+      location: git://example.org/foo#master
+      type: git
+      role: prerequisite
+      :
+      location: http://pkg.example.org/1/bar
+      role: prerequisite
+      :
+      url: http://cppget.org
+      EOI
+      : 1
+      location: http://example.org/math.git#master
+      type: git
+      role: prerequisite
+      :
+      location: ../stable.git#stable
+      type: git
+      role: complement
+      :
+      location: git://example.org/foo#master
+      type: git
+      role: prerequisite
+      :
+      location: http://pkg.example.org/1/bar
+      type: pkg
+      role: prerequisite
+      :
+      url: http://cppget.org
+      EOO
   }
 
   : dir
@@ -329,27 +351,27 @@
     : Roundtrip the dir repository manifest list.
     :
     $* -dr <<EOF >>EOF
-    : 1
-    location: ../stable
-    type: dir
-    role: complement
-    :
-    EOF
+      : 1
+      location: ../stable
+      type: dir
+      role: complement
+      :
+      EOF
 
     : prerequisite-with-fragment
     :
     $* -dr <<EOI >>EOO
-    : 1
-    location: ../stable.git#stable
-    role: complement
-    :
-    EOI
-    : 1
-    location: ../stable.git
-    type: dir
-    role: complement
-    :
-    EOO
+      : 1
+      location: ../stable.git#stable
+      role: complement
+      :
+      EOI
+      : 1
+      location: ../stable.git
+      type: dir
+      role: complement
+      :
+      EOO
   }
 }
 
@@ -361,18 +383,18 @@
   : manifest
   :
   $* -s <<EOF >>EOF
-  : 1
-  sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-  signature: \
-  geWdw7Gm+Rt+CLDMBby5Y796E8rxwImb0bmcZwGWar9D3vkFm9Kjh00Buuo1PuU7tP1dV6yvRbH8
-  NzC0IryEoUJHx9909AJ449ET9Zb+C3ykEeBlKH2wonj7cAVK9ZEDpPEGAtp56XWZQEawl50mwq6t
-  XkZAABxtOswXiicdh3HK7kaPHp38/9CBMc0rva6wDnkbTigUYA2ULqLtP5a5mLovVc48zI9A/hmb
-  Qx1/Nr7nzTZNDGK7CwTAb1fPam9rZklTfCTPSPUUjvWjM9XdY8cbRE1FrE14TXdyQPxCLzHO2dUO
-  YWH5/qMikEoCYhYXQ6KhekoT/MUiVC3PMcYQbYOrOtSxq6RcgnymexBe1XIyld5Rfo1eXu8TK11r
-  QPULIqAGy6RwEUhGznuEiGHQwb1UymNyJ/qgr4vBPjJtlvptqG5XNmtiJ22f07nmeVRi2Vg2UyOw
-  HoVpy5t/w0tEnUXPA39Vt0v1bUm7Knhc8qL4JFEqK/j/CzEHzEtAjn0aoGuKubCO0WUa+v6ZlkLU
-  YrNUIdgT1wgj4yEhLO3g+NsnxFH05D2sfR16rrkI2E6st5crAHR8FOl2FDsWxgKqNbzXZw7rl+Fa
-  TobGycX7MDf2mbBmR/KmEkMBJ4mziWLAycSAGyE5VRYDwHPJlQE0143wBzT8eNw4VLm/r+88VYw=
-  \
-  EOF
+    : 1
+    sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    signature: \
+    geWdw7Gm+Rt+CLDMBby5Y796E8rxwImb0bmcZwGWar9D3vkFm9Kjh00Buuo1PuU7tP1dV6yvRbH8
+    NzC0IryEoUJHx9909AJ449ET9Zb+C3ykEeBlKH2wonj7cAVK9ZEDpPEGAtp56XWZQEawl50mwq6t
+    XkZAABxtOswXiicdh3HK7kaPHp38/9CBMc0rva6wDnkbTigUYA2ULqLtP5a5mLovVc48zI9A/hmb
+    Qx1/Nr7nzTZNDGK7CwTAb1fPam9rZklTfCTPSPUUjvWjM9XdY8cbRE1FrE14TXdyQPxCLzHO2dUO
+    YWH5/qMikEoCYhYXQ6KhekoT/MUiVC3PMcYQbYOrOtSxq6RcgnymexBe1XIyld5Rfo1eXu8TK11r
+    QPULIqAGy6RwEUhGznuEiGHQwb1UymNyJ/qgr4vBPjJtlvptqG5XNmtiJ22f07nmeVRi2Vg2UyOw
+    HoVpy5t/w0tEnUXPA39Vt0v1bUm7Knhc8qL4JFEqK/j/CzEHzEtAjn0aoGuKubCO0WUa+v6ZlkLU
+    YrNUIdgT1wgj4yEhLO3g+NsnxFH05D2sfR16rrkI2E6st5crAHR8FOl2FDsWxgKqNbzXZw7rl+Fa
+    TobGycX7MDf2mbBmR/KmEkMBJ4mziWLAycSAGyE5VRYDwHPJlQE0143wBzT8eNw4VLm/r+88VYw=
+    \
+    EOF
 }

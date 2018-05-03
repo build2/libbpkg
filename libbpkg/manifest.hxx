@@ -917,16 +917,13 @@ namespace bpkg
     butl::optional<std::string> fragment;
 
     // Return the effective role of the repository. If the role is not
-    // explicitly specified (see the role member above), then calculate
-    // the role based on the location. Specifically, if the location is
-    // empty, then the effective role is base. Otherwise -- prerequisite.
-    // If the role is specified, then verify that it is consistent with
-    // the location value (that is, base if the location is empty and
-    // prerequisite or complement if not) and return that. Otherwise,
-    // throw std::logic_error.
+    // explicitly specified, then the base role is assumed.
     //
     repository_role
-    effective_role () const;
+    effective_role () const noexcept
+    {
+      return role ? *role : repository_role::base;
+    }
 
     // Return the effective web interface URL based on the specified remote
     // repository location. If url is not present, doesn't start with '.', or
@@ -1023,6 +1020,13 @@ namespace bpkg
     void
     serialize (butl::manifest_serializer&) const;
   };
+
+  // Search a repository manifest list for the base repository and return its
+  // reference, if found. Otherwise, return a reference to an empty manifest
+  // instance (which is the representation of the default base).
+  //
+  LIBBPKG_EXPORT const repository_manifest&
+  find_base_repository (const std::vector<repository_manifest>&) noexcept;
 
   class LIBBPKG_EXPORT signature_manifest
   {
