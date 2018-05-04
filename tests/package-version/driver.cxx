@@ -83,32 +83,31 @@ namespace bpkg
     try
     {
       assert (bad_version (""));              // Empty upstream.
-      assert (bad_version ("1~"));            // Same.
-      assert (bad_version ("1~+3"));          // Same.
-      assert (bad_version ("+3"));            // Same.
-      assert (bad_version ("1~-a"));          // Same.
-      assert (bad_version ("1~-a+3"));        // Same.
+      assert (bad_version ("+1-"));           // Same.
+      assert (bad_version ("+1-+3"));         // Same.
+      assert (bad_version ("+0-+3"));         // Same.
+      assert (bad_version ("+1--a"));         // Same.
+      assert (bad_version ("+1--a+3"));       // Same.
       assert (bad_version ("-a+3"));          // Same.
-      assert (bad_version ("~3.5"));          // Empty epoch.
+      assert (bad_version ("+-3.5"));         // Empty epoch.
       assert (bad_version ("a+"));            // Empty revision.
-      assert (bad_version ("1~2~4.1+3"));     // Extra epoch.
+      assert (bad_version ("+1-+2-4.1+3"));   // Extra epoch.
+      assert (bad_version ("1-2-4.1"));       // Missed epoch marker.
       assert (bad_version ("3.5+1+4"));       // Extra revision.
-      assert (bad_version ("1~~2+3"));        // Duplicated epoch separator.
-      assert (bad_version ("1~2++3"));        // Duplicated revision separator.
-      assert (bad_version ("a.39485739122323231.3")); // Too long component.
-      assert (bad_version ("a.00000000000000000.3")); // Too many zeros.
-      assert (bad_version ("1-a.00000000000000000")); // Same.
-      assert (bad_version ("65536~q.3"));     // Too big epoch.
+      assert (bad_version ("++1-2+3"));       // Duplicated epoch marker.
+      assert (bad_version ("+1-2++3"));       // Duplicated revision separator.
+      assert (bad_version ("+65536-q.3"));    // Too big epoch.
       assert (bad_version ("1+q+65536"));     // Too big revision.
-      assert (bad_version ("3.5~1.4"));       // Components in epoch.
+      assert (bad_version ("+3.5-1.4"));      // Components in epoch.
+      assert (bad_version ("+3+5-1.4"));      // Plus in epoch.
       assert (bad_version ("3.5+1.4"));       // Components in revision.
       assert (bad_version ("3 5+1"));         // Non alpha-numeric in upstream.
-      assert (bad_version ("1~ +3"));         // Same.
+      assert (bad_version ("+1- +3"));        // Same.
       assert (bad_version ("1-3 5+1"));       // Non alpha-numeric in release.
-      assert (bad_version ("1~1- +3"));       // Same.
-      assert (bad_version ("3 5~4+1"));       // Non alpha-numeric in epoch.
-      assert (bad_version ("2b~a"));          // Same.
-      assert (bad_version ("1~34.1+3 5"));    // Non numeric in revision.
+      assert (bad_version ("+1-1- +3"));      // Same.
+      assert (bad_version ("+3 5-4+1"));      // Non numeric in epoch.
+      assert (bad_version ("+2b-a"));         // Same.
+      assert (bad_version ("+1-34.1+3 5"));   // Non numeric in revision.
       assert (bad_version ("a+3s"));          // Same.
       assert (bad_version ("a."));            // Not completed upstream.
       assert (bad_version ("a..b"));          // Empty upstream component.
@@ -119,13 +118,17 @@ namespace bpkg
       assert (bad_version ("0.0-"));          // Same.
       assert (bad_version ("1.2.3+1#1"));     // Unexpected iteration.
 
-      assert (bad_version (0, "1", "", 1));      // Revision for empty release.
-      assert (bad_version (1, "1~1.1", "", 2));  // Epoch in upstream.
-      assert (bad_version (1, "1.1-1", "", 2));  // Release in upstream.
-      assert (bad_version (1, "1.1+1", "", 2));  // Revision in upstream.
-      assert (bad_version (1, "1", "1~1.1", 2)); // Epoch in release.
-      assert (bad_version (1, "1", "1.1-1", 2)); // Release in release.
-      assert (bad_version (1, "1", "1.1+1", 2)); // Revision in release.
+      assert (bad_version ("a.39485739122323231.3")); // Too long component.
+      assert (bad_version ("a.00000000000000000.3")); // Too many zeros.
+      assert (bad_version ("1-a.00000000000000000")); // Same.
+
+      assert (bad_version (0, "1", "", 1));       // Revision for empty release.
+      assert (bad_version (1, "+1-1.1", "", 2));  // Epoch in upstream.
+      assert (bad_version (1, "1.1-1", "", 2));   // Release in upstream.
+      assert (bad_version (1, "1.1+1", "", 2));   // Revision in upstream.
+      assert (bad_version (1, "1", "+1-1.1", 2)); // Epoch in release.
+      assert (bad_version (1, "1", "1.1-1", 2));  // Release in release.
+      assert (bad_version (1, "1", "1.1+1", 2));  // Revision in release.
 
       assert (bad_version (1, "", "", 0));     // Unexpected epoch.
       assert (bad_version (0, "", "1", 0));    // Unexpected release.
@@ -145,108 +148,93 @@ namespace bpkg
 
         assert (v1 != v2);
       }
-
       {
-        version v ("1~0.0-");
+        version v ("+1-0.0-");
         assert (!v.empty ());
-        assert (v.string () == "1~0.0-");
+        assert (v.string () == "+1-0.0-");
         assert (v.canonical_upstream.empty ());
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
       }
-
       {
         version v ("a");
         assert (v.string () == "a");
         assert (v.canonical_upstream == "a");
         assert (test_constructor (v));
       }
-
       {
-        version v ("65534~ab+65535");
-        assert (v.string () == "65534~ab+65535");
+        version v ("+65534-ab+65535");
+        assert (v.string () == "+65534-ab+65535");
         assert (v.canonical_upstream == "ab");
         assert (test_constructor (v));
       }
-
       {
         version v ("1");
         assert (v.string () == "1");
         assert (v.canonical_upstream == "0000000000000001");
         assert (test_constructor (v));
       }
-
       {
         version v ("0");
         assert (v.string () == "0");
         assert (v.canonical_upstream.empty ());
         assert (test_constructor (v));
       }
-
       {
         version v ("0.0.0");
         assert (v.string () == "0.0.0");
         assert (v.canonical_upstream.empty ());
         assert (test_constructor (v));
       }
-
       {
         version v ("1.0.0");
         assert (v.string () == "1.0.0");
         assert (v.canonical_upstream == "0000000000000001");
         assert (test_constructor (v));
       }
-
       {
         version v ("0.1.00");
         assert (v.string () == "0.1.00");
         assert (v.canonical_upstream == "0000000000000000.0000000000000001");
         assert (test_constructor (v));
       }
-
       {
         version v ("0.0a.00");
         assert (v.string () == "0.0a.00");
         assert (v.canonical_upstream == "0000000000000000.0a");
         assert (test_constructor (v));
       }
-
       {
         version v ("0.a00.00");
         assert (v.string () == "0.a00.00");
         assert (v.canonical_upstream == "0000000000000000.a00");
         assert (test_constructor (v));
       }
-
       {
-        version v ("1~0");
-        assert (v.string () == "1~0");
+        version v ("+1-0");
+        assert (v.string () == "+1-0");
         assert (v.canonical_upstream.empty ());
         assert (test_constructor (v));
       }
-
       {
-        version v ("0~A+1");
+        version v ("+0-A+1");
         assert (v.string () == "A+1");
         assert (v.canonical_upstream == "a");
         assert (test_constructor (v));
       }
-
       {
-        version v ("10~B+0");
-        assert (v.string () == "10~B");
+        version v ("+10-B+0");
+        assert (v.string () == "+10-B");
         assert (v.canonical_upstream == "b");
         assert (test_constructor (v));
       }
-
       {
-        version v ("3~1A.31.0.4.0+7");
-        assert (v.string () == "3~1A.31.0.4.0+7");
+        version v ("+3-1A.31.0.4.0+7");
+        assert (v.string () == "+3-1A.31.0.4.0+7");
         assert (v.canonical_upstream ==
                 "1a.0000000000000031.0000000000000000.0000000000000004");
         assert (test_constructor (v));
       }
-
       {
         version v ("1.2.3");
         assert (v.string () == "1.2.3");
@@ -254,7 +242,6 @@ namespace bpkg
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
-
       {
         version v ("1.2.3+1");
         assert (v.string () == "1.2.3+1");
@@ -262,7 +249,6 @@ namespace bpkg
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
-
       {
         version v ("1.2.3-");
         assert (v.string () == "1.2.3-");
@@ -270,48 +256,43 @@ namespace bpkg
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
       }
-
       {
-        version v ("1~A-1.2.3B.00+0");
-        assert (v.string () == "1~A-1.2.3B.00");
+        version v ("+1-A-1.2.3B.00+0");
+        assert (v.string () == "+1-A-1.2.3B.00");
         assert (v.release && *v.release == "1.2.3B.00");
         assert (v.canonical_release == "0000000000000001.0000000000000002.3b");
         assert (test_constructor (v));
       }
-
       {
-        version v ("65535~q.3+65535");
-        assert (v.string () == "65535~q.3+65535");
+        version v ("+65535-q.3+65535");
+        assert (v.string () == "+65535-q.3+65535");
         assert (!v.release);
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
-
       {
         version v (1, "1", nullopt, 2, 0);
-        assert (v.string () == "1~1+2");
+        assert (v.string () == "+1-1+2");
         assert (!v.release);
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
-
       {
         version v (1, "1", string (), 0, 0);
-        assert (v.string () == "1~1-");
+        assert (v.string () == "+1-1-");
         assert (v.release && v.release->empty ());
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
       }
-
       {
         version v (1, "2.0", nullopt, 3, 4);
-        assert (v.string (false, false) == "1~2.0+3#4");
-        assert (v.string (true,  true)  == "1~2.0");
-        assert (v.string (true,  false) == "1~2.0");
-        assert (v.string (false, true)  == "1~2.0+3");
+        assert (v.string (false, false) == "+1-2.0+3#4");
+        assert (v.string (true,  true)  == "+1-2.0");
+        assert (v.string (true,  false) == "+1-2.0");
+        assert (v.string (false, true)  == "+1-2.0+3");
 
-        assert (version (1, "2.0", nullopt, 0, 3).string () == "1~2.0#3");
-        assert (version (1, "2.0", nullopt, 3, 0).string () == "1~2.0+3");
+        assert (version (1, "2.0", nullopt, 0, 3).string () == "+1-2.0#3");
+        assert (version (1, "2.0", nullopt, 3, 0).string () == "+1-2.0+3");
       }
 
       assert (version ("a") == version ("a"));
@@ -323,11 +304,11 @@ namespace bpkg
       assert (version ("ac") < version ("bc"));
       assert (version ("ab+0") == version ("ab"));
       assert (version ("a.1+1") > version ("a.1"));
-      assert (version ("0~ab") == version ("ab"));
+      assert (version ("+0-ab") == version ("ab"));
       assert (version ("1.2") > version ("1.1"));
-      assert (version ("1~1.0") > version ("2.0"));
-      assert (version ("0~ab+1") == version ("ab+1"));
-      assert (version ("0~ab+1").compare (version ("0~ab+2"), true) == 0);
+      assert (version ("+1-1.0") > version ("2.0"));
+      assert (version ("+0-ab+1") == version ("ab+1"));
+      assert (version ("+0-ab+1").compare (version ("+0-ab+2"), true) == 0);
       assert (version ("12") > version ("2"));
       assert (version ("2") < version ("12"));
       assert (version ("1") == version ("01"));
@@ -354,8 +335,8 @@ namespace bpkg
       assert (version ("1.0-alpha") > version ("1.0-1"));
       assert (version ("1.0-alpha") == version ("1.0-alpha.0"));
 
-      assert (version (1, "2.0", nullopt, 3, 0) == version ("1~2+3"));
-      assert (version (1, "2.0", string (), 0, 0) == version ("1~2-"));
+      assert (version (1, "2.0", nullopt, 3, 0) == version ("+1-2+3"));
+      assert (version (1, "2.0", string (), 0, 0) == version ("+1-2-"));
       assert (version (0, "", string (), 0, 0) == version ());
 
       assert (version (1, "2.0", nullopt, 3, 4).compare (

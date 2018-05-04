@@ -278,10 +278,12 @@ namespace bpkg
 
     enum class mode {epoch, upstream, release, revision};
     mode m (pr == parse::full
-            ? mode::epoch
-            : pr == parse::upstream
-              ? mode::upstream
-              : mode::release);
+            ? (v[0] == '+'
+               ? mode::epoch
+               : mode::upstream)
+            : (pr == parse::upstream
+               ? mode::upstream
+               : mode::release));
 
     canonical_part canon_upstream;
     canonical_part canon_release;
@@ -289,44 +291,23 @@ namespace bpkg
     canonical_part* canon_part (
       pr == parse::release ? &canon_release : &canon_upstream);
 
-    const char* cb (v); // Begin of a component.
-    const char* ub (v); // Begin of upstream part.
-    const char* ue (v); // End of upstream part.
-    const char* rb (v); // Begin of release part.
-    const char* re (v); // End of release part.
-    const char* lnn (v - 1); // Last non numeric char.
+    const char* cb (m != mode::epoch ? v : v + 1); // Begin of a component.
+    const char* ub (cb);                           // Begin of upstream part.
+    const char* ue (cb);                           // End of upstream part.
+    const char* rb (cb);                           // Begin of release part.
+    const char* re (cb);                           // End of release part.
+    const char* lnn (cb - 1);                      // Last non numeric char.
 
-    const char* p (v);
+    const char* p (cb);
     for (char c; (c = *p) != '\0'; ++p)
     {
       switch (c)
       {
-      case '~':
-        {
-          if (pr != parse::full)
-            bad_arg ("unexpected '~' character");
-
-          // Process the epoch part.
-          //
-          if (m != mode::epoch || p == v)
-            bad_arg ("unexpected '~' character position");
-
-          if (lnn >= cb) // Contains non-digits.
-            bad_arg ("epoch should be 2-byte unsigned integer");
-
-          epoch = uint16 (string (cb, p), "epoch");
-
-          m = mode::upstream;
-          cb = p + 1;
-          ub = cb;
-          break;
-        }
-
       case '+':
       case '-':
       case '.':
         {
-          // Process the upsteam or release part component.
+          // Process the epoch part or the upstream/release part component.
           //
 
           // Characters '+', '-' are only valid for the full version parsing.
@@ -338,35 +319,58 @@ namespace bpkg
           // state.
           //
           if (m == mode::revision || (c == '-' && m == mode::release) ||
-              p == cb)
+              (c != '-' && m == mode::epoch) || p == cb)
             bad_arg (string ("unexpected '") + c + "' character position");
 
-          // Append the component to the current canonical part.
+          // Depending on the mode, parse epoch or append the component to the
+          // current canonical part.
           //
-          canon_part->add (cb, p, lnn < cb);
+          if (m == mode::epoch)
+          {
+            if (lnn >= cb) // Contains non-digits.
+              bad_arg ("epoch should be 2-byte unsigned integer");
+
+            epoch = uint16 (string (cb, p), "epoch");
+          }
+          else
+            canon_part->add (cb, p, lnn < cb);
 
           // Update the parsing state.
           //
+          // Advance begin of a component.
+          //
           cb = p + 1;
 
-          if (m == mode::upstream || m == mode::epoch)
+          // Advance end of the upstream/release parts.
+          //
+          if (m == mode::upstream)
             ue = p;
           else if (m == mode::release)
             re = p;
           else
-            assert (false);
+            assert (m == mode::epoch);
 
+          // Switch the mode if the component is terminated with '+' or '-'.
+          //
           if (c == '+')
             m = mode::revision;
           else if (c == '-')
           {
-            m = mode::release;
-            canon_part = &canon_release;
-            rb = cb;
-            re = cb;
+            if (m == mode::epoch)
+            {
+              m = mode::upstream;
+              ub = cb;
+              ue = cb;
+            }
+            else
+            {
+              m = mode::release;
+              rb = cb;
+              re = cb;
+
+              canon_part = &canon_release;
+            }
           }
-          else if (m == mode::epoch)
-            m = mode::upstream;
 
           break;
         }
@@ -383,10 +387,13 @@ namespace bpkg
 
     assert (p >= cb); // 'p' denotes the end of the last component.
 
-    // An empty component is valid for the release part, and for the upstream
-    // part when constructing empty or max limit version.
+    // The epoch must always be followed by the upstream.
     //
-    if (p == cb && m != mode::release && pr != parse::upstream)
+    // An empty component is valid for the release part, and for the
+    // upstream part when constructing empty or max limit version.
+    //
+    if (m == mode::epoch ||
+        (p == cb && m != mode::release && pr != parse::upstream))
       bad_arg ("unexpected end");
 
     // Parse the last component.
@@ -402,7 +409,7 @@ namespace bpkg
     {
       canon_part->add (cb, p, lnn < cb);
 
-      if (m == mode::epoch || m == mode::upstream)
+      if (m == mode::upstream)
         ue = p;
       else if (m == mode::release)
         re = p;
@@ -494,7 +501,9 @@ namespace bpkg
     if (empty ())
       throw logic_error ("empty version");
 
-    std::string v (epoch != 0 ? to_string (epoch) + "~" + upstream : upstream);
+    std::string v (epoch != 0
+                   ? '+' + to_string (epoch) + '-' + upstream
+                   : upstream);
 
     if (release)
     {

@@ -66,12 +66,12 @@
       sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       :
       name: libbaz
-      version: 2~3.4A.5+3
+      version: +2-3.4A.5+3
       summary: Modern baz system
       license: LGPLv2
       url: http://www.example.org/projects/libbar/
       email: libbaz-users@example.org
-      location: libbaz/libbaz-2~3.4A.5+3.tar.gz
+      location: libbaz/libbaz-+2-3.4A.5+3.tar.gz
       sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF
   }
