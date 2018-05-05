@@ -273,12 +273,15 @@ namespace bpkg
 
   // depends
   //
-  struct LIBBPKG_EXPORT dependency_constraint
+  class LIBBPKG_EXPORT dependency_constraint
   {
+  public:
     butl::optional<version> min_version;
     butl::optional<version> max_version;
     bool min_open;
     bool max_open;
+
+    dependency_constraint (const std::string&);
 
     dependency_constraint (butl::optional<version> min_version, bool min_open,
                            butl::optional<version> max_version, bool max_open);

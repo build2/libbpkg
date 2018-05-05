@@ -580,6 +580,176 @@ namespace bpkg
 
   // depends
   //
+  dependency_constraint::
+  dependency_constraint (const string& s)
+  {
+    auto bail = [] (const string& d) {throw invalid_argument (d);};
+
+    char c (s[0]);
+    if (c == '(' || c == '[') // The version range.
+    {
+      bool min_open (c == '(');
+
+      size_t p (s.find_first_not_of (spaces, 1));
+      if (p == string::npos)
+        bail ("no prerequisite package min version specified");
+
+      size_t e (s.find_first_of (spaces, p));
+
+      const char* no_max_version (
+        "no prerequisite package max version specified");
+
+      if (e == string::npos)
+        bail (no_max_version);
+
+      version min_version;
+
+      try
+      {
+        min_version = version (string (s, p, e - p));
+      }
+      catch (const invalid_argument& e)
+      {
+        bail (string ("invalid prerequisite package min version: ") +
+              e.what ());
+      }
+
+      p = s.find_first_not_of (spaces, e);
+      if (p == string::npos)
+        bail (no_max_version);
+
+      e = s.find_first_of (" \t])", p);
+
+      const char* invalid_range ("invalid prerequisite package version range");
+
+      if (e == string::npos)
+        bail (invalid_range);
+
+      version max_version;
+
+      try
+      {
+        max_version = version (string (s, p, e - p));
+      }
+      catch (const invalid_argument& e)
+      {
+        bail (string ("invalid prerequisite package max version: ") +
+              e.what ());
+      }
+
+      e = s.find_first_of ("])", e); // Might be a space.
+      if (e == string::npos)
+        bail (invalid_range);
+
+      if (e + 1 != s.size ())
+        bail ("unexpected text after prerequisite package version range");
+
+      try
+      {
+        *this = dependency_constraint (move (min_version),
+                                       min_open,
+                                       move (max_version),
+                                       s[e] == ')');
+      }
+      catch (const invalid_argument& e)
+      {
+        bail (string ("invalid dependency constraint: ") + e.what ());
+      }
+    }
+    else if (c == '~' || c == '^') // The shortcut operator.
+    {
+      // To be used in the shortcut operator the package version must
+      // be a standard version.
+      //
+      standard_version_constraint vc;
+
+      try
+      {
+        vc = standard_version_constraint (s);
+      }
+      catch (const invalid_argument& e)
+      {
+        bail (string ("invalid dependency constraint: ") + e.what ());
+      }
+
+      try
+      {
+        assert (vc.min_version && vc.max_version);
+
+        *this = dependency_constraint (
+          version (vc.min_version->string ()),
+          vc.min_open,
+          version (vc.max_version->string ()),
+          vc.max_open);
+      }
+      catch (const invalid_argument&)
+      {
+        // The standard version is a package version, so the conversion
+        // should never fail.
+        //
+        assert (false);
+      }
+    }
+    else // The version comparison notation.
+    {
+      enum comparison {eq, lt, gt, le, ge};
+      comparison operation (eq); // Uninitialized warning.
+      size_t p (2);
+
+      if (s.compare (0, 2, "==") == 0)
+        operation = eq;
+      else if (s.compare (0, 2, ">=") == 0)
+        operation = ge;
+      else if (s.compare (0, 2, "<=") == 0)
+        operation = le;
+      else if (c == '>')
+      {
+        operation = gt;
+        p = 1;
+      }
+      else if (c == '<')
+      {
+        operation = lt;
+        p = 1;
+      }
+      else
+        bail ("invalid prerequisite package version comparison");
+
+      p = s.find_first_not_of (spaces, p);
+
+      if (p == string::npos)
+        bail ("no prerequisite package version specified");
+
+      try
+      {
+        version v (string (s, p));
+
+        switch (operation)
+        {
+        case comparison::eq:
+          *this = dependency_constraint (v);
+          break;
+        case comparison::lt:
+          *this = dependency_constraint (nullopt, true, move (v), true);
+          break;
+        case comparison::le:
+          *this = dependency_constraint (nullopt, true, move (v), false);
+          break;
+        case comparison::gt:
+          *this = dependency_constraint (move (v), true, nullopt, true);
+          break;
+        case comparison::ge:
+          *this = dependency_constraint (move (v), false, nullopt, true);
+          break;
+        }
+      }
+      catch (const invalid_argument& e)
+      {
+        bail (string ("invalid prerequisite package version: ") + e.what ());
+      }
+
+    }
+  }
 
   dependency_constraint::
   dependency_constraint (optional<version> mnv, bool mno,
@@ -1045,7 +1215,7 @@ namespace bpkg
 
           // Find end of name (ne).
           //
-          static const string cb ("=<>([~^");
+          const string cb ("=<>([~^");
           for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
           {
             if (!space (c))
@@ -1061,198 +1231,16 @@ namespace bpkg
             if (nm.empty ())
               bad_value ("prerequisite package name not specified");
 
-            // Got to version range.
-            //
-            dependency_constraint dc;
-            const char* op (&*i);
-            char c (*op);
-            if (c == '(' || c == '[')
+            try
             {
-              bool min_open (c == '(');
-
-              string::size_type pos (lv.find_first_not_of (spaces, ++i - b));
-              if (pos == string::npos)
-                bad_value ("no prerequisite package min version specified");
-
-              i = b + pos;
-              pos = lv.find_first_of (spaces, pos);
-
-              static const char* no_max_version (
-                "no prerequisite package max version specified");
-
-              if (pos == string::npos)
-                bad_value (no_max_version);
-
-              version min_version;
-
-              try
-              {
-                min_version = version (string (i, b + pos));
-              }
-              catch (const invalid_argument& e)
-              {
-                bad_value (
-                  string ("invalid prerequisite package min version: ") +
-                  e.what ());
-              }
-
-              pos = lv.find_first_not_of (spaces, pos);
-              if (pos == string::npos)
-                bad_value (no_max_version);
-
-              i = b + pos;
-              static const string mve (spaces + "])");
-              pos = lv.find_first_of (mve, pos);
-
-              static const char* invalid_range (
-                "invalid prerequisite package version range");
-
-              if (pos == string::npos)
-                bad_value (invalid_range);
-
-              version max_version;
-
-              try
-              {
-                max_version = version (string (i, b + pos));
-              }
-              catch (const invalid_argument& e)
-              {
-                bad_value (
-                  string ("invalid prerequisite package max version: ") +
-                  e.what ());
-              }
-
-              pos = lv.find_first_of ("])", pos); // Might be a space.
-              if (pos == string::npos)
-                bad_value (invalid_range);
-
-              try
-              {
-                dc = dependency_constraint (move (min_version),
-                                            min_open,
-                                            move (max_version),
-                                            lv[pos] == ')');
-              }
-              catch (const invalid_argument& e)
-              {
-                bad_value (
-                  string ("invalid dependency constraint: ") + e.what ());
-              }
-
-              if (lv[pos + 1] != '\0')
-                bad_value (
-                  "unexpected text after prerequisite package version range");
+              da.push_back (
+                dependency {move (nm), dependency_constraint (string (i, e))});
             }
-            else if (c == '~' || c == '^') // The shortcut operator.
+            catch (const invalid_argument& e)
             {
-              // To be used in the shortcut operator the package version must
-              // be a standard version.
-              //
-              standard_version_constraint vc;
-
-              try
-              {
-                vc = standard_version_constraint (op);
-              }
-              catch (const invalid_argument& e)
-              {
-                bad_value (string ("invalid dependency constraint: ") +
-                           e.what ());
-              }
-
-              try
-              {
-                assert (vc.min_version && vc.max_version);
-
-                dc = dependency_constraint (
-                  version (vc.min_version->string ()),
-                  vc.min_open,
-                  version (vc.max_version->string ()),
-                  vc.max_open);
-              }
-              catch (const invalid_argument&)
-              {
-                // The standard version is a package version, so the conversion
-                // should never fail.
-                //
-                assert (false);
-              }
+              bad_value (
+                string ("invalid dependency constraint: ") + e.what ());
             }
-            else
-            {
-              // Version comparison notation.
-              //
-              enum comparison {eq, lt, gt, le, ge};
-              comparison operation (eq); // Uninitialized warning.
-
-              if (strncmp (op, "==", 2) == 0)
-              {
-                operation = eq;
-                i += 2;
-              }
-              else if (strncmp (op, ">=", 2) == 0)
-              {
-                operation = ge;
-                i += 2;
-              }
-              else if (strncmp (op, "<=", 2) == 0)
-              {
-                operation = le;
-                i += 2;
-              }
-              else if (*op == '>')
-              {
-                operation = gt;
-                ++i;
-              }
-              else if (*op == '<')
-              {
-                operation = lt;
-                ++i;
-              }
-              else
-                bad_value ("invalid prerequisite package version comparison");
-
-              string::size_type pos (lv.find_first_not_of (spaces, i - b));
-
-              if (pos == string::npos)
-                bad_value ("no prerequisite package version specified");
-
-              version v;
-
-              try
-              {
-                v = version (lv.c_str () + pos);
-              }
-              catch (const invalid_argument& e)
-              {
-                bad_value (string ("invalid prerequisite package version: ") +
-                           e.what ());
-              }
-
-              switch (operation)
-              {
-              case comparison::eq:
-                dc = dependency_constraint (v);
-                break;
-              case comparison::lt:
-                dc = dependency_constraint (nullopt, true, move (v), true);
-                break;
-              case comparison::le:
-                dc = dependency_constraint (nullopt, true, move (v), false);
-                break;
-              case comparison::gt:
-                dc = dependency_constraint (move (v), true, nullopt, true);
-                break;
-              case comparison::ge:
-                dc = dependency_constraint (move (v), false, nullopt, true);
-                break;
-              }
-            }
-
-            dependency d {move (nm), move (dc)};
-            da.push_back (move (d));
           }
         }
 
