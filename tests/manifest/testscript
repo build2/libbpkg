@@ -35,7 +35,7 @@
       package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
       build-email: libfoo-builds@example.org; Mailing list for bbot notification\
        emails.
-      depends: libz
+      depends: libz ~1.0.0 | libz ^2.0.0
       depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
       depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
        C++11 <regex>.

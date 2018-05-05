@@ -20,6 +20,7 @@
                                            // digit(), xdigit()
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
+#include <libbutl/standard-version.mxx>
 
 using namespace std;
 using namespace butl;
@@ -607,8 +608,14 @@ namespace bpkg
       if (*min_version > *max_version)
         throw invalid_argument ("min version is greater than max version");
 
-      if (*min_version == *max_version && (min_open || max_open))
-        throw invalid_argument ("equal version endpoints not closed");
+      if (*min_version == *max_version)
+      {
+        if (min_open || max_open)
+          throw invalid_argument ("equal version endpoints not closed");
+
+        if (min_version->release && min_version->release->empty ())
+          throw invalid_argument ("equal version endpoints are earliest");
+      }
     }
   }
 
@@ -626,6 +633,36 @@ namespace bpkg
     if (*c.min_version == *c.max_version)
       return o << "== " << *c.min_version;
 
+    // If the range can potentially be represented as a range shortcut
+    // operator (^ or ~), having the [<standard-version> <standard-version>)
+    // form, then print it using the standard version constraint code.
+    //
+    if (!c.min_open && c.max_open)
+    {
+      if (optional<standard_version> mnv =
+          parse_standard_version (c.min_version->string (),
+                                  standard_version::allow_earliest))
+      {
+        if (optional<standard_version> mxv =
+            parse_standard_version (c.max_version->string (),
+                                    standard_version::allow_earliest))
+        try
+        {
+          return o << standard_version_constraint (
+            move (*mnv), c.min_open, move (*mxv), c.max_open);
+        }
+        catch (const invalid_argument&)
+        {
+          // Invariants for both types of constraints are the same, so the
+          // conversion should never fail.
+          //
+          assert (false);
+        }
+      }
+    }
+
+    // Print as a range.
+    //
     return o << (c.min_open ? '(' : '[') << *c.min_version << " "
              << *c.max_version << (c.max_open ? ')' : ']');
   }
@@ -1008,7 +1045,7 @@ namespace bpkg
 
           // Find end of name (ne).
           //
-          static const string cb ("=<>([");
+          static const string cb ("=<>([~^");
           for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
           {
             if (!space (c))
@@ -1028,10 +1065,10 @@ namespace bpkg
             //
             dependency_constraint dc;
             const char* op (&*i);
-            char mnv (*op);
-            if (mnv == '(' || mnv == '[')
+            char c (*op);
+            if (c == '(' || c == '[')
             {
-              bool min_open (mnv == '(');
+              bool min_open (c == '(');
 
               string::size_type pos (lv.find_first_not_of (spaces, ++i - b));
               if (pos == string::npos)
@@ -1106,6 +1143,41 @@ namespace bpkg
               if (lv[pos + 1] != '\0')
                 bad_value (
                   "unexpected text after prerequisite package version range");
+            }
+            else if (c == '~' || c == '^') // The shortcut operator.
+            {
+              // To be used in the shortcut operator the package version must
+              // be a standard version.
+              //
+              standard_version_constraint vc;
+
+              try
+              {
+                vc = standard_version_constraint (op);
+              }
+              catch (const invalid_argument& e)
+              {
+                bad_value (string ("invalid dependency constraint: ") +
+                           e.what ());
+              }
+
+              try
+              {
+                assert (vc.min_version && vc.max_version);
+
+                dc = dependency_constraint (
+                  version (vc.min_version->string ()),
+                  vc.min_open,
+                  version (vc.max_version->string ()),
+                  vc.max_open);
+              }
+              catch (const invalid_argument&)
+              {
+                // The standard version is a package version, so the conversion
+                // should never fail.
+                //
+                assert (false);
+              }
             }
             else
             {
