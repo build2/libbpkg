@@ -10,7 +10,7 @@ lib{bpkg}: {hxx ixx txx cxx}{** -version} {hxx}{version} $int_libs
 # pick up an installed one) and don't remove it when cleaning in src (so that
 # clean results in a state identical to distributed).
 #
-hxx{version}: in{version} $src_root/file{manifest}
+hxx{version}: in{version} $src_root/manifest
 hxx{version}: dist  = true
 hxx{version}: clean = ($src_root != $out_root)
 
