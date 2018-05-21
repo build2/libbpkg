@@ -17,7 +17,7 @@
 #include <libbutl/path.mxx>
 #include <libbutl/base64.mxx>
 #include <libbutl/utility.mxx>             // casecmp(), lcase(), alpha(),
-                                           // digit(), xdigit()
+                                           // alnum(), digit(), xdigit()
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
 #include <libbutl/standard-version.mxx>
@@ -870,6 +870,44 @@ namespace bpkg
     return o;
   }
 
+  // Package name.
+  //
+  static const strings illegal_pkg_names ({
+      "build",
+      "con", "prn", "aux", "nul",
+      "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+      "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"});
+
+  static const string legal_pkg_chars ("_+-.");
+
+  void
+  validate_package_name (const string& name)
+  {
+    if (name.size () < 2)
+      throw invalid_argument ("length is less than two characters");
+
+    if (find (illegal_pkg_names.begin (), illegal_pkg_names.end (), name) !=
+        illegal_pkg_names.end ())
+      throw invalid_argument ("illegal name");
+
+    if (!alpha (name.front ()))
+      throw invalid_argument ("illegal first character (must be alphabetic)");
+
+    // Here we rely on the fact that the name length >= 2.
+    //
+    for (auto i (name.cbegin () + 1), e (name.cend () - 1); i != e; ++i)
+    {
+      char c (*i);
+
+      if (!(alnum(c) || legal_pkg_chars.find (c) != string::npos))
+        throw invalid_argument ("illegal character");
+    }
+
+    if (!alnum (name.back ()))
+      throw invalid_argument (
+        "illegal last character (must be alphabetic or digit)");
+  }
+
   // pkg_package_manifest
   //
   static void
@@ -946,8 +984,14 @@ namespace bpkg
         if (!m.name.empty ())
           bad_name ("package name redefinition");
 
-        if (v.empty ())
-          bad_value ("empty package name");
+        try
+        {
+          validate_package_name (v);
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (string ("invalid package name: ") + e.what ());
+        }
 
         m.name = move (v);
       }
@@ -1222,15 +1266,22 @@ namespace bpkg
               ne = i + 1;
           }
 
+          string nm (i == e ? move (lv) : string (b, ne));
+
+          try
+          {
+            validate_package_name (nm);
+          }
+          catch (const invalid_argument& e)
+          {
+            bad_value (
+              string ("invalid prerequisite package name: ") + e.what ());
+          }
+
           if (i == e)
-            da.push_back (dependency {lv, nullopt});
+            da.push_back (dependency {move (nm), nullopt});
           else
           {
-            string nm (b, ne);
-
-            if (nm.empty ())
-              bad_value ("prerequisite package name not specified");
-
             try
             {
               da.push_back (
@@ -1356,14 +1407,27 @@ namespace bpkg
   serialize (serializer& s) const
   {
     // @@ Should we check that all non-optional values are specified ?
-    // @@ Should we check that values are valid: name is not empty, version
-    //    release is not empty, sha256sum is a proper string, ...?
+    // @@ Should we check that values are valid: version release is not empty,
+    //    sha256sum is a proper string, ...?
     // @@ Currently we don't know if we are serializing the individual package
     //    manifest or the package list manifest, so can't ensure all values
     //    allowed in the current context (*-file values).
     //
 
     s.next ("", "1"); // Start of manifest.
+
+    auto bad_value ([&s](const string& d) {
+        throw serialization (s.name (), d);});
+
+    try
+    {
+      validate_package_name (name);
+    }
+    catch (const invalid_argument& e)
+    {
+      bad_value (string ("invalid package name: ") + e.what ());
+    }
+
     s.next ("name", name);
     s.next ("version", version.string ());
 

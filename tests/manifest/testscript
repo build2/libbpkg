@@ -5,6 +5,85 @@
 : packages
 :
 {
+  : name
+  :
+  {
+    : valid
+    :
+    $* -pp <<EOF >>EOF
+      : 1
+      sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      :
+      name: libfoo.c++-2
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      url: http://www.example.org/projects/libfoo/
+      email: libfoo-users@example.org
+      location: libfoo.c++-2-2.0.0.tar.bz2
+      sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      EOF
+
+    : invalid
+    :
+    {
+      : short
+      :
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: length is less than two characters' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: b
+        EOI
+
+      : illegal
+      :
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal name' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: com3
+        EOI
+
+      : first-char
+      :
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal first character (must be alphabetic)' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: 2b
+        EOI
+
+      : last-char
+      :
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal last character (must be alphabetic or digit)' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo_
+        EOI
+
+      : char
+      :
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal character' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo'bar
+        EOI
+
+      : dependency
+      :
+      $* -pp <<EOI 2>'stdin:5:10: error: invalid prerequisite package name: length is less than two characters' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo
+        depends: b
+        EOI
+    }
+  }
+
   : pkg
   :
   {

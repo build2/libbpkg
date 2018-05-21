@@ -376,6 +376,13 @@ namespace bpkg
           comment (std::move (c)) {}
   };
 
+  // Check if the package name complies with the specification (see the bpkg
+  // manual for details) and throw std::invalid_argument if that's not the
+  // case.
+  //
+  LIBBPKG_EXPORT void
+  validate_package_name (const std::string&);
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
