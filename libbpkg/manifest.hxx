@@ -18,6 +18,8 @@
 #include <libbutl/optional.mxx>
 #include <libbutl/manifest-forward.hxx>
 
+#include <libbpkg/package-name.hxx>
+
 #include <libbpkg/export.hxx>
 #include <libbpkg/version.hxx>
 
@@ -313,7 +315,7 @@ namespace bpkg
 
   struct dependency
   {
-    std::string name;
+    package_name name;
     butl::optional<dependency_constraint> constraint;
   };
 
@@ -376,13 +378,6 @@ namespace bpkg
           comment (std::move (c)) {}
   };
 
-  // Check if the package name complies with the specification (see the bpkg
-  // manual for details) and throw std::invalid_argument if that's not the
-  // case.
-  //
-  LIBBPKG_EXPORT void
-  validate_package_name (const std::string&);
-
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -391,7 +386,7 @@ namespace bpkg
     using url_type = bpkg::url;
     using email_type = bpkg::email;
 
-    std::string name;
+    package_name name;
     version_type version;
     butl::optional<priority_type> priority;
     std::string summary;
