@@ -1,3 +1,21 @@
+Version 0.7.0
+
+  * Add support for git repository locations.
+
+  * Add support for dir repository type.
+
+  * Add repository type prefix to repository canonical name.
+
+  * Add support for version iteration.
+
+  * Add support for dependent repository trust.
+
+  * Make base repository manifest in repositories.manifest optional.
+
+  * Change version epoch format from '<num>~' to '+<num>-'.
+
+  * Add support for dependency constraint shortcut operators (~ and ^).
+
 Version 0.6.0
 
   * Support for build-include and build-exclude manifest values.
