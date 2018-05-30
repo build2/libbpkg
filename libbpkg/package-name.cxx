@@ -50,9 +50,9 @@ namespace bpkg
         throw invalid_argument ("illegal character");
     }
 
-    if (!alnum (nm.back ()))
+    if (!alnum (nm.back ()) && nm.back () != '+')
       throw invalid_argument (
-        "illegal last character (must be alphabetic or digit)");
+        "illegal last character (must be alphabetic, digit, or plus)");
 
     value_ = move (nm);
   }

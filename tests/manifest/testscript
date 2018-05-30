@@ -56,7 +56,7 @@
 
       : last-char
       :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal last character (must be alphabetic or digit)' != 0
+      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal last character (must be alphabetic, digit, or plus)' != 0
         : 1
         sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         :
