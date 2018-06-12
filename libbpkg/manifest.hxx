@@ -50,7 +50,7 @@ namespace bpkg
     const std::string canonical_release;
 
     // Create a special empty version. It is less than any other valid
-    // version (and is conceptually equivalent to 0-).
+    // version (and is conceptually equivalent to +0-0-).
     //
     version (): epoch (0), release (""), revision (0), iteration (0) {}
 

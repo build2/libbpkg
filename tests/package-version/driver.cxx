@@ -114,8 +114,8 @@ namespace bpkg
       assert (bad_version ("a.b-+1"));        // Revision for empty release.
       assert (bad_version ("0.0-+3"));        // Same.
       assert (bad_version ("1.2.3-~"));       // Invalid release.
-      assert (bad_version ("0-"));            // Illegal version.
-      assert (bad_version ("0.0-"));          // Same.
+      assert (bad_version ("+0-0-"));         // Empty version.
+      assert (bad_version ("+0-0.0-"));       // Same.
       assert (bad_version ("1.2.3+1#1"));     // Unexpected iteration.
 
       assert (bad_version ("a.39485739122323231.3")); // Too long component.
@@ -151,7 +151,15 @@ namespace bpkg
       {
         version v ("+1-0.0-");
         assert (!v.empty ());
-        assert (v.string () == "+1-0.0-");
+        assert (v.string () == "0.0-");
+        assert (v.canonical_upstream.empty ());
+        assert (v.canonical_release.empty ());
+        assert (test_constructor (v));
+      }
+      {
+        version v ("0-");
+        assert (!v.empty ());
+        assert (v.string () == "0-");
         assert (v.canonical_upstream.empty ());
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
@@ -177,6 +185,12 @@ namespace bpkg
       {
         version v ("0");
         assert (v.string () == "0");
+        assert (v.canonical_upstream.empty ());
+        assert (test_constructor (v));
+      }
+      {
+        version v ("0+1");
+        assert (v.string () == "0+1");
         assert (v.canonical_upstream.empty ());
         assert (test_constructor (v));
       }
@@ -217,8 +231,14 @@ namespace bpkg
         assert (test_constructor (v));
       }
       {
+        version v ("+0-0+1");
+        assert (v.string () == "0+1");
+        assert (v.canonical_upstream.empty ());
+        assert (test_constructor (v));
+      }
+      {
         version v ("+0-A+1");
-        assert (v.string () == "A+1");
+        assert (v.string () == "+0-A+1");
         assert (v.canonical_upstream == "a");
         assert (test_constructor (v));
       }
@@ -258,7 +278,7 @@ namespace bpkg
       }
       {
         version v ("+1-A-1.2.3B.00+0");
-        assert (v.string () == "+1-A-1.2.3B.00");
+        assert (v.string () == "A-1.2.3B.00");
         assert (v.release && *v.release == "1.2.3B.00");
         assert (v.canonical_release == "0000000000000001.0000000000000002.3b");
         assert (test_constructor (v));
@@ -271,43 +291,46 @@ namespace bpkg
         assert (test_constructor (v));
       }
       {
-        version v (1, "1", nullopt, 2, 0);
-        assert (v.string () == "+1-1+2");
+        version v (2, "1", nullopt, 2, 0);
+        assert (v.string () == "+2-1+2");
         assert (!v.release);
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
       {
-        version v (1, "1", string (), 0, 0);
-        assert (v.string () == "+1-1-");
+        version v (2, "1", string (), 0, 0);
+        assert (v.string () == "+2-1-");
         assert (v.release && v.release->empty ());
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
       }
       {
-        version v (1, "2.0", nullopt, 3, 4);
-        assert (v.string (false, false) == "+1-2.0+3#4");
-        assert (v.string (true,  true)  == "+1-2.0");
-        assert (v.string (true,  false) == "+1-2.0");
-        assert (v.string (false, true)  == "+1-2.0+3");
+        version v (3, "2.0", nullopt, 3, 4);
+        assert (v.string (false, false) == "+3-2.0+3#4");
+        assert (v.string (true,  true)  == "+3-2.0");
+        assert (v.string (true,  false) == "+3-2.0");
+        assert (v.string (false, true)  == "+3-2.0+3");
 
-        assert (version (1, "2.0", nullopt, 0, 3).string () == "+1-2.0#3");
-        assert (version (1, "2.0", nullopt, 3, 0).string () == "+1-2.0+3");
+        assert (version (3, "2.0", nullopt, 0, 1).string () == "+3-2.0#1");
+        assert (version (3, "2.0", nullopt, 1, 0).string () == "+3-2.0+1");
       }
 
+      assert (version ("+1-0-") == version ("0-")); // Not a stub.
+      assert (version ("00+1") == version ("0+1")); // Stub.
+      assert (version ("0.0.0") == version ("0"));  // Stub.
       assert (version ("a") == version ("a"));
       assert (version ("a") < version ("b"));
       assert (version ("a") < version ("aa"));
       assert (version ("a.a") < version ("aaa"));
       assert (version ("a") < version ("a.a"));
-      assert (version ("ab") == version ("ab"));
+      assert (version ("+1-ab") == version ("ab"));
       assert (version ("ac") < version ("bc"));
       assert (version ("ab+0") == version ("ab"));
       assert (version ("a.1+1") > version ("a.1"));
-      assert (version ("+0-ab") == version ("ab"));
+      assert (version ("ab") == version ("ab"));
       assert (version ("1.2") > version ("1.1"));
-      assert (version ("+1-1.0") > version ("2.0"));
-      assert (version ("+0-ab+1") == version ("ab+1"));
+      assert (version ("1.0") > version ("+0-2.0"));
+      assert (version ("+1-ab+1") == version ("ab+1"));
       assert (version ("+0-ab+1").compare (version ("+0-ab+2"), true) == 0);
       assert (version ("12") > version ("2"));
       assert (version ("2") < version ("12"));
@@ -322,7 +345,6 @@ namespace bpkg
       assert (version ("1.Alpha.1") == version ("1.ALPHA.1"));
       assert (version ("a.1") < version ("ab1"));
       assert (version ("a.2") < version ("a.1b"));
-      assert (version ("0.0.0") == version ("0"));
       assert (version ("1.0.0") == version ("01"));
       assert (version ("0.1.00") == version ("00.1"));
       assert (version ("0.0a.00") == version ("00.0a"));

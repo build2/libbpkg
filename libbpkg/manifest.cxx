@@ -238,8 +238,18 @@ namespace bpkg
     size_t len_ = 0; // Length without the trailing digit-only zero components.
   };
 
+  // Return zero for versions having the '0[+<revision>]' form (stubs) and one
+  // otherwise. Used for both version and version::data_type types.
+  //
+  template <typename T>
+  inline static uint16_t
+  default_epoch (const T& v)
+  {
+    return v.canonical_upstream.empty () && !v.release ? 0 : 1;
+  }
+
   version::data_type::
-  data_type (const char* v, parse pr): epoch (0), revision (0)
+  data_type (const char* v, parse pr): revision (0)
   {
     // Otherwise compiler gets confused with string() member.
     //
@@ -254,6 +264,8 @@ namespace bpkg
     }
 
     assert (v != nullptr);
+
+    optional<uint16_t> ep;
 
     auto bad_arg = [](const string& d) {throw invalid_argument (d);};
 
@@ -331,7 +343,7 @@ namespace bpkg
             if (lnn >= cb) // Contains non-digits.
               bad_arg ("epoch should be 2-byte unsigned integer");
 
-            epoch = uint16 (string (cb, p), "epoch");
+            ep = uint16 (string (cb, p), "epoch");
           }
           else
             canon_part->add (cb, p, lnn < cb);
@@ -467,11 +479,17 @@ namespace bpkg
       }
     }
 
-    if (pr == parse::full && epoch == 0 && canonical_upstream.empty () &&
-        canonical_release.empty ())
+    if (pr == parse::full)
     {
-      assert (revision == 0); // Can't happen if through all previous checks.
-      bad_arg ("empty version");
+      epoch = ep ? *ep : default_epoch (*this);
+
+      if (epoch == 0                  &&
+          canonical_upstream.empty () &&
+          canonical_release.empty ())
+      {
+        assert (revision == 0); // Can't happen if through all previous checks.
+        bad_arg ("empty version");
+      }
     }
   }
 
@@ -502,7 +520,7 @@ namespace bpkg
     if (empty ())
       throw logic_error ("empty version");
 
-    std::string v (epoch != 0
+    std::string v (epoch != default_epoch (*this)
                    ? '+' + to_string (epoch) + '-' + upstream
                    : upstream);
 
