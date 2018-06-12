@@ -394,11 +394,11 @@ namespace bpkg
     strings tags;
     butl::optional<text_file> description;
     std::vector<text_file> changes;
-    url_type url;
+    butl::optional<url_type> url;
     butl::optional<url_type> doc_url;
     butl::optional<url_type> src_url;
     butl::optional<url_type> package_url;
-    email_type email;
+    butl::optional<email_type> email;
     butl::optional<email_type> package_email;
     butl::optional<email_type> build_email;
     std::vector<dependency_alternatives> dependencies;

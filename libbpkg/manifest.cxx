@@ -1068,14 +1068,14 @@ namespace bpkg
       }
       else if (n == "url")
       {
-        if (!m.url.empty ())
+        if (m.url)
           bad_name ("project url redefinition");
 
         m.url = parse_url (v, "project");
       }
       else if (n == "email")
       {
-        if (!m.email.empty ())
+        if (m.email)
           bad_name ("project email redefinition");
 
         m.email = parse_email (v, "project");
@@ -1323,10 +1323,6 @@ namespace bpkg
       bad_value ("no package version specified");
     else if (m.summary.empty ())
       bad_value ("no package summary specified");
-    else if (m.url.empty ())
-      bad_value ("no project url specified");
-    else if (m.email.empty ())
-      bad_value ("no project email specified");
     else if (m.license_alternatives.empty ())
       bad_value ("no project license specified");
 
@@ -1423,7 +1419,9 @@ namespace bpkg
         s.next ("changes", c.text);
     }
 
-    s.next ("url", serializer::merge_comment (url, url.comment));
+    if (url)
+      s.next ("url", serializer::merge_comment (*url, url->comment));
+
     if (doc_url)
       s.next ("doc-url",
               serializer::merge_comment (*doc_url, doc_url->comment));
@@ -1437,7 +1435,8 @@ namespace bpkg
               serializer::merge_comment (*package_url,
                                          package_url->comment));
 
-    s.next ("email", serializer::merge_comment (email, email.comment));
+    if (email)
+      s.next ("email", serializer::merge_comment (*email, email->comment));
 
     if (package_email)
       s.next ("package-email",
