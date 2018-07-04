@@ -2070,8 +2070,7 @@ namespace bpkg
     case repository_protocol::file:
       {
         return local &&
-          dir_exists (path_cast<dir_path> (*url.path) / dir_path (".git"),
-                      false)
+          dir_exists (path_cast<dir_path> (*url.path) / dir_path (".git"))
           ? repository_type::git
           : repository_type::pkg;
       }
