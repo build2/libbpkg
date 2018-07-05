@@ -293,7 +293,10 @@
       location: http://example.org/math.git#master
       role: prerequisite
       :
-      location: ../stable.git
+      location: ../stable
+      role: complement
+      :
+      location: ../unstable.git
       role: complement
       :
       location: git://example.org/foo#master
@@ -311,8 +314,12 @@
       type: git
       role: prerequisite
       :
-      location: ../stable.git
+      location: ../stable
       type: pkg
+      role: complement
+      :
+      location: ../unstable.git
+      type: git
       role: complement
       :
       location: git://example.org/foo#master
@@ -344,6 +351,10 @@
       type: git
       role: complement
       :
+      location: ../unstable.git
+      type: git
+      role: complement
+      :
       url: http://cppget.org
       email: repoman@cppget.org; General mailing list.
       summary: General C++ package repository
@@ -361,6 +372,11 @@
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
       :
       location: ../stable.git#stable
+      type: git
+      role: complement
+      fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
+      :
+      location: ../unstable.git
       type: git
       role: complement
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
@@ -439,20 +455,18 @@
 
     : prerequisite-with-fragment
     :
-    $* -dr <<EOI >>EOO
+    $* -dr <<EOI 2>>EOE != 0
       : 1
       location: ../stable.git#stable
-      role: complement
-      :
-      EOI
-      : 1
-      location: ../stable.git
       type: dir
       role: complement
       :
-      EOO
+      EOI
+      stdin:2:11: error: unexpected fragment for dir repository
+      EOE
   }
 }
+
 
 : signature
 :

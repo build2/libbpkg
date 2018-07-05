@@ -616,11 +616,12 @@ namespace bpkg
   //
   // 1. If scheme is git then git.
   //
-  // 2. If scheme is http(s), then check if path has the .git extension,
-  //    then git, otherwise pkg.
+  // 2. If path has the .git extension then git.
   //
-  // 3. If local (which will normally be without the .git extension), check
-  //    if directory contains the .git/ subdirectory then git, otherwise pkg.
+  // 3. If scheme is http(s) then pkg.
+  //
+  // 4. If local, check if directory contains the .git/ subdirectory then
+  //    git, otherwise pkg.
   //
   // Can throw system_error in the later case.
   //

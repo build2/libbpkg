@@ -2062,13 +2062,14 @@ namespace bpkg
       }
     case repository_protocol::http:
     case repository_protocol::https:
-      {
-        return url.path->extension () == "git"
-          ? repository_type::git
-          : repository_type::pkg;
-      }
     case repository_protocol::file:
       {
+        if (url.path->extension () == "git")
+          return repository_type::git;
+
+        if (url.scheme != repository_protocol::file) // HTTP(S)?
+          return repository_type::pkg;
+
         return local &&
           dir_exists (path_cast<dir_path> (*url.path) / dir_path (".git"))
           ? repository_type::git
@@ -2751,25 +2752,8 @@ namespace bpkg
     {
       repository_url u (move (location->value));
 
-      // If the prerequisite repository type is not specified explicitly then
-      // we consider it to be the base repository type for the relative
-      // location or guess it otherwise.
-      //
       if (!type)
-      {
-        if (u.scheme == repository_protocol::file && u.path->relative ())
-        {
-          type = base_type;
-
-          // Strip the URL fragment if the base repository type is dir (see
-          // the Repository Manifest documentation for the gory details).
-          //
-          if (base_type == repository_type::dir)
-            u.fragment = nullopt;
-        }
-        else
-          type = guess_type (u, false); // Can't throw.
-      }
+        type = guess_type (u, false); // Can't throw.
 
       // Call prerequisite repository location constructor, do not amend
       // relative path.
