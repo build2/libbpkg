@@ -1,0 +1,6 @@
+: 1
+summary: build2 package dependency manager library repository
+
+:
+role: prerequisite
+location: ../libbutl.git##HEAD
