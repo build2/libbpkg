@@ -1923,10 +1923,12 @@ namespace bpkg
 
       return scheme_type::file;
     }
-    // Consider URL as a path if the URL parsing failed.
+    // Consider non-empty URL as a path if the URL parsing failed. If the URL
+    // is empty then leave the basic_url ctor to throw.
     //
     else if (scheme.empty ())
     {
+      if (!url.empty ())
       try
       {
         size_t p (url.find ('#'));

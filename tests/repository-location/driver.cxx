@@ -231,7 +231,7 @@ namespace bpkg
     // Test valid locations.
     //
     {
-      repository_location l (loc (""));
+      repository_location l (repository_url (), repository_type::pkg);
       assert (l.string ().empty ());
       assert (l.canonical_name ().empty ());
     }

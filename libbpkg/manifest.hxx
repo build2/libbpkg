@@ -584,6 +584,9 @@ namespace bpkg
   //   it is absolute and the authority or fragment is present. Otherwise
   //   represent it as a local path, appending the fragment if present.
   //
+  // - repository_url(string) ctor throws invalid_argument exception for an
+  //   empty string.
+  //
   using repository_url = butl::basic_url<repository_protocol,
                                          repository_url_traits>;
 
