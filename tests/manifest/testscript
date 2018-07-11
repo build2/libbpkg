@@ -97,6 +97,7 @@
       :
       name: libfoo
       version: 1.2.3+2
+      project: foo
       priority: high; Due to critical bug fix.
       summary: Modern XML parser
       license: LGPLv2, MIT; Both required.

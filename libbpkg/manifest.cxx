@@ -993,6 +993,20 @@ namespace bpkg
         if (m.version.release && m.version.release->empty ())
           bad_value ("invalid package version release");
       }
+      else if (n == "project")
+      {
+        if (m.project)
+          bad_name ("package project redefinition");
+
+        try
+        {
+          m.project = package_name (move (v));
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (string ("invalid project name: ") + e.what ());
+        }
+      }
       else if (n == "summary")
       {
         if (!m.summary.empty ())
@@ -1398,6 +1412,9 @@ namespace bpkg
 
     s.next ("name", name.string ());
     s.next ("version", version.string ());
+
+    if (project)
+      s.next ("project", project->string ());
 
     if (priority)
     {

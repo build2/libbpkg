@@ -388,6 +388,7 @@ namespace bpkg
 
     package_name name;
     version_type version;
+    butl::optional<package_name> project;
     butl::optional<priority_type> priority;
     std::string summary;
     std::vector<licenses> license_alternatives;
@@ -411,6 +412,9 @@ namespace bpkg
     butl::optional<butl::path> location;
     butl::optional<std::string> sha256sum;
     butl::optional<std::string> fragment;
+
+    const package_name&
+    effective_project () const noexcept {return project ? *project : name;}
 
   public:
     package_manifest () = default; // VC export.
