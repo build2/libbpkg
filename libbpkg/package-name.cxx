@@ -7,9 +7,11 @@
 #include <string>
 #include <vector>
 #include <utility>   // move()
-#include <algorithm> // find()
+#include <iterator>  // back_inserter
+#include <algorithm> // find(), transform()
 #include <stdexcept> // invalid_argument
 
+#include <libbutl/path.mxx>    // path::traits
 #include <libbutl/utility.mxx> // alpha(), alnum()
 
 using namespace std;
@@ -55,5 +57,38 @@ namespace bpkg
         "illegal last character (must be alphabetic, digit, or plus)");
 
     value_ = move (nm);
+  }
+
+  string package_name::
+  base () const
+  {
+    using std::string;
+
+    size_t p (path::traits::find_extension (value_));
+    return string (value_, 0, p);
+  }
+
+  string package_name::
+  extension () const
+  {
+    using std::string;
+
+    size_t p (path::traits::find_extension (value_));
+    return p != string::npos ? string (value_, p + 1) : string ();
+  }
+
+  string package_name::
+  variable () const
+  {
+    using std::string;
+
+    auto sanitize = [] (char c)
+    {
+      return (c == '-' || c == '+' || c == '.') ? '_' : c;
+    };
+
+    string r;
+    transform (value_.begin (), value_.end (), back_inserter (r), sanitize);
+    return r;
   }
 }

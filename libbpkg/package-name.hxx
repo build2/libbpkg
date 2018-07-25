@@ -53,6 +53,22 @@ namespace bpkg
     std::string
     string () && {std::string r; r.swap (this->value_); return r;}
 
+    // Package name base and extension (without the dot). If there is no
+    // extension, then the base name is the same as the full name and the
+    // returned extension is empty.
+    //
+    std::string
+    base () const;
+
+    std::string
+    extension () const;
+
+    // Package name sanitized to a canonical variable name. Specifically,
+    // '.', '-', and '+' are replaced with '_'.
+    //
+    std::string
+    variable () const;
+
     // Compare ignoring case. Note that a string is not checked to be a valid
     // package name.
     //
