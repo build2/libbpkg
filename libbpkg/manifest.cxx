@@ -1391,8 +1391,10 @@ namespace bpkg
                      "single package manifest expected");
   }
 
-  void package_manifest::
-  serialize (serializer& s) const
+  static void
+  serialize_package_manifest (manifest_serializer& s,
+                              const package_manifest& m,
+                              bool header_only)
   {
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: version release is not empty,
@@ -1407,113 +1409,129 @@ namespace bpkg
     auto bad_value ([&s](const string& d) {
         throw serialization (s.name (), d);});
 
-    if (name.empty ())
+    if (m.name.empty ())
       bad_value ("empty package name");
 
-    s.next ("name", name.string ());
-    s.next ("version", version.string ());
+    s.next ("name", m.name.string ());
+    s.next ("version", m.version.string ());
 
-    if (project)
-      s.next ("project", project->string ());
+    if (m.project)
+      s.next ("project", m.project->string ());
 
-    if (priority)
+    if (m.priority)
     {
-      size_t v (*priority);
+      size_t v (*m.priority);
       assert (v < priority_names.size ());
 
       s.next ("priority",
               serializer::merge_comment (priority_names[v],
-                                         priority->comment));
+                                         m.priority->comment));
     }
 
-    s.next ("summary", summary);
+    s.next ("summary", m.summary);
 
-    for (const auto& la: license_alternatives)
+    for (const auto& la: m.license_alternatives)
       s.next ("license",
               serializer::merge_comment (concatenate (la), la.comment));
 
-    if (!tags.empty ())
-      s.next ("tags", concatenate (tags));
-
-    if (description)
+    if (!header_only)
     {
-      if (description->file)
-        s.next ("description-file",
-                serializer::merge_comment (description->path.string (),
-                                           description->comment));
-      else
-        s.next ("description", description->text);
+      if (!m.tags.empty ())
+        s.next ("tags", concatenate (m.tags));
+
+      if (m.description)
+      {
+        if (m.description->file)
+          s.next ("description-file",
+                  serializer::merge_comment (m.description->path.string (),
+                                             m.description->comment));
+        else
+          s.next ("description", m.description->text);
+      }
+
+      for (const auto& c: m.changes)
+      {
+        if (c.file)
+          s.next ("changes-file",
+                  serializer::merge_comment (c.path.string (), c.comment));
+        else
+          s.next ("changes", c.text);
+      }
+
+      if (m.url)
+        s.next ("url", serializer::merge_comment (*m.url, m.url->comment));
+
+      if (m.doc_url)
+        s.next ("doc-url",
+                serializer::merge_comment (*m.doc_url, m.doc_url->comment));
+
+      if (m.src_url)
+        s.next ("src-url",
+                serializer::merge_comment (*m.src_url, m.src_url->comment));
+
+      if (m.package_url)
+        s.next ("package-url",
+                serializer::merge_comment (*m.package_url,
+                                           m.package_url->comment));
+
+      if (m.email)
+        s.next ("email",
+                serializer::merge_comment (*m.email, m.email->comment));
+
+      if (m.package_email)
+        s.next ("package-email",
+                serializer::merge_comment (*m.package_email,
+                                           m.package_email->comment));
+
+      if (m.build_email)
+        s.next ("build-email",
+                serializer::merge_comment (*m.build_email,
+                                           m.build_email->comment));
+
+      for (const auto& d: m.dependencies)
+        s.next ("depends",
+                (d.conditional
+                 ? (d.buildtime ? "?* " : "? ")
+                 : (d.buildtime ? "* " : "")) +
+                serializer::merge_comment (concatenate (d, " | "), d.comment));
+
+      for (const auto& r: m.requirements)
+        s.next ("requires",
+                (r.conditional
+                 ? (r.buildtime ? "?* " : "? ")
+                 : (r.buildtime ? "* " : "")) +
+                serializer::merge_comment (concatenate (r, " | "), r.comment));
+
+      for (const auto& c: m.build_constraints)
+        s.next (c.exclusion ? "build-exclude" : "build-include",
+                serializer::merge_comment (!c.target
+                                           ? c.config
+                                           : c.config + "/" + *c.target,
+                                           c.comment));
+
+      if (m.location)
+        s.next ("location", m.location->posix_string ());
+
+      if (m.sha256sum)
+        s.next ("sha256sum", *m.sha256sum);
+
+      if (m.fragment)
+        s.next ("fragment", *m.fragment);
     }
-
-    for (const auto& c: changes)
-    {
-      if (c.file)
-        s.next ("changes-file",
-                serializer::merge_comment (c.path.string (), c.comment));
-      else
-        s.next ("changes", c.text);
-    }
-
-    if (url)
-      s.next ("url", serializer::merge_comment (*url, url->comment));
-
-    if (doc_url)
-      s.next ("doc-url",
-              serializer::merge_comment (*doc_url, doc_url->comment));
-
-    if (src_url)
-      s.next ("src-url",
-              serializer::merge_comment (*src_url, src_url->comment));
-
-    if (package_url)
-      s.next ("package-url",
-              serializer::merge_comment (*package_url,
-                                         package_url->comment));
-
-    if (email)
-      s.next ("email", serializer::merge_comment (*email, email->comment));
-
-    if (package_email)
-      s.next ("package-email",
-              serializer::merge_comment (*package_email,
-                                         package_email->comment));
-
-    if (build_email)
-      s.next ("build-email",
-              serializer::merge_comment (*build_email,
-                                         build_email->comment));
-
-    for (const auto& d: dependencies)
-      s.next ("depends",
-              (d.conditional
-               ? (d.buildtime ? "?* " : "? ")
-               : (d.buildtime ? "* " : "")) +
-              serializer::merge_comment (concatenate (d, " | "), d.comment));
-
-    for (const auto& r: requirements)
-      s.next ("requires",
-              (r.conditional
-               ? (r.buildtime ? "?* " : "? ")
-               : (r.buildtime ? "* " : "")) +
-              serializer::merge_comment (concatenate (r, " | "), r.comment));
-
-    for (const auto& c: build_constraints)
-      s.next (c.exclusion ? "build-exclude" : "build-include",
-              serializer::merge_comment (!c.target
-                                         ? c.config
-                                         : c.config + "/" + *c.target,
-                                         c.comment));
-
-    if (location)
-      s.next ("location", location->posix_string ());
-
-    if (sha256sum)
-      s.next ("sha256sum", *sha256sum);
-
-    if (fragment)
-      s.next ("fragment", *fragment);
 
     s.next ("", ""); // End of manifest.
+  }
+
+  void package_manifest::
+  serialize (serializer& s) const
+  {
+    serialize_package_manifest (s, *this, false);
+  }
+
+  void package_manifest::
+  serialize_header (serializer& s) const
+  {
+    serialize_package_manifest (s, *this, true);
   }
 
   // Parse the directory manifest that may contain the only (and required)

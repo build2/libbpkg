@@ -422,6 +422,11 @@ namespace bpkg
 
     void
     serialize (butl::manifest_serializer&) const;
+
+    // Serialize only package manifest header values.
+    //
+    void
+    serialize_header (butl::manifest_serializer&) const;
   };
 
   // Create individual package manifest.
