@@ -893,8 +893,8 @@ namespace bpkg
   static void
   parse_package_manifest (parser& p,
                           name_value nv,
-                          bool il,
                           bool iu,
+                          package_manifest_flags fl,
                           package_manifest& m)
   {
     auto bad_name ([&p, &nv](const string& d) {
@@ -952,6 +952,11 @@ namespace bpkg
         bad_value (string ("empty ") + what + " email");
 
       return email (move (p.first), move (p.second));
+    };
+
+    auto flag = [fl] (package_manifest_flags f)
+    {
+      return (fl & f) != package_manifest_flags::none;
     };
 
     for (nv = p.next (); !nv.empty (); nv = p.next ())
@@ -1052,7 +1057,7 @@ namespace bpkg
       }
       else if (n == "description-file")
       {
-        if (il)
+        if (flag (package_manifest_flags::forbid_file))
           bad_name ("package description-file not allowed");
 
         if (m.description)
@@ -1084,7 +1089,7 @@ namespace bpkg
       }
       else if (n == "changes-file")
       {
-        if (il)
+        if (flag (package_manifest_flags::forbid_file))
           bad_name ("package changes-file not allowed");
 
         auto vc (parser::split_comment (v));
@@ -1294,7 +1299,7 @@ namespace bpkg
       }
       else if (n == "location")
       {
-        if (!il)
+        if (flag (package_manifest_flags::forbid_location))
           bad_name ("package location not allowed");
 
         if (m.location)
@@ -1319,7 +1324,7 @@ namespace bpkg
       }
       else if (n == "sha256sum")
       {
-        if (!il)
+        if (flag (package_manifest_flags::forbid_sha256sum))
           bad_name ("package sha256sum not allowed");
 
         if (m.sha256sum)
@@ -1332,7 +1337,7 @@ namespace bpkg
       }
       else if (n == "fragment")
       {
-        if (!il)
+        if (flag (package_manifest_flags::forbid_fragment))
           bad_name ("package repository fragment not allowed");
 
         if (m.fragment)
@@ -1358,30 +1363,30 @@ namespace bpkg
     else if (m.license_alternatives.empty ())
       bad_value ("no project license specified");
 
-    if (il)
-    {
-      if (!m.location)
-        bad_name ("no package location specified");
+    if (!m.location && flag (package_manifest_flags::require_location))
+      bad_name ("no package location specified");
 
-      if (!m.sha256sum)
-        bad_name ("no package sha256sum specified");
-    }
+    if (!m.sha256sum && flag (package_manifest_flags::require_sha256sum))
+      bad_name ("no package sha256sum specified");
   }
 
   package_manifest
   pkg_package_manifest (parser& p, name_value nv, bool iu)
   {
-    package_manifest r;
-    parse_package_manifest (p, nv, true, iu, r);
-    return r;
+    return package_manifest (p,
+                             move (nv),
+                             iu,
+                             package_manifest_flags::forbid_file      |
+                             package_manifest_flags::require_location |
+                             package_manifest_flags::forbid_fragment);
   }
 
   // package_manifest
   //
   package_manifest::
-  package_manifest (manifest_parser& p, bool iu)
+  package_manifest (manifest_parser& p, bool iu, package_manifest_flags fl)
   {
-    parse_package_manifest (p, p.next (), false, iu, *this);
+    parse_package_manifest (p, p.next (), iu, fl, *this);
 
     // Make sure this is the end.
     //
@@ -1389,6 +1394,15 @@ namespace bpkg
     if (!nv.empty ())
       throw parsing (p.name (), nv.name_line, nv.name_column,
                      "single package manifest expected");
+  }
+
+  package_manifest::
+  package_manifest (manifest_parser& p,
+                    name_value nv,
+                    bool iu,
+                    package_manifest_flags fl)
+  {
+    parse_package_manifest (p, move (nv), iu, fl, *this);
   }
 
   static void

@@ -378,6 +378,56 @@ namespace bpkg
           comment (std::move (c)) {}
   };
 
+  // Package manifest value forbid/require flags.
+  //
+  // Some package manifest values can be forbidden or required for certain
+  // repository types and in specific contexts (for example, when parsing an
+  // individual manifest, a manifest list, etc).
+  //
+  // Also note that, naturally, the forbid_* and require_* flags are mutually
+  // exclusive for the same value.
+  //
+  enum class package_manifest_flags: std::uint16_t
+  {
+    none              =  0x0,
+
+    forbid_file       =  0x1, // Forbid *-file manifest values.
+    forbid_location   =  0x2,
+    forbid_sha256sum  =  0x4,
+    forbid_fragment   =  0x8,
+
+    require_location  = 0x10,
+    require_sha256sum = 0x20
+  };
+
+  inline package_manifest_flags
+  operator&= (package_manifest_flags& x, package_manifest_flags y)
+  {
+    return x = static_cast<package_manifest_flags> (
+      static_cast<std::uint16_t> (x) &
+      static_cast<std::uint16_t> (y));
+  }
+
+  inline package_manifest_flags
+  operator|= (package_manifest_flags& x, package_manifest_flags y)
+  {
+    return x = static_cast<package_manifest_flags> (
+      static_cast<std::uint16_t> (x) |
+      static_cast<std::uint16_t> (y));
+  }
+
+  inline package_manifest_flags
+  operator& (package_manifest_flags x, package_manifest_flags y)
+  {
+    return x &= y;
+  }
+
+  inline package_manifest_flags
+  operator| (package_manifest_flags x, package_manifest_flags y)
+  {
+    return x |= y;
+  }
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -418,7 +468,25 @@ namespace bpkg
 
   public:
     package_manifest () = default; // VC export.
-    package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
+
+    // Create individual manifest.
+    //
+    // The default package_manifest_flags value corresponds to a valid
+    // individual package manifest.
+    //
+    package_manifest (butl::manifest_parser&,
+                      bool ignore_unknown = false,
+                      package_manifest_flags =
+                        package_manifest_flags::forbid_location  |
+                        package_manifest_flags::forbid_sha256sum |
+                        package_manifest_flags::forbid_fragment);
+
+    // Create an element of the list manifest.
+    //
+    package_manifest (butl::manifest_parser&,
+                      butl::manifest_name_value start,
+                      bool ignore_unknown,
+                      package_manifest_flags);
 
     void
     serialize (butl::manifest_serializer&) const;
