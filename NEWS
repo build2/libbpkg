@@ -1,3 +1,16 @@
+Version 0.8.0
+
+  * Support for new 'project' package manifest value.
+
+  * Make package manifest 'url' and 'email' values optional.
+
+  * Make default versioning epoch 1 instead of 0.
+
+  * Guess the repository type for relative locations and consider the git type
+    for all locations with the .git extension.
+
+  * New package_name::{base,extension,variable}() functions.
+
 Version 0.7.0
 
   * Add support for git repository locations.
