@@ -619,13 +619,14 @@ namespace bpkg
     using scheme_type    = repository_protocol;
     using authority_type = butl::basic_url_authority<string_type>;
 
-    static scheme_type
+    static butl::optional<scheme_type>
     translate_scheme (const string_type&,
                       string_type&&,
                       butl::optional<authority_type>&,
                       butl::optional<path_type>&,
                       butl::optional<string_type>&,
-                      butl::optional<string_type>&);
+                      butl::optional<string_type>&,
+                      bool&);
 
     static string_type
     translate_scheme (string_type&,
@@ -633,7 +634,8 @@ namespace bpkg
                       const butl::optional<authority_type>&,
                       const butl::optional<path_type>&,
                       const butl::optional<string_type>&,
-                      const butl::optional<string_type>&);
+                      const butl::optional<string_type>&,
+                      bool);
 
     static path_type
     translate_path (string_type&&);
@@ -738,7 +740,6 @@ namespace bpkg
     //
     // - may append slash in repository_location ctor
     //
-    explicit
     repository_location (repository_url, repository_type);
 
     // Create a potentially relative pkg repository location. If base is not

@@ -645,6 +645,14 @@ namespace bpkg
       assert (l2.canonical_name () == "git:example.com/test#master");
       assert (l2.proto () == proto::https);
     }
+
+    {
+      repository_location l (loc ("http:repo/1/path", loc ()));
+      assert (l.string () == "http:repo/1/path");
+      assert (l.canonical_name ().empty ());
+      assert (l.proto () == proto::file);
+    }
+
 #ifndef _WIN32
     {
       repository_location l1 (loc ("/var/r1/1/misc"));

@@ -1860,18 +1860,56 @@ namespace bpkg
 
   // repository_url_traits
   //
-  repository_url_traits::scheme_type repository_url_traits::
+  optional<repository_url_traits::scheme_type> repository_url_traits::
   translate_scheme (const string_type&         url,
                     string_type&&              scheme,
                     optional<authority_type>&  authority,
                     optional<path_type>&       path,
                     optional<string_type>&     query,
-                    optional<string_type>&     fragment)
+                    optional<string_type>&     fragment,
+                    bool&                      rootless)
   {
     auto bad_url = [] (const char* d = "invalid URL")
     {
       throw invalid_argument (d);
     };
+
+    // Consider non-empty URL as a path if the URL parsing failed. If the URL
+    // is empty then leave the basic_url ctor to throw.
+    //
+    if (scheme.empty ())
+    {
+      if (!url.empty ())
+      try
+      {
+        size_t p (url.find ('#'));
+
+        if (p != string::npos)
+        {
+          path = path_type (url.substr (0, p)).normalize ();
+          fragment = url.substr (p + 1);
+        }
+        else
+          path = path_type (url).normalize ();
+
+        rootless = false;
+        return scheme_type::file;
+      }
+      catch (const invalid_path&)
+      {
+        // If this is not a valid path either, then let's consider the
+        // argument a broken URL, and leave the basic_url ctor to throw.
+        //
+      }
+
+      return nullopt;
+    }
+
+    if (!authority && !path && !query)
+      bad_url ("empty URL");
+
+    if (rootless)
+      bad_url ("rootless path");
 
     auto translate_remote = [&authority, &path, &bad_url] ()
     {
@@ -1972,33 +2010,6 @@ namespace bpkg
 
       return scheme_type::file;
     }
-    // Consider non-empty URL as a path if the URL parsing failed. If the URL
-    // is empty then leave the basic_url ctor to throw.
-    //
-    else if (scheme.empty ())
-    {
-      if (!url.empty ())
-      try
-      {
-        size_t p (url.find ('#'));
-
-        if (p != string::npos)
-        {
-          path = path_type (url.substr (0, p)).normalize ();
-          fragment = url.substr (p + 1); // Note: set after path normalization.
-        }
-        else
-          path = path_type (url).normalize ();
-      }
-      catch (const invalid_path&)
-      {
-        // If this is not a valid path either, then let's consider the argument
-        // a broken URL, and leave the basic_url ctor to throw.
-        //
-      }
-
-      return scheme_type::file;
-    }
     else
       throw invalid_argument ("unknown scheme");
   }
@@ -2009,7 +2020,8 @@ namespace bpkg
                     const optional<authority_type>&  authority,
                     const optional<path_type>&       path,
                     const optional<string_type>&     /*query*/,
-                    const optional<string_type>&     fragment)
+                    const optional<string_type>&     fragment,
+                    bool                             /*rootless*/)
   {
     switch (scheme)
     {
@@ -2046,7 +2058,7 @@ namespace bpkg
   {
     try
     {
-      return path_type (move (path));
+      return path_type (butl::url::decode (path));
     }
     catch (const invalid_path&)
     {
@@ -2057,24 +2069,28 @@ namespace bpkg
    repository_url_traits::string_type repository_url_traits::
    translate_path (const path_type& path)
    {
+     using butl::url;
+
      // If the path is absolute then this is a local URL object and the file://
      // URL notation is being produced. Thus, on POSIX we need to make the path
      // relative (to the authority "root"). On Windows the path should stay
      // absolute but the directory separators must be converted to the POSIX
      // ones.
      //
+     string r;
      if (path.absolute ())
      {
 #ifndef _WIN32
-       return path.leaf (dir_path ("/")).string ();
+       r = path.leaf (dir_path ("/")).string ();
 #else
-       string r (path.string ());
+       r = path.string ();
        replace (r.begin (), r.end (), '\\', '/');
-       return r;
 #endif
      }
+     else
+       r = path.posix_string ();
 
-     return path.posix_string ();
+     return url::encode (r, [] (char& c) {return !url::path_char (c);});
    }
 
   // repository_type
