@@ -1150,7 +1150,21 @@ namespace bpkg
         if (m.build_email)
           bad_name ("build email redefinition");
 
-        m.build_email = parse_email (v, "build", true);
+        m.build_email = parse_email (v, "build", true /* empty */);
+      }
+      else if (n == "build-warning-email")
+      {
+        if (m.build_warning_email)
+          bad_name ("build warning email redefinition");
+
+        m.build_warning_email = parse_email (v, "build warning");
+      }
+      else if (n == "build-error-email")
+      {
+        if (m.build_error_email)
+          bad_name ("build error email redefinition");
+
+        m.build_error_email = parse_email (v, "build error");
       }
       else if (n == "priority")
       {
@@ -1501,6 +1515,16 @@ namespace bpkg
         s.next ("build-email",
                 serializer::merge_comment (*m.build_email,
                                            m.build_email->comment));
+
+      if (m.build_warning_email)
+        s.next ("build-warning-email",
+                serializer::merge_comment (*m.build_warning_email,
+                                           m.build_warning_email->comment));
+
+      if (m.build_error_email)
+        s.next ("build-error-email",
+                serializer::merge_comment (*m.build_error_email,
+                                           m.build_error_email->comment));
 
       for (const auto& d: m.dependencies)
         s.next ("depends",

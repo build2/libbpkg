@@ -115,6 +115,7 @@
       package-email: libfoo-1.2.3+2@example.org; Bug reports are welcome.
       build-email: libfoo-builds@example.org; Mailing list for bbot notification\
        emails.
+      build-warning-email: libfoo-issues@example.org; Email for libfoo issues.
       depends: libz ~1.0.0 | libz ^2.0.0
       depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
       depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
@@ -151,6 +152,7 @@
       license: LGPLv2
       url: http://www.example.org/projects/libbar/
       email: libbaz-users@example.org
+      build-error-email: libbaz-issues@example.org; Email for libbaz issues.
       location: libbaz/libbaz-+2-3.4A.5+3.tar.gz
       sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF

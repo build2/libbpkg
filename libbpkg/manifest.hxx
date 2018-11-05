@@ -262,6 +262,8 @@ namespace bpkg
   // email
   // package-email
   // build-email
+  // build-warning-email
+  // build-error-email
   //
   class email: public std::string
   {
@@ -452,6 +454,8 @@ namespace bpkg
     butl::optional<email_type> email;
     butl::optional<email_type> package_email;
     butl::optional<email_type> build_email;
+    butl::optional<email_type> build_warning_email;
+    butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
     std::vector<build_constraint> build_constraints;
