@@ -1965,7 +1965,7 @@ namespace bpkg
         assert (false); // Can't be here as the path is relative.
       }
 
-      // URL shouldn't go past the root directory of a WEB server.
+      // URL shouldn't go past the root directory of a server.
       //
       if (!path->empty () && *path->begin () == "..")
         bad_url ("invalid path");
@@ -1985,6 +1985,19 @@ namespace bpkg
     {
       translate_remote ();
       return scheme_type::git;
+    }
+    else if (casecmp (scheme, "ssh") == 0)
+    {
+      translate_remote ();
+
+      // Should we also support the scp-like syntax (see git-clone(1) man page
+      // for details)? On the one hand, it would complicate things quite a bit
+      // and also clashes with Windows path representation (maybe we could
+      // forbid one character long hostnames for this syntax). On the other,
+      // it seems to be widespread (used by GitHub). Let's postpone it until
+      // requested by users.
+      //
+      return scheme_type::ssh;
     }
     else if (casecmp (scheme, "file") == 0)
     {
@@ -2052,6 +2065,7 @@ namespace bpkg
     case scheme_type::http:  return "http";
     case scheme_type::https: return "https";
     case scheme_type::git:   return "git";
+    case scheme_type::ssh:   return "ssh";
     case scheme_type::file:
       {
         assert (path);
@@ -2153,12 +2167,13 @@ namespace bpkg
       }
     case repository_protocol::http:
     case repository_protocol::https:
+    case repository_protocol::ssh:
     case repository_protocol::file:
       {
         if (url.path->extension () == "git")
           return repository_type::git;
 
-        if (url.scheme != repository_protocol::file) // HTTP(S)?
+        if (url.scheme != repository_protocol::file) // HTTP(S) or SSH?
           return repository_type::pkg;
 
         return local &&
@@ -2316,7 +2331,8 @@ namespace bpkg
     {
     case repository_type::pkg:
       {
-        if (url_.scheme == repository_protocol::git)
+        if (url_.scheme == repository_protocol::git ||
+            url_.scheme == repository_protocol::ssh)
           throw invalid_argument ("unsupported scheme for pkg repository");
 
         if (url_.fragment)
@@ -2376,7 +2392,7 @@ namespace bpkg
 
       // For canonical name and for the HTTP protocol, treat a.com and
       // a.com:80 as the same name. The same rule applies to the HTTPS (port
-      // 443) and GIT (port 9418) protocols.
+      // 443), GIT (port 9418), and SSH (port 22) protocols.
       //
       uint16_t port (url_.authority->port);
       if (port != 0)
@@ -2388,6 +2404,7 @@ namespace bpkg
         case repository_protocol::http:  def_port =   80; break;
         case repository_protocol::https: def_port =  443; break;
         case repository_protocol::git:   def_port = 9418; break;
+        case repository_protocol::ssh:   def_port =   22; break;
         case repository_protocol::file:  assert (false); // Can't be here.
         }
 

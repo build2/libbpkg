@@ -480,6 +480,14 @@ namespace bpkg
       assert (l.type () == repository_type::git);
     }
     {
+      repository_location l (loc ("ssh://example.com/test.git#master",
+                                  repository_type::git));
+      assert (l.string () == "ssh://example.com/test.git#master");
+      assert (l.canonical_name () == "git:example.com/test#master");
+      assert (l.proto () == proto::ssh);
+      assert (l.type () == repository_type::git);
+    }
+    {
       repository_location l (loc ("http://example.com/test.git#master",
                                   repository_type::git));
       assert (l.string () == "http://example.com/test.git#master");

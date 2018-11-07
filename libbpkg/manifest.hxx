@@ -613,7 +613,7 @@ namespace bpkg
 
   // Traits class for the repository URL object.
   //
-  enum class repository_protocol {file, http, https, git};
+  enum class repository_protocol {file, http, https, git, ssh};
 
   struct LIBBPKG_EXPORT repository_url_traits
   {
@@ -704,7 +704,7 @@ namespace bpkg
   //
   // 2. If path has the .git extension then git.
   //
-  // 3. If scheme is http(s) then pkg.
+  // 3. If scheme is http(s) or ssh then pkg.
   //
   // 4. If local, check if directory contains the .git/ subdirectory then
   //    git, otherwise pkg.
