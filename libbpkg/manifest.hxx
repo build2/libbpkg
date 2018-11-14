@@ -698,7 +698,7 @@ namespace bpkg
     version_control
   };
 
-  // Guess the repository type for the URL:
+  // Guess the repository type from the URL:
   //
   // 1. If scheme is git then git.
   //
@@ -714,12 +714,61 @@ namespace bpkg
   LIBBPKG_EXPORT repository_type
   guess_type (const repository_url&, bool local);
 
+  // Repository URL that may have a repository type specified as part of its
+  // scheme in the [<type>'+']<protocol> form. For example:
+  //
+  // git+http://example.com/repo  (repository type + protocol)
+  // git://example.com/repo       (protocol only)
+  //
+  // If the substring preceding the '+' character is not a valid repository
+  // type or the part that follows doesn't conform to the repository URL
+  // notation, then the whole string is considered to be a repository URL.
+  // For example, for all of the following strings the repository URL is
+  // untyped (local) and relative:
+  //
+  // foo+http://example.com/repo  (invalid repository type)
+  // git+ftp://example.com/repo   (invalid repository protocol)
+  // git+file://example.com/repo  (invalid authority)
+  // git+c:/repo                  (not a URL notation)
+  //
+  // Note also that in quite a few manifests where we specify the location we
+  // also allow specifying the type as a separate value. While this may seem
+  // redundant (and it now is in a few cases, at least for the time being),
+  // keep in mind that for the local relative path the type cannot be
+  // specified as part of the URL (since its representation is a non-URL).
+  //
+  struct LIBBPKG_EXPORT typed_repository_url
+  {
+    repository_url url;
+    butl::optional<repository_type> type;
+
+    explicit
+    typed_repository_url (const std::string&);
+  };
+
   class LIBBPKG_EXPORT repository_location
   {
   public:
     // Create a special empty repository_location.
     //
     repository_location () = default;
+
+    // Create a remote or absolute repository location from a potentially
+    // typed repository URL (see above).
+    //
+    // If the type is not specified in the URL scheme then use the one passed
+    // as an argument or, if not present, guess it according to the specified
+    // local flag (see above). Throw std::invalid_argument if the argument
+    // doesn't represent a valid remote or absolute repository location or
+    // mismatching types are specified in the URL scheme and in the argument.
+    // Underlying OS errors (which may happen when guessing the type when the
+    // local flag is set) are reported by throwing std::system_error.
+    //
+    explicit
+    repository_location (
+      const std::string&,
+      const butl::optional<repository_type>& = butl::nullopt,
+      bool local = false);
 
     // Create remote, absolute or empty repository location making sure that
     // the URL matches the repository type. Throw std::invalid_argument if the
@@ -746,7 +795,7 @@ namespace bpkg
     //
     repository_location (repository_url, repository_type);
 
-    // Create a potentially relative pkg repository location. If base is not
+    // Create a potentially relative repository location. If base is not
     // empty, use it to complete the relative location to the remote/absolute
     // one. Throw std::invalid_argument if base is not empty but the location
     // is empty, base itself is relative, or the resulting completed location
@@ -830,7 +879,7 @@ namespace bpkg
       return repository_basis::archive;
     }
 
-    // URL of an empty location is empty.
+    // Note that the URL of an empty location is empty.
     //
     const repository_url&
     url () const
@@ -906,13 +955,14 @@ namespace bpkg
       return basis () == repository_basis::version_control;
     }
 
-    // String representation of an empty location is the empty string.
+    // Return an untyped URL if the correct type can be guessed just from
+    // the URL. Otherwise, return the typed URL.
+    //
+    // String representation is empty for an empty location and is always
+    // untyped for the relative location (which is a non-URL).
     //
     std::string
-    string () const
-    {
-      return url_.string ();
-    }
+    string () const;
 
   private:
     std::string canonical_name_;

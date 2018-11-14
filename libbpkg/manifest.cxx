@@ -14,6 +14,7 @@
 #include <algorithm> // find(), find_if_not(), find_first_of(), replace()
 #include <stdexcept> // invalid_argument
 
+#include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/base64.mxx>
 #include <libbutl/utility.mxx>             // casecmp(), lcase(), alpha(),
@@ -2147,18 +2148,29 @@ namespace bpkg
     return string ();
   }
 
-  repository_type
-  to_repository_type (const string& t)
+  inline static optional<repository_type>
+  parse_repository_type (const string& t)
   {
          if (t == "pkg") return repository_type::pkg;
     else if (t == "dir") return repository_type::dir;
     else if (t == "git") return repository_type::git;
-    else throw invalid_argument ("invalid repository type '" + t + "'");
+    else                 return nullopt;
+  }
+
+  repository_type
+  to_repository_type (const string& t)
+  {
+    if (optional<repository_type> r = parse_repository_type (t))
+      return *r;
+
+    throw invalid_argument ("invalid repository type '" + t + "'");
   }
 
   repository_type
   guess_type (const repository_url& url, bool local)
   {
+    assert (!url.empty ());
+
     switch (url.scheme)
     {
     case repository_protocol::git:
@@ -2185,6 +2197,49 @@ namespace bpkg
 
     assert (false); // Can't be here.
     return repository_type::pkg;
+  }
+
+  // typed_repository_url
+  //
+  typed_repository_url::
+  typed_repository_url (const string& s)
+  {
+    using traits = butl::url::traits;
+
+    if (traits::find (s) == 0) // Looks like a non-rootless URL?
+    {
+      size_t p (s.find_first_of ("+:"));
+
+      assert (p != string::npos); // At least the colon is present.
+
+      if (s[p] == '+')
+      {
+        string r (s, p + 1);
+        optional<repository_type> t;
+
+        if (traits::find (r) == 0 &&                        // URL notation?
+            (t = parse_repository_type (string (s, 0, p)))) // Valid type?
+        {
+          repository_url u (r);
+
+          // Only consider the URL to be typed if it is not a relative
+          // path. And yes, we may end up with a relative path for the URL
+          // string (e.g. ftp://example.com).
+          //
+          if (!(u.scheme == repository_protocol::file && u.path->relative ()))
+          {
+            type = move (t);
+            url  = move (u);
+          }
+        }
+      }
+    }
+
+    // Parse the whole string as a repository URL if we failed to extract the
+    // type.
+    //
+    if (url.empty ())
+      url = repository_url (s); // Throws if empty.
   }
 
   // repository_location
@@ -2298,6 +2353,24 @@ namespace bpkg
   {
     if (!empty () && relative ())
       throw invalid_argument ("relative filesystem path");
+  }
+
+  repository_location::
+  repository_location (const std::string& s,
+                       const optional<repository_type>& t,
+                       bool local)
+  {
+    typed_repository_url tu (s);
+
+    if (t && tu.type && t != tu.type)
+      throw invalid_argument (
+        "mismatching repository types: " + to_string (*t) + " specified, " +
+        to_string (*tu.type) + " in URL scheme");
+
+    *this = repository_location (move (tu.url),
+                                 tu.type ? *tu.type :
+                                 t       ? *t       :
+                                 guess_type (tu.url, local));
   }
 
   repository_location::
@@ -2550,6 +2623,35 @@ namespace bpkg
       canonical_name_ += '#';
       canonical_name_ += *url_.fragment;
     }
+  }
+
+  string repository_location::
+  string () const
+  {
+    if (empty ()    ||
+        relative () ||
+        guess_type (url_, false /* local */) == type_)
+      return url_.string ();
+
+    std::string r (to_string (type_) + '+');
+
+    // Enforce the 'file://' notation for local URLs, adding the empty
+    // authority (see manifest.hxx for details).
+    //
+    if (url_.scheme == repository_protocol::file &&
+        !url_.authority                          &&
+        !url_.fragment)
+    {
+      repository_url u (url_.scheme,
+                        repository_url::authority_type (),
+                        url_.path);
+
+      r += u.string ();
+    }
+    else
+      r += url_.string ();
+
+    return r;
   }
 
   // git_ref_filter
@@ -2942,6 +3044,9 @@ namespace bpkg
 
     s.next ("", "1"); // Start of manifest.
 
+    // Note that the location can be relative, so we also serialize the
+    // repository type.
+    //
     if (!location.empty ())
     {
       s.next ("location", location.string ());

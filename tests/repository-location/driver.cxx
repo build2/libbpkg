@@ -55,6 +55,26 @@ namespace bpkg
     }
   }
 
+  inline static repository_location
+  typed_loc (const string& u, optional<repository_type> t = nullopt)
+  {
+    return repository_location (u, t);
+  }
+
+  inline static bool
+  bad_typed_loc (const string& u, optional<repository_type> t = nullopt)
+  {
+    try
+    {
+      repository_location bl (u, t);
+      return false;
+    }
+    catch (const invalid_argument&)
+    {
+      return true;
+    }
+  }
+
   inline static bool
   bad_loc (const string& l,
            const repository_location& b,
@@ -207,6 +227,16 @@ namespace bpkg
     //
     assert (bad_loc ("http://example.com/dir", repository_type::dir));
 
+    // Invalid typed repository location.
+    //
+    assert (bad_typed_loc (""));                            // Empty.
+    assert (bad_typed_loc ("abc+http://example.com/repo")); // Relative.
+
+    assert (bad_typed_loc ("git+http://example.com/repo",   // Types mismatch.
+                           repository_type::pkg));
+
+    assert (bad_typed_loc ("http://example.com/repo"));     // Invalid for pkg.
+
     // Invalid web interface URL.
     //
     assert (bad_url (".a/..", loc ("http://stable.cppget.org/1/misc")));
@@ -313,28 +343,28 @@ namespace bpkg
     {
       repository_location l (loc ("file:/git/repo#branch",
                                   repository_type::git));
-      assert (l.string () == "file:/git/repo#branch");
+      assert (l.string () == "git+file:/git/repo#branch");
       assert (l.canonical_name () == "git:/git/repo#branch");
     }
     {
       repository_location l (loc ("/git/repo#branch", repository_type::git));
-      assert (l.string () == "file:/git/repo#branch");
+      assert (l.string () == "git+file:/git/repo#branch");
       assert (l.canonical_name () == "git:/git/repo#branch");
     }
     {
       repository_location l (loc ("file://localhost/", repository_type::git));
-      assert (l.string () == "/");
+      assert (l.string () == "git+file:///");
       assert (l.canonical_name () == "git:/");
     }
     {
       repository_location l (loc ("file://localhost/#master",
                                   repository_type::git));
-      assert (l.string () == "file:/#master");
+      assert (l.string () == "git+file:/#master");
       assert (l.canonical_name () == "git:/#master");
     }
     {
       repository_location l (loc ("/home/user/repo", repository_type::dir));
-      assert (l.string () == "/home/user/repo");
+      assert (l.string () == "dir+file:///home/user/repo");
       assert (l.canonical_name () == "dir:/home/user/repo");
     }
 #else
@@ -389,30 +419,30 @@ namespace bpkg
     {
       repository_location l (loc ("file:/c:/git/repo#branch",
                                   repository_type::git));
-      assert (l.string () == "file:/c:/git/repo#branch");
+      assert (l.string () == "git+file:/c:/git/repo#branch");
       assert (l.canonical_name () == "git:c:\\git\\repo#branch");
     }
     {
       repository_location l (loc ("c:\\git\\repo#branch",
                                   repository_type::git));
-      assert (l.string () == "file:/c:/git/repo#branch");
+      assert (l.string () == "git+file:/c:/git/repo#branch");
       assert (l.canonical_name () == "git:c:\\git\\repo#branch");
     }
     {
       repository_location l (loc ("file://localhost/c:/",
                                   repository_type::git));
-      assert (l.string () == "c:");
+      assert (l.string () == "git+file:///c:");
       assert (l.canonical_name () == "git:c:");
     }
     {
       repository_location l (loc ("file://localhost/c:/#master",
                                   repository_type::git));
-      assert (l.string () == "file:/c:#master");
+      assert (l.string () == "git+file:/c:#master");
       assert (l.canonical_name () == "git:c:#master");
     }
     {
       repository_location l (loc ("c:\\user\\repo", repository_type::dir));
-      assert (l.string () == "c:\\user\\repo");
+      assert (l.string () == "dir+file:///c:/user/repo");
       assert (l.canonical_name () == "dir:c:\\user\\repo");
     }
 #endif
@@ -506,7 +536,7 @@ namespace bpkg
     {
       repository_location l (loc ("http://git.example.com#master",
                                   repository_type::git));
-      assert (l.string () == "http://git.example.com/#master");
+      assert (l.string () == "git+http://git.example.com/#master");
       assert (l.canonical_name () == "git:example.com#master");
     }
     {
@@ -514,7 +544,7 @@ namespace bpkg
       *u.path /= path ("..");
 
       repository_location l (u, repository_type::git);
-      assert (l.string () == "http://git.example.com/#master");
+      assert (l.string () == "git+http://git.example.com/#master");
       assert (l.canonical_name () == "git:example.com#master");
     }
     {
@@ -583,6 +613,14 @@ namespace bpkg
     {
       repository_location l (loc ("http://stable.cppget.org/1/"));
       assert (l.canonical_name () == "pkg:stable.cppget.org");
+    }
+    {
+      repository_location l (typed_loc ("git+http://example.com/repo"));
+      assert (l.string () == "git+http://example.com/repo");
+    }
+    {
+      repository_location l (typed_loc ("http://example.com/repo.git"));
+      assert (l.string () == "http://example.com/repo.git");
     }
     {
       repository_location l1 (loc ("http://stable.cppget.org/1/misc"));
