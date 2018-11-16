@@ -2367,10 +2367,11 @@ namespace bpkg
         "mismatching repository types: " + to_string (*t) + " specified, " +
         to_string (*tu.type) + " in URL scheme");
 
-    *this = repository_location (move (tu.url),
-                                 tu.type ? *tu.type :
-                                 t       ? *t       :
-                                 guess_type (tu.url, local));
+    repository_type et (tu.type ? *tu.type :
+                        t       ? *t       :
+                        guess_type (tu.url, local));
+
+    *this = repository_location (move (tu.url), et);
   }
 
   repository_location::
