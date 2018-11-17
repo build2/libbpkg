@@ -430,6 +430,127 @@ namespace bpkg
     return x |= y;
   }
 
+  // Build configuration class term.
+  //
+  class LIBBPKG_EXPORT build_class_term
+  {
+  public:
+    char operation; // '+', '-' or '&'
+    bool inverted;  // Operation is followed by '!'.
+    bool simple;    // Name if true, expr otherwise.
+    union
+    {
+      std::string                   name; // Class name.
+      std::vector<build_class_term> expr; // Parenthesized expression.
+    };
+
+    // Create the simple term object (class name).
+    //
+    build_class_term (std::string n, char o, bool i)
+        : operation (o), inverted (i), simple (true), name (std::move (n)) {}
+
+    // Create the compound term object (parenthesized expression).
+    //
+    build_class_term (std::vector<build_class_term> e, char o, bool i)
+        : operation (o), inverted (i), simple (false), expr (std::move (e)) {}
+
+    // Required by VC for some reason.
+    //
+    build_class_term ()
+        : operation ('\0'), inverted (false), simple (true), name () {}
+
+    build_class_term (build_class_term&&);
+    build_class_term (const build_class_term&);
+    build_class_term& operator= (build_class_term&&);
+    build_class_term& operator= (const build_class_term&);
+
+    ~build_class_term ();
+
+    // Check that the specified string is a valid class name, that is
+    // non-empty, containing only alpha-numeric characters, '_', '+', '-', '.'
+    // (except as the first character for the last three). Return true if the
+    // name is reserved (starts with '_'). Throw std::invalid_argument if
+    // invalid.
+    //
+    static bool
+    validate_name (const std::string&);
+  };
+
+  // Build configuration class expression. Includes comment and optional
+  // underlying set.
+  //
+  class LIBBPKG_EXPORT build_class_expr
+  {
+  public:
+    std::string comment;
+    strings underlying_classes;
+    std::vector<build_class_term> expr;
+
+  public:
+    build_class_expr () = default;
+
+    // Parse the string representation of a space-separated build class
+    // expression, potentially prepended with a space-separated underlying
+    // build class set, in which case the expression can be empty. If both,
+    // underlying class set and expression are present, then they should be
+    // separated with the semicolon. Throw std::invalid_argument if the
+    // representation is invalid. Some expression examples:
+    //
+    // +gcc
+    // -msvc -clang
+    // default leagacy
+    // default leagacy :
+    // default leagacy : -msvc
+    // default leagacy : &gcc
+    //
+    build_class_expr (const std::string&, std::string comment);
+
+    // Create the expression object from a class list (c1, c2, ...) using the
+    // specified operation (+/-/&) according to the following rules:
+    //
+    // +  ->  +c1 +c2 ...
+    // -  ->  -c1 -c2 ...
+    // &  ->  &( +c1 +c2 ... )
+    //
+    // An empty class list results in an empty expression.
+    //
+    // Note: it is assumed that the class names are valid.
+    //
+    build_class_expr (const strings& classes,
+                      char operation,
+                      std::string comment);
+
+    // Return the string representation of the build class expression,
+    // potentially prepended with the underlying class set.
+    //
+    std::string
+    string () const;
+
+    // Match a build configuration that belongs to the specified list of
+    // classes against the expression. Either return or update the result (the
+    // latter allows to sequentially matching against a list of expressions).
+    //
+    // Note: the underlying class set doesn't affect the match in any way (it
+    // should have been used to pre-filter the set of build configurations).
+    //
+    void
+    match (const strings&, bool& result) const;
+
+    bool
+    match (const strings& cs) const
+    {
+      bool r (false);
+      match (cs, r);
+      return r;
+    }
+  };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const build_class_expr& bce)
+  {
+    return os << bce.string ();
+  }
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -458,6 +579,7 @@ namespace bpkg
     butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
+    std::vector<build_class_expr> builds;
     std::vector<build_constraint> build_constraints;
 
     // The following values are only valid in the manifest list (and only for

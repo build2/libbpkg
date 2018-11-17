@@ -127,6 +127,7 @@
       requires: ? ; libc++ standard library if using Clang on Mac OS X.
       requires: zlib; Most Linux/UNIX systems already have one; or get it at\
        www.zlib.net.
+      builds: +!windows &( +gcc +clang ) +( +windows &msvc )
       build-include: linux*
       build-include: freebsd*
       build-exclude: *; Only supports Linux and FreeBSD.
@@ -142,6 +143,8 @@
       email: libbar-users@example.org
       build-email:
       depends: libbaz (1- 2-) | libbaz [3 4-) | libbaz (5 6] | libbaz [7 8]
+      builds: default legacy; Default and legacy.
+      builds: -windows; Not on Windows.
       build-exclude: *-msvc_14*/i?86-*; Linker crash.
       location: bar/libbar-3.4A.5+6.tbz
       sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -153,6 +156,7 @@
       url: http://www.example.org/projects/libbar/
       email: libbaz-users@example.org
       build-error-email: libbaz-issues@example.org; Email for libbaz issues.
+      builds: default experimental
       location: libbaz/libbaz-+2-3.4A.5+3.tar.gz
       sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF
@@ -203,6 +207,23 @@
       location: mhello/
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
       EOF
+  }
+
+  : builds
+  :
+  {
+    : invalid
+    :
+    {
+      : empty
+      :
+      $* -pp <<EOI 2>"stdin:4:9: error: invalid package builds: class expression separator ':' expected" != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        builds: default -gcc
+        EOI
+    }
   }
 }
 

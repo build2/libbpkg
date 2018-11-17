@@ -17,8 +17,8 @@
 #include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/base64.mxx>
-#include <libbutl/utility.mxx>             // casecmp(), lcase(), alpha(),
-                                           // digit(), xdigit()
+#include <libbutl/utility.mxx>             // casecmp(), lcase(), alnum(),
+                                           // digit(), xdigit(), next_word()
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
 #include <libbutl/standard-version.mxx>
@@ -390,7 +390,7 @@ namespace bpkg
         }
       default:
         {
-          if (!digit (c) && !alpha (c))
+          if (!alnum (c))
             bad_arg ("alpha-numeric characters expected in a component");
         }
       }
@@ -889,6 +889,340 @@ namespace bpkg
     return o;
   }
 
+  // build_class_term
+  //
+  build_class_term::
+  ~build_class_term ()
+  {
+    if (simple)
+      name.~string ();
+    else
+      expr.~vector<build_class_term> ();
+  }
+
+  build_class_term::
+  build_class_term (build_class_term&& t)
+      : operation (t.operation),
+        inverted (t.inverted),
+        simple (t.simple)
+  {
+    if (simple)
+      new (&name) string (move (t.name));
+    else
+      new (&expr) vector<build_class_term> (move (t.expr));
+  }
+
+  build_class_term::
+  build_class_term (const build_class_term& t)
+      : operation (t.operation),
+        inverted (t.inverted),
+        simple (t.simple)
+  {
+    if (simple)
+      new (&name) string (t.name);
+    else
+      new (&expr) vector<build_class_term> (t.expr);
+  }
+
+  build_class_term& build_class_term::
+  operator= (build_class_term&& t)
+  {
+    if (this != &t)
+    {
+      this->~build_class_term ();
+
+      // Assume noexcept move-construction.
+      //
+      new (this) build_class_term (move (t));
+    }
+    return *this;
+  }
+
+  build_class_term& build_class_term::
+  operator= (const build_class_term& t)
+  {
+    if (this != &t)
+      *this = build_class_term (t); // Reduce to move-assignment.
+    return *this;
+  }
+
+  bool build_class_term::
+  validate_name (const string& s)
+  {
+    if (s.empty ())
+      throw invalid_argument ("empty class name");
+
+    size_t i (0);
+    char c (s[i++]);
+
+    if (!(alnum (c) || c == '_'))
+      throw invalid_argument (
+        "class name '" + s + "' starts with '" + c + "'");
+
+    for (; i != s.size (); ++i)
+    {
+      if (!(alnum (c = s[i]) || c == '+' || c == '-' || c == '_' || c == '.'))
+        throw invalid_argument (
+          "class name '" + s + "' contains '" + c + "'");
+    }
+
+    return s[0] == '_';
+  }
+
+  // build_class_expr
+  //
+  // Parse the string representation of a space-separated, potentially empty
+  // build class expression.
+  //
+  // Calls itself recursively when a nested expression is encountered. In this
+  // case the second parameter points to the position at which the nested
+  // expression starts (right after the opening parenthesis). Updates the
+  // position to refer the nested expression end (right after the closing
+  // parenthesis).
+  //
+  static vector<build_class_term>
+  parse_build_class_expr (const string& s, size_t* p = nullptr)
+  {
+    vector<build_class_term> r;
+
+    bool root (p == nullptr);
+    size_t e (0);
+
+    if (root)
+      p = &e;
+
+    size_t n;
+    for (size_t b (0); (n = next_word (s, b, *p)); )
+    {
+      string t (s, b, n);
+
+      // Check for the nested expression end.
+      //
+      if (t == ")")
+      {
+        if (root)
+          throw invalid_argument ("class term expected instead of ')'");
+
+        break;
+      }
+
+      // Parse the term.
+      //
+      char op (t[0]); // Can be '\0'.
+
+      if (op != '+')
+      {
+        if (op != '-' && op != '&')
+          throw invalid_argument (
+            "class term '" + t + "' must start with '+', '-', or '&'");
+
+        // Only the root expression may start with a term having the '-' or
+        // '&' operation.
+        //
+        if (r.empty () && !root)
+          throw invalid_argument (
+            "class term '" + t + "' must start with '+'");
+      }
+
+      bool inv (t[1] == '!');     // Can be '\0'.
+      string nm (t, inv ? 2 : 1);
+
+      // Append the compound term.
+      //
+      if (nm == "(")
+        r.emplace_back (parse_build_class_expr (s, p), op, inv);
+
+      // Append the simple term.
+      //
+      else
+      {
+        build_class_term::validate_name (nm);
+        r.emplace_back (move (nm), op, inv);
+      }
+    }
+
+    // Verify that the nested expression is terminated with the closing
+    // parenthesis and is not empty.
+    //
+    if (!root)
+    {
+      // The zero-length of the last term means that we escaped the loop due
+      // to the eos.
+      //
+      if (n == 0)
+        throw invalid_argument (
+          "nested class expression must be closed with ')'");
+
+      if (r.empty ())
+        throw invalid_argument ("empty nested class expression");
+    }
+
+    return r;
+  }
+
+  build_class_expr::
+  build_class_expr (const std::string& s, std::string c)
+      : comment (move (c))
+  {
+    using std::string;
+
+    size_t eb (0); // Start of expression.
+
+    // Parse the underlying classes until the expression term, ':', or eos is
+    // encountered.
+    //
+    for (size_t b (0); next_word (s, b, eb); )
+    {
+      string nm (s, b, eb - b);
+
+      if (nm[0] == '+' || nm[0] == '-' || nm[0] == '&')
+      {
+        // Expression must always be separated with ':' from the underlying
+        // classes.
+        //
+        if (!underlying_classes.empty ())
+          throw invalid_argument ("class expression separator ':' expected");
+
+        eb = b; // Reposition to the term beginning.
+        break;
+      }
+      else if (nm == ":")
+      {
+        // The ':' separator must follow the underlying class set.
+        //
+        if (underlying_classes.empty ())
+          throw invalid_argument ("underlying class set expected");
+
+        break;
+      }
+
+      build_class_term::validate_name (nm);
+      underlying_classes.emplace_back (move (nm));
+    }
+
+    expr = parse_build_class_expr (eb == 0 ? s : string (s, eb));
+
+    // At least one of the expression or underlying class set should be
+    // present in the representation.
+    //
+    if (expr.empty () && underlying_classes.empty ())
+      throw invalid_argument ("empty class expression");
+  }
+
+  build_class_expr::
+  build_class_expr (const strings& cs, char op, std::string c)
+      : comment (move (c))
+  {
+    vector<build_class_term> r;
+
+    for (const std::string& c: cs)
+      r.emplace_back (c, op == '-' ? '-' : '+', false /* inverse */);
+
+    if (op == '&' && !r.empty ())
+    {
+      build_class_term t (move (r), '&', false /* inverse */);
+      r = vector<build_class_term> ({move (t)});
+    }
+
+    expr = move (r);
+  }
+
+  // Return string representation of the build class expression.
+  //
+  static string
+  to_string (const vector<build_class_term>& expr)
+  {
+    string r;
+    for (const build_class_term& t: expr)
+    {
+      if (!r.empty ())
+        r += ' ';
+
+      r += t.operation;
+
+      if (t.inverted)
+        r += '!';
+
+      r += t.simple ? t.name : "( " + to_string (t.expr) + " )";
+    }
+
+    return r;
+  }
+
+  string build_class_expr::
+  string () const
+  {
+    using std::string;
+
+    string r;
+    for (const string& c: underlying_classes)
+    {
+      if (!r.empty ())
+        r += ' ';
+
+      r += c;
+    }
+
+    if (!expr.empty ())
+    {
+      if (!r.empty ())
+        r += " : " + to_string (expr);
+      else
+        r = to_string (expr);
+    }
+
+    return r;
+  }
+
+  // Match build configuration classes against an expression, updating the
+  // result.
+  //
+  static void
+  match_classes (const strings& cs,
+                 const vector<build_class_term>& expr,
+                 bool& r)
+  {
+    for (const build_class_term& t: expr)
+    {
+      // Note that the '+' operation may only invert false and the '-' and '&'
+      // operations may only invert true (see below). So, let's optimize it a
+      // bit.
+      //
+      if ((t.operation == '+') == r)
+        continue;
+
+      bool m;
+
+      // We don't expect the class list to be long, so the linear search should
+      // be fine.
+      //
+      if (t.simple)
+        m = find (cs.begin (), cs.end (), t.name) != cs.end ();
+      else
+      {
+        m = false;
+        match_classes (cs, t.expr, m);
+      }
+
+      if (t.inverted)
+        m = !m;
+
+      switch (t.operation)
+      {
+      case '+': if (m) r = true;  break;
+      case '-': if (m) r = false; break;
+      case '&': r &= m;           break;
+      default:  assert (false);
+      }
+    }
+  }
+
+  void build_class_expr::
+  match (const strings& cs, bool& r) const
+  {
+    match_classes (cs, expr, r);
+  }
+
   // pkg_package_manifest
   //
   static void
@@ -1229,6 +1563,26 @@ namespace bpkg
 
         m.requirements.push_back (move (ra));
       }
+      else if (n == "builds")
+      {
+        try
+        {
+          auto vc (parser::split_comment (v));
+          build_class_expr expr (vc.first, move (vc.second));
+
+          // Underlying build configuration class set may appear only in the
+          // first builds value.
+          //
+          if (!expr.underlying_classes.empty () && !m.builds.empty ())
+            throw invalid_argument ("unexpected underlying class set");
+
+          m.builds.emplace_back (move (expr));
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (string ("invalid package builds: ") + e.what ());
+        }
+      }
       else if (n == "build-include")
       {
         add_build_constraint (false, v);
@@ -1540,6 +1894,9 @@ namespace bpkg
                  ? (r.buildtime ? "?* " : "? ")
                  : (r.buildtime ? "* " : "")) +
                 serializer::merge_comment (concatenate (r, " | "), r.comment));
+
+      for (const build_class_expr& e: m.builds)
+        s.next ("builds", serializer::merge_comment (e.string (), e.comment));
 
       for (const auto& c: m.build_constraints)
         s.next (c.exclusion ? "build-exclude" : "build-include",

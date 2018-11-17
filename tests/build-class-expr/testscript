@@ -1,0 +1,125 @@
+# file      : tests/build-class-expr/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: valid
+:
+{
+  test.options += -p
+
+  : roundtrip
+  :
+  $* <<EOF >>EOF
+    a
+    a b
+    a : -b
+    a : -b +c
+    +g
+    +gcc
+    +gcc-libc++
+    +!gcc
+    +gcc -windows
+    +gcc &linux
+    +gcc &linux +( +msvc +windows &!optimized )
+    +!windows &( +gcc +clang ) +( +windows &msvc )
+    -windows
+    EOF
+
+   $* <'a :' >'a' : no-expr
+}
+
+: invalid
+:
+{
+  test.options += -p
+
+  $* <''          2>"empty class expression"                          != 0 : empty1
+  $* <'+( )'      2>"empty nested class expression"                   != 0 : empty2
+  $* <':'         2>"underlying class set expected"                   != 0 : und-exprected1
+  $* <': a'       2>"underlying class set expected"                   != 0 : und-exprected2
+  $* <'~a'        2>"class name '~a' starts with '~'"                 != 0 : invalid-und
+  $* <'x : a'     2>"class term 'a' must start with '+', '-', or '&'" != 0 : no-op
+  $* <'+'         2>"empty class name"                                != 0 : no-name1
+  $* <'+!'        2>"empty class name"                                != 0 : no-name2
+  $* <'+a=b'      2>"class name 'a=b' contains '='"                   != 0 : invalid-char1
+  $* <'+-a'       2>"class name '-a' starts with '-'"                 != 0 : invalid-char2
+  $* <'+( +a'     2>"nested class expression must be closed with ')'" != 0 : not-closed
+  $* <'+a )'      2>"class term expected instead of ')'"              != 0 : expected-name1
+  $* <'+( +b ) )' 2>"class term expected instead of ')'"              != 0 : expected-name2
+  $* <'+( -a )'   2>"class term '-a' must start with '+'"             != 0 : first-subtract
+}
+
+: match
+:
+{
+  : non-empty-class-list
+  :
+  {
+    test.arguments += a b c
+
+    $* <'+a'
+    $* <'+!x'
+    $* <'+a +x'
+    $* <'+a +!x'
+    $* <'+a -x'
+    $* <'+a -!b'
+    $* <'+a -b +c'
+    $* <'+a &b'
+    $* <'+a &!y'
+
+    $* <'+a +( +b )'
+    $* <'+a +( +x )'
+    $* <'+a +!( +b )'
+    $* <'+a +!( +x )'
+    $* <'+a &( +b )'
+    $* <'+a &!( +x )'
+    $* <'+a -( +x )'
+    $* <'+a -!( +b )'
+    $* <'+( +b -c +a )'
+    $* <'+a &( +b -c +a )'
+    $* <'+a &( +b -c +( +a -b ) +c )'
+
+    $* <'a : +c'
+    $* <'a : -x'
+  }
+
+  : empty-class-list
+  :
+  {
+    $* <'+!x'
+  }
+}
+
+: mismatch
+:
+{
+  : non-empty-class-list
+  :
+  {
+    test.arguments += a b c
+
+    $* <'+!a'    == 1
+    $* <'+a -b'  == 1
+    $* <'+a -!x' == 1
+    $* <'+a &x'  == 1
+    $* <'+a &!b' == 1
+
+    $* <'+a -( +b )'                  == 1
+    $* <'+a -!( +x )'                 == 1
+    $* <'+a &( +x )'                  == 1
+    $* <'+a &!( +b )'                 == 1
+    $* <'+a -c +( +x )'               == 1
+    $* <'+a -c +!( +b )'              == 1
+    $* <'+a -( +x +b )'               == 1
+    $* <'+a &( +b -c +( +a +b ) &x )' == 1
+
+    $* <'x : +a' == 1
+    $* <'a : -c' == 1
+  }
+
+  : empty-class-list
+  :
+  {
+    $* <'+a' == 1
+  }
+}
