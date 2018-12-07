@@ -1179,6 +1179,7 @@ namespace bpkg
   //
   static void
   match_classes (const strings& cs,
+                 const build_class_inheritance_map& im,
                  const vector<build_class_term>& expr,
                  bool& r)
   {
@@ -1191,18 +1192,44 @@ namespace bpkg
       if ((t.operation == '+') == r)
         continue;
 
-      bool m;
+      bool m (false);
 
       // We don't expect the class list to be long, so the linear search should
       // be fine.
       //
       if (t.simple)
-        m = find (cs.begin (), cs.end (), t.name) != cs.end ();
-      else
       {
-        m = false;
-        match_classes (cs, t.expr, m);
+        // Check if any of the classes or their bases match the term name.
+        //
+        for (const string& c: cs)
+        {
+          m = (c == t.name);
+
+          if (!m)
+          {
+            // Go through base classes.
+            //
+            for (auto i (im.find (c)); i != im.end (); )
+            {
+              const string& base (i->second);
+
+              // Bail out if the base class matches.
+              //
+              m = (base == t.name);
+
+              if (m)
+                break;
+
+              i = im.find (base);
+            }
+          }
+
+          if (m)
+            break;
+        }
       }
+      else
+        match_classes (cs, im, t.expr, m);
 
       if (t.inverted)
         m = !m;
@@ -1218,9 +1245,11 @@ namespace bpkg
   }
 
   void build_class_expr::
-  match (const strings& cs, bool& r) const
+  match (const strings& cs,
+         const build_class_inheritance_map& im,
+         bool& r) const
   {
-    match_classes (cs, expr, r);
+    match_classes (cs, im, expr, r);
   }
 
   // pkg_package_manifest

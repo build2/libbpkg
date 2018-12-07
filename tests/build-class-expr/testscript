@@ -88,6 +88,14 @@
   {
     $* <'+!x'
   }
+
+  : base
+  :
+  {
+    test.arguments += a:x b:y c
+
+    $* <'+y'
+  }
 }
 
 : mismatch
@@ -121,5 +129,14 @@
   :
   {
     $* <'+a' == 1
+  }
+
+
+  : base
+  :
+  {
+    test.arguments += a:x b:y c
+
+    $* <'+z' == 1
   }
 }

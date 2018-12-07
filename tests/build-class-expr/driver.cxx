@@ -14,7 +14,7 @@
 // Usages:
 //
 // argv[0] -p
-// argv[0] [<classes>]
+// argv[0] [<class>[:<base>]]*
 //
 // Parse stdin lines as build configuration class expressions and print them
 // or evaluate.
@@ -47,13 +47,28 @@ main (int argc, char* argv[])
   cin.exceptions (ios::badbit);
 
   strings cs;
+  build_class_inheritance_map im;
 
   if (print)
     cout.exceptions (ios::failbit | ios::badbit);
   else
   {
     for (int i (1); i != argc; ++i)
-      cs.push_back (argv[i]);
+    {
+      string c (argv[i]);
+
+      string base;
+      size_t p (c.find (':'));
+
+      if (p != string::npos)
+      {
+        base = string (c, p + 1);
+        c.resize (p);
+      }
+
+      im[c] = move (base);
+      cs.emplace_back (move (c));
+    }
   }
 
   try
@@ -77,18 +92,18 @@ main (int argc, char* argv[])
           if (!underlying_cls->empty ())
           {
             build_class_expr expr (*underlying_cls, '+', "" /* comment */);
-            expr.match (cs, r);
+            expr.match (cs, im, r);
           }
         }
 
-        expr.match (cs, r);
+        expr.match (cs, im, r);
       }
     }
 
     if (underlying_cls && !underlying_cls->empty ())
     {
       build_class_expr expr (*underlying_cls, '&', "" /* comment */);
-      expr.match (cs, r);
+      expr.match (cs, im, r);
     }
 
     return print || r ? 0 : 1;

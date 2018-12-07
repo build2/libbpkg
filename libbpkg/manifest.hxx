@@ -5,6 +5,7 @@
 #ifndef LIBBPKG_MANIFEST_HXX
 #define LIBBPKG_MANIFEST_HXX
 
+#include <map>
 #include <string>
 #include <vector>
 #include <cassert>
@@ -476,6 +477,10 @@ namespace bpkg
     validate_name (const std::string&);
   };
 
+  // Map of derived build classes to their bases.
+  //
+  using build_class_inheritance_map = std::map<std::string, std::string>;
+
   // Build configuration class expression. Includes comment and optional
   // underlying set.
   //
@@ -527,20 +532,28 @@ namespace bpkg
     string () const;
 
     // Match a build configuration that belongs to the specified list of
-    // classes against the expression. Either return or update the result (the
-    // latter allows to sequentially matching against a list of expressions).
+    // classes (and recursively to their bases) against the expression. Either
+    // return or update the result (the latter allows to sequentially matching
+    // against a list of expressions).
     //
-    // Note: the underlying class set doesn't affect the match in any way (it
-    // should have been used to pre-filter the set of build configurations).
+    // Notes:
+    //
+    // - The derived-to-base map is not verified (that there are no
+    //   inheritance cycles, etc.).
+    //
+    // - The underlying class set doesn't affect the match in any way (it
+    //   should have been used to pre-filter the set of build configurations).
     //
     void
-    match (const strings&, bool& result) const;
+    match (const strings&,
+           const build_class_inheritance_map&,
+           bool& result) const;
 
     bool
-    match (const strings& cs) const
+    match (const strings& cs, const build_class_inheritance_map& bs) const
     {
       bool r (false);
-      match (cs, r);
+      match (cs, bs, r);
       return r;
     }
   };
