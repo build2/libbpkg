@@ -9,10 +9,11 @@
 #include <string>
 #include <vector>
 #include <cassert>
-#include <cstdint>   // uint16_t
+#include <cstdint>    // uint16_t
 #include <ostream>
-#include <utility>   // move()
-#include <stdexcept> // logic_error
+#include <utility>    // move()
+#include <stdexcept>  // logic_error
+#include <functional>
 
 #include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
@@ -634,6 +635,20 @@ namespace bpkg
     //
     void
     serialize_header (butl::manifest_serializer&) const;
+
+    // Load the *-file manifest values using the specified load function that
+    // returns the file contents passing through any exception it may throw.
+    //
+    // Note that if the returned file contents is empty, load_files() makes
+    // sure that this is allowed by the value's semantics throwing
+    // manifest_parsing otherwise. However, the load function may want to
+    // recognize such cases itself in order to issue more precise diagnostics.
+    //
+    using load_function = std::string (const std::string& name,
+                                       const butl::path& value);
+
+    void
+    load_files (const std::function<load_function>&);
   };
 
   // Create individual package manifest.

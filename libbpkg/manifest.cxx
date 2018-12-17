@@ -1803,6 +1803,36 @@ namespace bpkg
     parse_package_manifest (p, move (nv), iu, fl, *this);
   }
 
+  static const string description_file ("description-file");
+  static const string changes_file     ("changes-file");
+
+  void package_manifest::
+  load_files (const function<load_function>& loader)
+  {
+    auto load = [&loader] (const string& n, const path& p)
+    {
+      string r (loader (n, p));
+
+      if (r.empty ())
+        throw parsing ("package " + n + " references empty file");
+
+      return r;
+    };
+
+    // Load the description-file manifest value.
+    //
+    if (description && description->file)
+      description = text_file (load (description_file, description->path));
+
+    // Load the changes-file manifest values.
+    //
+    for (text_file& c: changes)
+    {
+      if (c.file)
+        c = text_file (load (changes_file, c.path));
+    }
+  }
+
   static void
   serialize_package_manifest (manifest_serializer& s,
                               const package_manifest& m,
