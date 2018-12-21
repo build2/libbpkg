@@ -622,10 +622,15 @@ namespace bpkg
         bail (no_max_version);
 
       version min_version;
+      string mnv (s, p, e - p);
 
+      // Leave the min version empty if it refers to the dependent package
+      // version.
+      //
+      if (mnv != "$")
       try
       {
-        min_version = version (string (s, p, e - p));
+        min_version = version (mnv);
       }
       catch (const invalid_argument& e)
       {
@@ -645,10 +650,15 @@ namespace bpkg
         bail (invalid_range);
 
       version max_version;
+      string mxv (s, p, e - p);
 
+      // Leave the max version empty if it refers to the dependent package
+      // version.
+      //
+      if (mxv != "$")
       try
       {
-        max_version = version (string (s, p, e - p));
+        max_version = version (mxv);
       }
       catch (const invalid_argument& e)
       {
@@ -677,36 +687,51 @@ namespace bpkg
     }
     else if (c == '~' || c == '^') // The shortcut operator.
     {
-      // To be used in the shortcut operator the package version must
-      // be a standard version.
+      // If the shortcut operator refers to the dependent package version (the
+      // '$' character), then create an incomplete constraint. Otherwise,
+      // assume the version is standard and parse the operator representation
+      // as the standard version constraint.
       //
-      standard_version_constraint vc;
+      size_t p (s.find_first_not_of (spaces, 1));
 
-      try
+      if (p != string::npos && s[p] == '$' && p + 1 == s.size ())
       {
-        vc = standard_version_constraint (s);
+        *this = dependency_constraint (version (), c == '~',
+                                       version (), c == '^');
       }
-      catch (const invalid_argument& e)
+      else
       {
-        bail (string ("invalid dependency constraint: ") + e.what ());
-      }
-
-      try
-      {
-        assert (vc.min_version && vc.max_version);
-
-        *this = dependency_constraint (
-          version (vc.min_version->string ()),
-          vc.min_open,
-          version (vc.max_version->string ()),
-          vc.max_open);
-      }
-      catch (const invalid_argument&)
-      {
-        // The standard version is a package version, so the conversion
-        // should never fail.
+        // To be used in the shortcut operator the package version must be
+        // standard.
         //
-        assert (false);
+        standard_version_constraint vc;
+
+        try
+        {
+          vc = standard_version_constraint (s);
+        }
+        catch (const invalid_argument& e)
+        {
+          bail (string ("invalid dependency constraint: ") + e.what ());
+        }
+
+        try
+        {
+          assert (vc.min_version && vc.max_version);
+
+          *this = dependency_constraint (
+            version (vc.min_version->string ()),
+            vc.min_open,
+            version (vc.max_version->string ()),
+            vc.max_open);
+        }
+        catch (const invalid_argument&)
+        {
+          // Any standard version is a valid package version, so the
+          // conversion should never fail.
+          //
+          assert (false);
+        }
       }
     }
     else // The version comparison notation.
@@ -741,7 +766,14 @@ namespace bpkg
 
       try
       {
-        version v (string (s, p));
+        version v;
+        string vs (s, p);
+
+        // Leave the version empty if it refers to the dependent package
+        // version.
+        //
+        if (vs != "$")
+          v = version (vs);
 
         switch (operation)
         {
@@ -783,29 +815,162 @@ namespace bpkg
       //
       (min_version || max_version) &&
 
-      // Version should be non-empty.
-      //
-      (!min_version || !min_version->empty ()) &&
-      (!max_version || !max_version->empty ()) &&
-
       // Absent version endpoint (infinity) should be open.
       //
       (min_version || min_open) && (max_version || max_open));
 
     if (min_version && max_version)
     {
-      if (*min_version > *max_version)
+      bool mxe (max_version->empty ());
+
+      // If endpoint versions do not refer to the dependent package version
+      // then the min version must (naturally) be lower than or equal to the
+      // max version.
+      //
+      if (*min_version > *max_version && !mxe)
         throw invalid_argument ("min version is greater than max version");
 
       if (*min_version == *max_version)
       {
-        if (min_open || max_open)
+        // For non-empty versions, both endpoints must be closed, representing
+        // the `== <version>` constraint. For empty versions no greater than
+        // one endpoint can be open, representing the `== $`, `~$`, or `^$`
+        // constraints.
+        //
+        if ((!mxe && (min_open || max_open)) || (mxe && min_open && max_open))
           throw invalid_argument ("equal version endpoints not closed");
 
-        if (min_version->release && min_version->release->empty ())
+        // If endpoint versions do not refer to the dependent package version
+        // then they can't be earliest. Note: an empty version is earliest.
+        //
+        if (!mxe && max_version->release && max_version->release->empty ())
           throw invalid_argument ("equal version endpoints are earliest");
       }
     }
+  }
+
+  dependency_constraint dependency_constraint::
+  effective (version v) const
+  {
+    // The dependent package version can't be empty or earliest.
+    //
+    if (v.empty ())
+      throw invalid_argument ("empty version");
+
+    if (v.release && v.release->empty ())
+      throw invalid_argument ("earliest version");
+
+    // For the more detailed description of the following semantics refer to
+    // the depends value documentation.
+
+    // Strip the revision and iteration.
+    //
+    v = version (v.epoch,
+                 move (v.upstream),
+                 move (v.release),
+                 0 /* revision */,
+                 0 /* iteration */);
+
+    // Calculate effective constraint for a shortcut operator.
+    //
+    if (min_version                &&
+        min_version->empty ()      &&
+        max_version == min_version &&
+        (min_open || max_open))
+    {
+      assert (!min_open || !max_open); // Endpoints cannot be both open.
+
+      string vs (v.string ());
+
+      if (optional<standard_version> sv = parse_standard_version (vs))
+      try
+      {
+        char op (min_open ? '~' : '^');
+        standard_version_constraint vc (op + vs);
+
+        // The shortcut operators' representation is a range.
+        //
+        assert (vc.min_version && vc.max_version);
+
+        standard_version& mnv (*vc.min_version);
+        standard_version& mxv (*vc.max_version);
+
+        // For a release adjust the min version endpoint, setting its patch to
+        // zero. For ^ also set the minor version to zero, unless the major
+        // version is zero (reduced to ~).
+        //
+        if (sv->release ())
+        {
+          mnv = standard_version (
+            sv->epoch,
+            sv->major (),
+            op == '^' && sv->major () != 0 ? 0 : sv->minor (),
+            0 /* patch */);
+        }
+        //
+        // For a final pre-release or a patch snapshot we check if there has
+        // been a compatible final release (patch is not zero for ~ and
+        // minor/patch are not zero for ^). If that's the case, then fallback
+        // to the release case and start the range from the first alpha
+        // otherwise.
+        //
+        else if (sv->final () || (sv->snapshot () && sv->patch () != 0))
+        {
+          mnv = standard_version (
+            sv->epoch,
+            sv->major (),
+            op == '^' && sv->major () != 0 ? 0 : sv->minor (),
+            0 /* patch */,
+            sv->patch () != 0 || (op == '^' && sv->minor () != 0)
+            ? 0
+            : 1 /* pre-release */);
+        }
+        //
+        // For a major/minor snapshot we assume that all the packages are
+        // developed in the lockstep and convert the constraint range to
+        // represent this "snapshot series".
+        //
+        else
+        {
+          assert (sv->snapshot () && sv->patch () == 0);
+
+          uint16_t pr (*sv->pre_release ());
+
+          mnv = standard_version (sv->epoch,
+                                  sv->major (),
+                                  sv->minor (),
+                                  0 /* patch */,
+                                  pr,
+                                  1 /* snapshot_sn */,
+                                  "" /* snapshot_id */);
+
+          // Note: the max version endpoint is already open.
+          //
+          mxv = standard_version (sv->epoch,
+                                  sv->major (),
+                                  sv->minor (),
+                                  0 /* patch */,
+                                  pr + 1);
+        }
+
+        return dependency_constraint (version (mnv.string ()), vc.min_open,
+                                      version (mxv.string ()), vc.max_open);
+      }
+      catch (const invalid_argument&)
+      {
+        // There shouldn't be a reason for dependency_constraint() to throw.
+        //
+        assert (false);
+      }
+
+      throw invalid_argument (vs + " is not a standard version");
+    }
+
+    // Calculate effective constraint for a range.
+    //
+    return dependency_constraint (
+      min_version && min_version->empty () ? v : min_version, min_open,
+      max_version && max_version->empty () ? v : max_version, max_open);
   }
 
   ostream&
@@ -813,20 +978,45 @@ namespace bpkg
   {
     assert (!c.empty ());
 
+    auto print = [&o] (const version& v) -> ostream&
+    {
+      return v.empty () ? (o << '$') : (o << v);
+    };
+
     if (!c.min_version)
-      return o << (c.max_open ? "< " : "<= ") << *c.max_version;
+    {
+      o << (c.max_open ? "< " : "<= ");
+      return print (*c.max_version);
+    }
 
     if (!c.max_version)
-      return o << (c.min_open ? "> " : ">= ") << *c.min_version;
+    {
+      o << (c.min_open ? "> " : ">= ");
+      return print (*c.min_version);
+    }
 
     if (*c.min_version == *c.max_version)
-      return o << "== " << *c.min_version;
+    {
+      const version& v (*c.min_version);
+
+      if (!c.min_open && !c.max_open)
+      {
+        o << "== ";
+        return print (v);
+      }
+
+      assert (v.empty () && (!c.min_open || !c.max_open));
+      return o << (c.min_open ? "~$" : "^$");
+    }
 
     // If the range can potentially be represented as a range shortcut
     // operator (^ or ~), having the [<standard-version> <standard-version>)
     // form, then print it using the standard version constraint code.
     //
-    if (!c.min_open && c.max_open)
+    if (!c.min_open              &&
+        c.max_open               &&
+        !c.min_version->empty () &&
+        !c.max_version->empty ())
     {
       if (optional<standard_version> mnv =
           parse_standard_version (c.min_version->string (),
@@ -852,8 +1042,11 @@ namespace bpkg
 
     // Print as a range.
     //
-    return o << (c.min_open ? '(' : '[') << *c.min_version << " "
-             << *c.max_version << (c.max_open ? ')' : ']');
+    o << (c.min_open ? '(' : '[');
+    print (*c.min_version);
+    o << ' ';
+    print (*c.max_version);
+    return o << (c.max_open ? ')' : ']');
   }
 
   ostream&
@@ -1258,6 +1451,7 @@ namespace bpkg
   parse_package_manifest (parser& p,
                           name_value nv,
                           bool iu,
+                          bool cd,
                           package_manifest_flags fl,
                           package_manifest& m)
   {
@@ -1323,6 +1517,11 @@ namespace bpkg
       return (fl & f) != package_manifest_flags::none;
     };
 
+    // We will cache the depends manifest values to parse and, if requested,
+    // complete the dependency constraints later, after the version value is
+    // parsed.
+    //
+    vector<name_value> dependencies;
     for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
@@ -1622,78 +1821,7 @@ namespace bpkg
       }
       else if (n == "depends")
       {
-        // Allow specifying ?* in any order.
-        //
-        size_t n (v.size ());
-        size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
-        size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
-
-        auto vc (parser::split_comment (v));
-
-        const string& vl (vc.first);
-        dependency_alternatives da (cond != 0, btim != 0, move (vc.second));
-
-        string::const_iterator b (vl.begin ());
-        string::const_iterator e (vl.end ());
-
-        if (da.conditional || da.buildtime)
-        {
-          string::size_type p (vl.find_first_not_of (spaces, cond + btim));
-          b = p == string::npos ? e : b + p;
-        }
-
-        list_parser lp (b, e, '|');
-        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-        {
-          using iterator = string::const_iterator;
-
-          iterator b (lv.begin ());
-          iterator i (b);
-          iterator ne (b); // End of name.
-          iterator e (lv.end ());
-
-          // Find end of name (ne).
-          //
-          const string cb ("=<>([~^");
-          for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
-          {
-            if (!space (c))
-              ne = i + 1;
-          }
-
-          package_name nm;
-
-          try
-          {
-            nm = package_name (i == e ? move (lv) : string (b, ne));
-          }
-          catch (const invalid_argument& e)
-          {
-            bad_value (
-              string ("invalid prerequisite package name: ") + e.what ());
-          }
-
-          if (i == e)
-            da.push_back (dependency {move (nm), nullopt});
-          else
-          {
-            try
-            {
-              da.push_back (
-                dependency {move (nm), dependency_constraint (string (i, e))});
-            }
-            catch (const invalid_argument& e)
-            {
-              bad_value (
-                string ("invalid dependency constraint: ") + e.what ());
-            }
-          }
-        }
-
-        if (da.empty ())
-          bad_value ("empty package dependency specification");
-
-        m.dependencies.push_back (da);
+        dependencies.push_back (move (nv));
       }
       else if (n == "location")
       {
@@ -1761,6 +1889,99 @@ namespace bpkg
     else if (m.license_alternatives.empty ())
       bad_value ("no project license specified");
 
+    // Now, when the version manifest value is parsed, we can parse the
+    // dependencies and complete their constrains, if requested.
+    //
+    for (name_value& d: dependencies)
+    {
+      nv = move (d); // Restore as bad_value() uses its line/column.
+
+      const string& v (nv.value);
+
+      // Allow specifying ?* in any order.
+      //
+      size_t n (v.size ());
+      size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
+      size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
+
+      auto vc (parser::split_comment (v));
+
+      const string& vl (vc.first);
+      dependency_alternatives da (cond != 0, btim != 0, move (vc.second));
+
+      string::const_iterator b (vl.begin ());
+      string::const_iterator e (vl.end ());
+
+      if (da.conditional || da.buildtime)
+      {
+        string::size_type p (vl.find_first_not_of (spaces, cond + btim));
+        b = p == string::npos ? e : b + p;
+      }
+
+      list_parser lp (b, e, '|');
+      for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+      {
+        using iterator = string::const_iterator;
+
+        iterator b (lv.begin ());
+        iterator i (b);
+        iterator ne (b); // End of name.
+        iterator e (lv.end ());
+
+        // Find end of name (ne).
+        //
+        const string cb ("=<>([~^");
+        for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
+        {
+          if (!space (c))
+            ne = i + 1;
+        }
+
+        package_name nm;
+
+        try
+        {
+          nm = package_name (i == e ? move (lv) : string (b, ne));
+        }
+        catch (const invalid_argument& e)
+        {
+          bad_value (
+            string ("invalid prerequisite package name: ") + e.what ());
+        }
+
+        if (i == e)
+          da.push_back (dependency {move (nm), nullopt});
+        else
+        {
+          try
+          {
+            dependency_constraint dc (string (i, e));
+
+            if (!dc.complete () &&
+                flag (package_manifest_flags::forbid_incomplete_depends))
+              bad_value ("$ not allowed");
+
+            // Complete the constraint.
+            //
+            if (cd)
+              dc = dc.effective (m.version);
+
+            da.push_back (dependency {move (nm), move (dc)});
+          }
+          catch (const invalid_argument& e)
+          {
+            bad_value (
+              string ("invalid dependency constraint: ") + e.what ());
+          }
+        }
+      }
+
+      if (da.empty ())
+        bad_value ("empty package dependency specification");
+
+      m.dependencies.push_back (da);
+    }
+
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
 
@@ -1771,20 +1992,26 @@ namespace bpkg
   package_manifest
   pkg_package_manifest (parser& p, name_value nv, bool iu)
   {
-    return package_manifest (p,
-                             move (nv),
-                             iu,
-                             package_manifest_flags::forbid_file      |
-                             package_manifest_flags::require_location |
-                             package_manifest_flags::forbid_fragment);
+    return package_manifest (
+      p,
+      move (nv),
+      iu,
+      false /* complete_depends */,
+      package_manifest_flags::forbid_file      |
+      package_manifest_flags::require_location |
+      package_manifest_flags::forbid_fragment  |
+      package_manifest_flags::forbid_incomplete_depends);
   }
 
   // package_manifest
   //
   package_manifest::
-  package_manifest (manifest_parser& p, bool iu, package_manifest_flags fl)
+  package_manifest (manifest_parser& p,
+                    bool iu,
+                    bool cd,
+                    package_manifest_flags fl)
   {
-    parse_package_manifest (p, p.next (), iu, fl, *this);
+    parse_package_manifest (p, p.next (), iu, cd, fl, *this);
 
     // Make sure this is the end.
     //
@@ -1798,9 +2025,10 @@ namespace bpkg
   package_manifest (manifest_parser& p,
                     name_value nv,
                     bool iu,
+                    bool cd,
                     package_manifest_flags fl)
   {
-    parse_package_manifest (p, move (nv), iu, fl, *this);
+    parse_package_manifest (p, move (nv), iu, cd, fl, *this);
   }
 
   static const string description_file ("description-file");

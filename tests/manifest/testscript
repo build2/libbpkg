@@ -74,12 +74,39 @@
 
       : dependency
       :
-      $* -pp <<EOI 2>'stdin:5:10: error: invalid prerequisite package name: length is less than two characters' != 0
+      $* -pp <<EOI 2>'stdin:8:10: error: invalid prerequisite package name: length is less than two characters' != 0
         : 1
         sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         :
         name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
         depends: b
+        EOI
+
+      : dependency-constraint
+      :
+      $* -pp <<EOI 2>'stdin:8:10: error: $ not allowed' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $
+        EOI
+
+      : dependency-constraint-version
+      :
+      $* -c -p <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar [$ 1.0.0]
         EOI
     }
   }
@@ -88,6 +115,39 @@
   :
   {
     : manifest
+    :
+    {
+      : complete
+      :
+      $* -c -p <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == 2.0.0 | libbaz ~2.0.0 | libbox ^2.0.0 | libfox [1.0 2.0.0)
+        EOO
+
+      : incomplete
+      :
+      $* -p <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+        EOF
+    }
+
+    : manifest-list
     :
     : Roundtrip the pkg package manifest list.
     :
@@ -514,4 +574,76 @@
     TobGycX7MDf2mbBmR/KmEkMBJ4mziWLAycSAGyE5VRYDwHPJlQE0143wBzT8eNw4VLm/r+88VYw=
     \
     EOF
+}
+
+: effective-constraints
+:
+{
+  : regular
+  :
+  $* -ec '1.2.3+1' <<EOI >>EOO
+    [1.0 $)
+    [1.0 $]
+    [$ 1.2.4)
+    [$ 1.2.4]
+    == $
+    >= $
+    EOI
+    [1.0 $) [1.0 1.2.3)
+    [1.0 $] [1.0 1.2.3]
+    [$ 1.2.4) [1.2.3 1.2.4)
+    [$ 1.2.4] [1.2.3 1.2.4]
+    == $ == 1.2.3
+    >= $ >= 1.2.3
+    EOO
+
+  : shortcut
+  :
+  {
+    : final
+    :
+    {
+      $* -ec '1.2.3+1' <'~$' >'~$ ~1.2.0' : tilda
+      $* -ec '1.2.3+1' <'^$' >'^$ ^1.0.0' : carrot
+    }
+
+    : pre-release
+    :
+    {
+      : tilda
+      :
+      {
+        $* -ec '1.2.0-b.2' <'~$' >'~$ ~1.2.0-a.1' : no-final
+        $* -ec '1.2.1-a.1' <'~$' >'~$ ~1.2.0'     : final-patch
+      }
+
+      : carrot
+      :
+      {
+        $* -ec '1.0.0-b.2' <'^$' >'^$ ^1.0.0-a.1' : no-final
+        $* -ec '1.0.1-a.1' <'^$' >'^$ ^1.0.0'     : final-patch
+        $* -ec '1.1.0-b.2' <'^$' >'^$ ^1.0.0'     : final-minor
+      }
+    }
+
+    : snapshot
+    :
+    {
+      : tilda
+      :
+      {
+	$* -ec '1.2.1-a.2.345' <'~$' >'~$ ~1.2.0'                  : patch
+	$* -ec '1.2.0-a.0.345' <'~$' >'~$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
+	$* -ec '1.0.0-a.0.345' <'~$' >'~$ [1.0.0-a.0.1 1.0.0-a.1)' : major
+      }
+
+      : carrot
+      :
+      {
+	$* -ec '1.2.1-a.2.345' <'^$' >'^$ ^1.0.0'                  : patch
+	$* -ec '1.2.0-a.0.345' <'^$' >'^$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
+	$* -ec '1.0.0-a.0.345' <'^$' >'^$ [1.0.0-a.0.1 1.0.0-a.1)' : major
+      }
+    }
+  }
 }

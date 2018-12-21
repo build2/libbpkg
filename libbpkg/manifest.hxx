@@ -35,7 +35,8 @@ namespace bpkg
   {
   public:
     // Let's keep the members in the order they appear in the string
-    // representation.
+    // representation. We also make them const to make sure things stay
+    // consistent.
     //
     const std::uint16_t epoch;
     const std::string upstream;
@@ -279,6 +280,17 @@ namespace bpkg
 
   // depends
   //
+  // Represented as a version range. Note that the versions may refer to the
+  // dependent package version and can be completed with the actual versions
+  // using the effective() function. Such versions are represented as an empty
+  // version object and have the dollar character string representation.
+  //
+  // If the version endpoints are equal and both are closed, then this is the
+  // `== <version>` constraint (in particular, `== $` if empty endpoints). If
+  // both endpoints are empty and one of them is open, then this is either
+  // `~$` (min endpoint is open) or `^$` (max endpoint is open). Note that
+  // equal endpoints can never be both open.
+  //
   class LIBBPKG_EXPORT dependency_constraint
   {
   public:
@@ -299,6 +311,21 @@ namespace bpkg
 
     bool
     empty () const noexcept {return !min_version && !max_version;}
+
+    bool
+    complete () const noexcept
+    {
+      return (!min_version || !min_version->empty ()) &&
+             (!max_version || !max_version->empty ());
+    }
+
+    // Return the completed constraint if it refers to the dependent package
+    // version and copy of itself otherwise. Throw std::invalid_argument if
+    // the resulting constraint is invalid (max version is less than min
+    // version in range, non-standard version for a shortcut operator, etc.).
+    //
+    dependency_constraint
+    effective (version) const;
   };
 
   LIBBPKG_EXPORT std::ostream&
@@ -382,7 +409,7 @@ namespace bpkg
           comment (std::move (c)) {}
   };
 
-  // Package manifest value forbid/require flags.
+  // Package manifest value validation forbid/require flags.
   //
   // Some package manifest values can be forbidden or required for certain
   // repository types and in specific contexts (for example, when parsing an
@@ -393,15 +420,16 @@ namespace bpkg
   //
   enum class package_manifest_flags: std::uint16_t
   {
-    none              =  0x0,
+    none                      = 0x00,
 
-    forbid_file       =  0x1, // Forbid *-file manifest values.
-    forbid_location   =  0x2,
-    forbid_sha256sum  =  0x4,
-    forbid_fragment   =  0x8,
+    forbid_file               = 0x01, // Forbid *-file manifest values.
+    forbid_location           = 0x02,
+    forbid_sha256sum          = 0x04,
+    forbid_fragment           = 0x08,
+    forbid_incomplete_depends = 0x10,
 
-    require_location  = 0x10,
-    require_sha256sum = 0x20
+    require_location          = 0x20,
+    require_sha256sum         = 0x40
   };
 
   inline package_manifest_flags
@@ -616,6 +644,7 @@ namespace bpkg
     //
     package_manifest (butl::manifest_parser&,
                       bool ignore_unknown = false,
+                      bool complete_depends = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |
@@ -626,6 +655,7 @@ namespace bpkg
     package_manifest (butl::manifest_parser&,
                       butl::manifest_name_value start,
                       bool ignore_unknown,
+                      bool complete_depends,
                       package_manifest_flags);
 
     void
@@ -654,9 +684,11 @@ namespace bpkg
   // Create individual package manifest.
   //
   inline package_manifest
-  pkg_package_manifest (butl::manifest_parser& p, bool ignore_unknown = false)
+  pkg_package_manifest (butl::manifest_parser& p,
+                        bool ignore_unknown = false,
+                        bool complete_depends = true)
   {
-    return package_manifest (p, ignore_unknown);
+    return package_manifest (p, ignore_unknown, complete_depends);
   }
 
   LIBBPKG_EXPORT package_manifest

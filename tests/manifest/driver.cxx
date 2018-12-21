@@ -16,10 +16,14 @@ using namespace std;
 using namespace butl;
 using namespace bpkg;
 
-// Usage: argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s)
+// Usages:
 //
-// Read and parse manifest from STDIN and serialize it to STDOUT. The
-// following options specify the manifest type.
+// argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s)
+// argv[0] [-c] -p
+// argv[0] -ec <version>
+//
+// In the first form read and parse manifest list from stdin and serialize it
+// to stdout. The following options specify the manifest type.
 //
 // -pp  parse pkg package manifest list
 // -dp  parse dir package manifest list
@@ -29,13 +33,30 @@ using namespace bpkg;
 // -gr  parse git repository manifest list
 // -s   parse signature manifest
 //
+// In the second form read and parse the package manifest from stdin and
+// serialize it to stdout. Complete the dependency constraints if -c is
+// specified. Note: -c, if specified, should go before -p on the command line.
+//
+// In the third form read and parse dependency constraints from stdin and
+// roundtrip them to stdout together with their effective constraints,
+// calculated using version passed as an argument.
+//
 int
 main (int argc, char* argv[])
 {
-  assert (argc == 2);
+  assert (argc <= 3);
   string opt (argv[1]);
 
-  cin.exceptions  (ios_base::failbit | ios_base::badbit);
+  bool complete_depends (opt == "-c");
+
+  if (complete_depends)
+  {
+    opt = argv[2];
+    assert (opt == "-p");
+  }
+
+  assert ((opt == "-ec" || complete_depends) == (argc == 3));
+
   cout.exceptions (ios_base::failbit | ios_base::badbit);
 
   manifest_parser     p (cin,  "stdin");
@@ -43,22 +64,48 @@ main (int argc, char* argv[])
 
   try
   {
-    if (opt == "-pp")
-      pkg_package_manifests (p).serialize (s);
-    else if (opt == "-dp")
-      dir_package_manifests (p).serialize (s);
-    else if (opt == "-gp")
-      git_package_manifests (p).serialize (s);
-    else if (opt == "-pr")
-      pkg_repository_manifests (p).serialize (s);
-    else if (opt == "-dr")
-      dir_repository_manifests (p).serialize (s);
-    else if (opt == "-gr")
-      git_repository_manifests (p).serialize (s);
-    else if (opt == "-s")
-      signature_manifest (p).serialize (s);
+    if (opt == "-ec")
+    {
+      version v (argv[2]);
+
+      cin.exceptions (ios_base::badbit);
+
+      string s;
+      while (!eof (getline (cin, s)))
+      {
+        dependency_constraint c (s);
+        dependency_constraint ec (c.effective (v));
+
+        assert (c.complete () == (c == ec));
+
+        cout << c << " " << ec << endl;
+      }
+    }
     else
-      assert (false);
+    {
+      cin.exceptions (ios_base::failbit | ios_base::badbit);
+
+      if (opt == "-p")
+        pkg_package_manifest (p,
+                              false /* ignore_unknown */,
+                              complete_depends).serialize (s);
+      else if (opt == "-pp")
+        pkg_package_manifests (p).serialize (s);
+      else if (opt == "-dp")
+        dir_package_manifests (p).serialize (s);
+      else if (opt == "-gp")
+        git_package_manifests (p).serialize (s);
+      else if (opt == "-pr")
+        pkg_repository_manifests (p).serialize (s);
+      else if (opt == "-dr")
+        dir_repository_manifests (p).serialize (s);
+      else if (opt == "-gr")
+        git_repository_manifests (p).serialize (s);
+      else if (opt == "-s")
+        signature_manifest (p).serialize (s);
+      else
+        assert (false);
+    }
   }
   catch (const manifest_parsing& e)
   {
