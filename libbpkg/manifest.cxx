@@ -3631,9 +3631,9 @@ namespace bpkg
     bool base (r.effective_role () == repository_role::base);
 
     if (r.location.empty () != base)
-      throw logic_error (r.location.empty ()
-                         ? "no location specified"
-                         : "location not allowed");
+      bad_value (r.location.empty ()
+                 ? "no location specified"
+                 : "location not allowed");
 
     if (r.trust && (base || r.location.type () != repository_type::pkg))
       bad_value ("trust not allowed");
@@ -3684,7 +3684,7 @@ namespace bpkg
     bool b (effective_role () == repository_role::base);
 
     if (location.empty () != b)
-      throw logic_error (
+      bad_value (
         location.empty () ? "no location specified" : "location not allowed");
 
     s.next ("", "1"); // Start of manifest.
