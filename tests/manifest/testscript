@@ -119,21 +119,76 @@
     {
       : complete
       :
-      $* -c -p <<EOI >>EOO
-        : 1
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
-        EOI
-        : 1
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        depends: bar == 2.0.0 | libbaz ~2.0.0 | libbox ^2.0.0 | libfox [1.0 2.0.0)
-        EOO
+      {
+	: final
+	:
+        $* -c -p <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 2.0.0 | libbaz ~2.0.0 | libbox ^2.0.0 | libfox [1.0 2.0.0)
+          EOO
+
+	: non-standard
+	:
+        $* -c -p <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0-x
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == $ | libfox [1.0 $)
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0-x
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 2.0.0-x | libfox [1.0 2.0.0-x)
+          EOO
+
+	: non-standard-shortcut
+	:
+        $* -c -p <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0-x
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ~$
+          EOI
+          stdin:6:10: error: invalid dependency constraint: dependent version is not standard
+          EOE
+
+	: latest-snapshot
+	:
+        $* -c -p <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0-a.0.z
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0-a.0.123
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 2.0.0-a.0.123 | libbaz [2.0.0-a.0.1 2.0.0-a.1) | libbox\
+           [2.0.0-a.0.1 2.0.0-a.1) | libfox [1.0 2.0.0-a.0.123)
+          EOO
+
+      }
 
       : incomplete
       :
@@ -579,20 +634,22 @@
 : effective-constraints
 :
 {
+  test.options += -ec
+
   : regular
   :
-  $* -ec '1.2.3+1' <<EOI >>EOO
+  $* '1.2.3+1' <<EOI >>EOO
     [1.0 $)
     [1.0 $]
-    [$ 1.2.4)
     [$ 1.2.4]
+    ($ 1.2.4]
     == $
     >= $
     EOI
     [1.0 $) [1.0 1.2.3)
     [1.0 $] [1.0 1.2.3]
-    [$ 1.2.4) [1.2.3 1.2.4)
     [$ 1.2.4] [1.2.3 1.2.4]
+    ($ 1.2.4] (1.2.3 1.2.4]
     == $ == 1.2.3
     >= $ >= 1.2.3
     EOO
@@ -603,8 +660,8 @@
     : final
     :
     {
-      $* -ec '1.2.3+1' <'~$' >'~$ ~1.2.0' : tilda
-      $* -ec '1.2.3+1' <'^$' >'^$ ^1.0.0' : carrot
+      $* '1.2.3+1' <'~$' >'~$ ~1.2.0' : tilda
+      $* '1.2.3+1' <'^$' >'^$ ^1.0.0' : carrot
     }
 
     : pre-release
@@ -613,16 +670,16 @@
       : tilda
       :
       {
-        $* -ec '1.2.0-b.2' <'~$' >'~$ ~1.2.0-a.1' : no-final
-        $* -ec '1.2.1-a.1' <'~$' >'~$ ~1.2.0'     : final-patch
+        $* '1.2.0-b.2' <'~$' >'~$ ~1.2.0-a.1' : no-final
+        $* '1.2.1-a.1' <'~$' >'~$ ~1.2.0'     : final-patch
       }
 
       : carrot
       :
       {
-        $* -ec '1.0.0-b.2' <'^$' >'^$ ^1.0.0-a.1' : no-final
-        $* -ec '1.0.1-a.1' <'^$' >'^$ ^1.0.0'     : final-patch
-        $* -ec '1.1.0-b.2' <'^$' >'^$ ^1.0.0'     : final-minor
+        $* '1.0.0-b.2' <'^$' >'^$ ^1.0.0-a.1' : no-final
+        $* '1.0.1-a.1' <'^$' >'^$ ^1.0.0'     : final-patch
+        $* '1.1.0-b.2' <'^$' >'^$ ^1.0.0'     : final-minor
       }
     }
 
@@ -632,18 +689,26 @@
       : tilda
       :
       {
-	$* -ec '1.2.1-a.2.345' <'~$' >'~$ ~1.2.0'                  : patch
-	$* -ec '1.2.0-a.0.345' <'~$' >'~$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
-	$* -ec '1.0.0-a.0.345' <'~$' >'~$ [1.0.0-a.0.1 1.0.0-a.1)' : major
+	$* '1.2.1-a.2.345' <'~$' >'~$ ~1.2.0'                  : patch
+	$* '1.2.0-a.0.345' <'~$' >'~$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
+	$* '1.0.0-a.0.345' <'~$' >'~$ [1.0.0-a.0.1 1.0.0-a.1)' : major
       }
 
       : carrot
       :
       {
-	$* -ec '1.2.1-a.2.345' <'^$' >'^$ ^1.0.0'                  : patch
-	$* -ec '1.2.0-a.0.345' <'^$' >'^$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
-	$* -ec '1.0.0-a.0.345' <'^$' >'^$ [1.0.0-a.0.1 1.0.0-a.1)' : major
+	$* '1.2.1-a.2.345' <'^$' >'^$ ^1.0.0'                  : patch
+	$* '1.2.0-a.0.345' <'^$' >'^$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
+	$* '1.0.0-a.0.345' <'^$' >'^$ [1.0.0-a.0.1 1.0.0-a.1)' : major
       }
+    }
+
+    : invalid
+    :
+    {
+      $* '1.2.3-'      <'~$' 2>'dependent version is earliest'                           == 1 : earliest-version
+      $* '1.2.3-a.0.z' <'~$' 2>'invalid version: dependent version is latest snapshot' == 1 : latest-version
+      $* '0+1'         <'~$' 2>'invalid version: dependent version is stub'            == 1 : stub-version
     }
   }
 }

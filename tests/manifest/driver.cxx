@@ -9,6 +9,7 @@
 
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
+#include <libbutl/standard-version.mxx>
 
 #include <libbpkg/manifest.hxx>
 
@@ -86,9 +87,25 @@ main (int argc, char* argv[])
       cin.exceptions (ios_base::failbit | ios_base::badbit);
 
       if (opt == "-p")
-        pkg_package_manifest (p,
-                              false /* ignore_unknown */,
-                              complete_depends).serialize (s);
+        package_manifest (
+          p,
+          [] (version& v)
+          {
+            // Emulate populating the snapshot information for the latest
+            // snapshot.
+            //
+            if (butl::optional<standard_version> sv =
+                parse_standard_version (v.string ()))
+            {
+              if (sv->latest_snapshot ())
+              {
+                sv->snapshot_sn = 123;
+                v = version (sv->string ());
+              }
+            }
+          },
+          false /* ignore_unknown */,
+          complete_depends).serialize (s);
       else if (opt == "-pp")
         pkg_package_manifests (p).serialize (s);
       else if (opt == "-dp")
@@ -108,6 +125,11 @@ main (int argc, char* argv[])
     }
   }
   catch (const manifest_parsing& e)
+  {
+    cerr << e << endl;
+    return 1;
+  }
+  catch (const invalid_argument& e)
   {
     cerr << e << endl;
     return 1;

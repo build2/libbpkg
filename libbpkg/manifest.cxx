@@ -855,10 +855,10 @@ namespace bpkg
     // The dependent package version can't be empty or earliest.
     //
     if (v.empty ())
-      throw invalid_argument ("empty version");
+      throw invalid_argument ("dependent version is empty");
 
     if (v.release && v.release->empty ())
-      throw invalid_argument ("earliest version");
+      throw invalid_argument ("dependent version is earliest");
 
     // For the more detailed description of the following semantics refer to
     // the depends value documentation.
@@ -882,79 +882,27 @@ namespace bpkg
 
       string vs (v.string ());
 
-      if (optional<standard_version> sv = parse_standard_version (vs))
+      // Note that a stub dependent is not allowed for the shortcut operator.
+      // However, we allow it here to fail later (in
+      // standard_version_constraint()) with a more precise description.
+      //
+      optional<standard_version> sv (
+        parse_standard_version (vs, standard_version::allow_stub));
+
+      if (!sv)
+        throw invalid_argument ("dependent version is not standard");
+
+      standard_version_constraint vc (min_open ? "~$" : "^$", *sv);
+
       try
       {
-        char op (min_open ? '~' : '^');
-        standard_version_constraint vc (op + vs);
-
-        // The shortcut operators' representation is a range.
-        //
         assert (vc.min_version && vc.max_version);
 
-        standard_version& mnv (*vc.min_version);
-        standard_version& mxv (*vc.max_version);
-
-        // For a release adjust the min version endpoint, setting its patch to
-        // zero. For ^ also set the minor version to zero, unless the major
-        // version is zero (reduced to ~).
-        //
-        if (sv->release ())
-        {
-          mnv = standard_version (
-            sv->epoch,
-            sv->major (),
-            op == '^' && sv->major () != 0 ? 0 : sv->minor (),
-            0 /* patch */);
-        }
-        //
-        // For a final pre-release or a patch snapshot we check if there has
-        // been a compatible final release (patch is not zero for ~ and
-        // minor/patch are not zero for ^). If that's the case, then fallback
-        // to the release case and start the range from the first alpha
-        // otherwise.
-        //
-        else if (sv->final () || (sv->snapshot () && sv->patch () != 0))
-        {
-          mnv = standard_version (
-            sv->epoch,
-            sv->major (),
-            op == '^' && sv->major () != 0 ? 0 : sv->minor (),
-            0 /* patch */,
-            sv->patch () != 0 || (op == '^' && sv->minor () != 0)
-            ? 0
-            : 1 /* pre-release */);
-        }
-        //
-        // For a major/minor snapshot we assume that all the packages are
-        // developed in the lockstep and convert the constraint range to
-        // represent this "snapshot series".
-        //
-        else
-        {
-          assert (sv->snapshot () && sv->patch () == 0);
-
-          uint16_t pr (*sv->pre_release ());
-
-          mnv = standard_version (sv->epoch,
-                                  sv->major (),
-                                  sv->minor (),
-                                  0 /* patch */,
-                                  pr,
-                                  1 /* snapshot_sn */,
-                                  "" /* snapshot_id */);
-
-          // Note: the max version endpoint is already open.
-          //
-          mxv = standard_version (sv->epoch,
-                                  sv->major (),
-                                  sv->minor (),
-                                  0 /* patch */,
-                                  pr + 1);
-        }
-
-        return dependency_constraint (version (mnv.string ()), vc.min_open,
-                                      version (mxv.string ()), vc.max_open);
+        return dependency_constraint (
+          version (vc.min_version->string ()),
+          vc.min_open,
+          version (vc.max_version->string ()),
+          vc.max_open);
       }
       catch (const invalid_argument&)
       {
@@ -962,8 +910,6 @@ namespace bpkg
         //
         assert (false);
       }
-
-      throw invalid_argument (vs + " is not a standard version");
     }
 
     // Calculate effective constraint for a range.
@@ -1448,12 +1394,14 @@ namespace bpkg
   // pkg_package_manifest
   //
   static void
-  parse_package_manifest (parser& p,
-                          name_value nv,
-                          bool iu,
-                          bool cd,
-                          package_manifest_flags fl,
-                          package_manifest& m)
+  parse_package_manifest (
+    parser& p,
+    name_value nv,
+    const function<package_manifest::translate_function>& tf,
+    bool iu,
+    bool cd,
+    package_manifest_flags fl,
+    package_manifest& m)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -1560,6 +1508,24 @@ namespace bpkg
         //
         if (m.version.release && m.version.release->empty ())
           bad_value ("invalid package version release");
+
+        if (tf)
+        {
+          tf (m.version);
+
+          // Re-validate the version after the translation.
+          //
+          // The following description will be confusing for the end user.
+          // However, they shouldn't ever see it unless the translation
+          // function is broken.
+          //
+          if (m.version.empty ())
+            bad_value ("empty translated package version");
+
+          if (m.version.release && m.version.release->empty ())
+            bad_value ("invalid translated package version " +
+                       m.version.string () + ": earliest release");
+        }
       }
       else if (n == "project")
       {
@@ -2007,11 +1973,12 @@ namespace bpkg
   //
   package_manifest::
   package_manifest (manifest_parser& p,
+                    const function<translate_function>& tf,
                     bool iu,
                     bool cd,
                     package_manifest_flags fl)
   {
-    parse_package_manifest (p, p.next (), iu, cd, fl, *this);
+    parse_package_manifest (p, p.next (), tf, iu, cd, fl, *this);
 
     // Make sure this is the end.
     //
@@ -2023,12 +1990,22 @@ namespace bpkg
 
   package_manifest::
   package_manifest (manifest_parser& p,
+                    bool iu,
+                    bool cd,
+                    package_manifest_flags fl)
+      : package_manifest (p, function<translate_function> (), iu, cd, fl)
+    {
+    }
+
+  package_manifest::
+  package_manifest (manifest_parser& p,
                     name_value nv,
                     bool iu,
                     bool cd,
                     package_manifest_flags fl)
   {
-    parse_package_manifest (p, move (nv), iu, cd, fl, *this);
+    parse_package_manifest (
+      p, move (nv), function<translate_function> (), iu, cd, fl, *this);
   }
 
   static const string description_file ("description-file");

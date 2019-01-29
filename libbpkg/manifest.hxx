@@ -322,7 +322,8 @@ namespace bpkg
     // Return the completed constraint if it refers to the dependent package
     // version and copy of itself otherwise. Throw std::invalid_argument if
     // the resulting constraint is invalid (max version is less than min
-    // version in range, non-standard version for a shortcut operator, etc.).
+    // version in range, non-standard or latest snapshot version for a
+    // shortcut operator, etc.).
     //
     dependency_constraint
     effective (version) const;
@@ -650,6 +651,28 @@ namespace bpkg
                         package_manifest_flags::forbid_sha256sum |
                         package_manifest_flags::forbid_fragment);
 
+    // As above but also call the translate function for the version value
+    // passing through any exception it may throw. Throw std::invalid_argument
+    // if the resulting version isn't a valid package version (empty, earliest
+    // release, etc).
+    //
+    // In particular, the translation function may "patch" the version with
+    // the snapshot information (see <libbutl/standard-version.mxx> for
+    // details). This translation is normally required for manifests of
+    // packages that are accessed as directories (as opposed to package
+    // archives that should have their version already patched).
+    //
+    using translate_function = void (version_type&);
+
+    package_manifest (butl::manifest_parser&,
+                      const std::function<translate_function>&,
+                      bool ignore_unknown = false,
+                      bool complete_depends = true,
+                      package_manifest_flags =
+                        package_manifest_flags::forbid_location  |
+                        package_manifest_flags::forbid_sha256sum |
+                        package_manifest_flags::forbid_fragment);
+
     // Create an element of the list manifest.
     //
     package_manifest (butl::manifest_parser&,
@@ -849,8 +872,8 @@ namespace bpkg
   //   it is absolute and the authority or fragment is present. Otherwise
   //   represent it as a local path, appending the fragment if present.
   //
-  // - repository_url(string) ctor throws invalid_argument exception for an
-  //   empty string.
+  // - repository_url(string) ctor throws std::invalid_argument exception for
+  //   an empty string.
   //
   using repository_url = butl::basic_url<repository_protocol,
                                          repository_url_traits>;
