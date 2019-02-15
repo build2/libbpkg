@@ -357,6 +357,11 @@ namespace bpkg
       assert (version ("1.0-alpha") > version ("1.0-1"));
       assert (version ("1.0-alpha") == version ("1.0-alpha.0"));
 
+      assert (version ("1.1.1-a.0.1") < version ("1.1.1"));
+      assert (version ("1.1.1") < version ("1.1.1a"));
+      assert (version ("1.1.1a") < version ("1.1.1a+1"));
+      assert (version ("1.1.1a+1") < version ("1.1.1b"));
+
       assert (version (1, "2.0", nullopt, 3, 0) == version ("+1-2+3"));
       assert (version (1, "2.0", string (), 0, 0) == version ("+1-2-"));
       assert (version (0, "", string (), 0, 0) == version ());
