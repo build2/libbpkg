@@ -11,27 +11,44 @@ lib{bpkg}: {hxx ixx txx cxx}{** -version} {hxx}{version} $int_libs
 # clean results in a state identical to distributed).
 #
 hxx{version}: in{version} $src_root/manifest
-hxx{version}: dist  = true
-hxx{version}: clean = ($src_root != $out_root)
+hxx{version}:
+{
+  dist  = true
+  clean = ($src_root != $out_root)
+}
+
+# Build options.
+#
+cxx.poptions =+ "-I$out_root" "-I$src_root"
+
+obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBBPKG_SHARED_BUILD
+
+# Export options.
+#
+lib{bpkg}:
+{
+  cxx.export.poptions = "-I$out_root" "-I$src_root"
+  cxx.export.libs = $int_libs
+}
+
+liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
+libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
 
 # For pre-releases use the complete version to make sure they cannot be used
-# in place of another pre-release or the final version.
+# in place of another pre-release or the final version. See the version module
+# for details on the version.* variable values.
 #
 if $version.pre_release
   lib{bpkg}: bin.lib.version = @"-$version.project_id"
 else
   lib{bpkg}: bin.lib.version = @"-$version.major.$version.minor"
 
-cxx.poptions =+ "-I$out_root" "-I$src_root"
-obja{*}: cxx.poptions += -DLIBBPKG_STATIC_BUILD
-objs{*}: cxx.poptions += -DLIBBPKG_SHARED_BUILD
-
-lib{bpkg}: cxx.export.poptions = "-I$out_root" "-I$src_root"
-liba{bpkg}: cxx.export.poptions += -DLIBBPKG_STATIC
-libs{bpkg}: cxx.export.poptions += -DLIBBPKG_SHARED
-
-lib{bpkg}: cxx.export.libs = $int_libs
-
-# Install into the libbpkg/ subdirectory of, say, /usr/include/.
+# Install into the libbpkg/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
 #
-{hxx ixx txx}{*}: install = include/libbpkg/
+{hxx ixx txx}{*}:
+{
+  install         = include/libbpkg/
+  install.subdirs = true
+}
