@@ -1,0 +1,122 @@
+# file      : tests/overrides/testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: valid
+:
+{
+  : build-email
+  :
+  $* 'build-email: bar@example.com' <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    build-email: foo@example.com
+    build-error-email: error@example.com
+    build-warning-email: warning@example.com
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    build-email: bar@example.com
+    EOO
+
+  : builds
+  :
+  $* 'builds: gcc' <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    builds: default
+    build-include: linux*
+    build-exclude: *; Only supports Linux.
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    builds: gcc
+    EOO
+
+  : build-include-exclude
+  :
+  $* 'build-include: linux*' 'build-exclude: *; Only supports Linux.' <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    builds: default
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    build-include: linux*
+    build-exclude: *; Only supports Linux.
+    EOO
+
+  : none
+  :
+  $* <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    build-email: foo@example.com
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    build-email: foo@example.com
+    EOO
+}
+
+: invalid
+:
+{
+  : forbidden
+  :
+  $* 'name: libbar' <<EOI 2>"cannot override 'name' value" != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+
+  : bad-value
+  :
+  $* 'builds: all' 'builds: default : -windows' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    invalid package builds in 'default : -windows': unexpected underlying class set
+    EOE
+
+  : stream-name-specified
+  :
+  $* -n 'builds: all' 'builds: default : -windows' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    args:2:8: error: invalid package builds: unexpected underlying class set
+    EOE
+}

@@ -1393,6 +1393,100 @@ namespace bpkg
 
   // pkg_package_manifest
   //
+  static build_class_expr
+  parse_build_class_expr (const name_value& nv,
+                          bool first,
+                          const string& source_name)
+  {
+    pair<string, string> vc (parser::split_comment (nv.value));
+    string& v (vc.first);
+    string& c (vc.second);
+
+    auto bad_value = [&v, &nv, &source_name] (const string& d,
+                                              const invalid_argument& e)
+    {
+      throw !source_name.empty ()
+            ? parsing (source_name,
+                       nv.value_line, nv.value_column,
+                       d + ": " + e.what ())
+            : parsing (d + " in '" + v + "': " + e.what ());
+    };
+
+    build_class_expr r;
+
+    try
+    {
+      r = build_class_expr (v, move (c));
+
+      // Underlying build configuration class set may appear only in the
+      // first builds value.
+      //
+      if (!r.underlying_classes.empty () && !first)
+        throw invalid_argument ("unexpected underlying class set");
+    }
+    catch (const invalid_argument& e)
+    {
+      bad_value ("invalid package builds", e);
+    }
+
+    return r;
+  }
+
+  static build_constraint
+  parse_build_constraint (const name_value& nv,
+                          bool exclusion,
+                          const string& source_name)
+  {
+    pair<string, string> vc (parser::split_comment (nv.value));
+    string& v (vc.first);
+    string& c (vc.second);
+
+    auto bad_value = [&v, &nv, &source_name] (const string& d)
+    {
+      throw !source_name.empty ()
+            ? parsing (source_name, nv.value_line, nv.value_column, d)
+            : parsing (d + " in '" + v + "'");
+    };
+
+    size_t p (v.find ('/'));
+    string nm (p != string::npos ? v.substr (0, p) : move (v));
+
+    optional<string> tg (p != string::npos
+                         ? optional<string> (string (v, p + 1))
+                         : nullopt);
+
+    if (nm.empty ())
+      bad_value ("empty build configuration name pattern");
+
+    if (tg && tg->empty ())
+      bad_value ("empty build target pattern");
+
+    return build_constraint (exclusion, move (nm), move (tg), move (c));
+  }
+
+  static email
+  parse_email (const name_value& nv,
+               const char* what,
+               const string& source_name,
+               bool empty = false)
+  {
+    auto bad_value = [&nv, &source_name] (const string& d)
+    {
+      throw !source_name.empty ()
+            ? parsing (source_name, nv.value_line, nv.value_column, d)
+            : parsing (d);
+    };
+
+    pair<string, string> vc (parser::split_comment (nv.value));
+    string& v (vc.first);
+    string& c (vc.second);
+
+    if (v.empty () && !empty)
+      bad_value (string ("empty ") + what + " email");
+
+    return email (move (v), move (c));
+  }
+
   static void
   parse_package_manifest (
     parser& p,
@@ -1417,25 +1511,16 @@ namespace bpkg
     if (nv.value != "1")
       bad_value ("unsupported format version");
 
-    auto add_build_constraint = [&bad_value, &m] (bool e, const string& vc)
+    auto parse_email = [&bad_name] (const name_value& nv,
+                                    optional<email>& r,
+                                    const char* what,
+                                    const string& source_name,
+                                    bool empty = false)
     {
-      auto vcp (parser::split_comment (vc));
-      string v (move (vcp.first));
-      string c (move (vcp.second));
+      if (r)
+        bad_name (what + string (" email redefinition"));
 
-      size_t p (v.find ('/'));
-      string nm (p != string::npos ? v.substr (0, p) : move (v));
-      optional<string> tg (p != string::npos
-                           ? optional<string> (string (v, p + 1))
-                           : nullopt);
-
-      if (nm.empty ())
-        bad_value ("empty build configuration name pattern");
-
-      if (tg && tg->empty ())
-        bad_value ("empty build target pattern");
-
-      m.build_constraints.emplace_back (e, move (nm), move (tg), move (c));
+      r = bpkg::parse_email (nv, what, source_name, empty);
     };
 
     auto parse_url = [&bad_value] (const string& v, const char* what) -> url
@@ -1446,18 +1531,6 @@ namespace bpkg
         bad_value (string ("empty ") + what + " url");
 
       return url (move (p.first), move (p.second));
-    };
-
-    auto parse_email = [&bad_value] (const string& v,
-                                     const char* what,
-                                     bool empty = false) -> email
-    {
-      auto p (parser::split_comment (v));
-
-      if (v.empty () && !empty)
-        bad_value (string ("empty ") + what + " email");
-
-      return email (move (p.first), move (p.second));
     };
 
     auto flag = [fl] (package_manifest_flags f)
@@ -1641,10 +1714,7 @@ namespace bpkg
       }
       else if (n == "email")
       {
-        if (m.email)
-          bad_name ("project email redefinition");
-
-        m.email = parse_email (v, "project");
+        parse_email (nv, m.email, "project", p.name ());
       }
       else if (n == "doc-url")
       {
@@ -1669,31 +1739,19 @@ namespace bpkg
       }
       else if (n == "package-email")
       {
-        if (m.package_email)
-          bad_name ("package email redefinition");
-
-        m.package_email = parse_email (v, "package");
+        parse_email (nv, m.package_email, "package", p.name ());
       }
       else if (n == "build-email")
       {
-        if (m.build_email)
-          bad_name ("build email redefinition");
-
-        m.build_email = parse_email (v, "build", true /* empty */);
+        parse_email (nv, m.build_email, "build", p.name (), true /* empty */);
       }
       else if (n == "build-warning-email")
       {
-        if (m.build_warning_email)
-          bad_name ("build warning email redefinition");
-
-        m.build_warning_email = parse_email (v, "build warning");
+        parse_email (nv, m.build_warning_email, "build warning", p.name ());
       }
       else if (n == "build-error-email")
       {
-        if (m.build_error_email)
-          bad_name ("build error email redefinition");
-
-        m.build_error_email = parse_email (v, "build error");
+        parse_email (nv, m.build_error_email, "build error", p.name ());
       }
       else if (n == "priority")
       {
@@ -1759,31 +1817,18 @@ namespace bpkg
       }
       else if (n == "builds")
       {
-        try
-        {
-          auto vc (parser::split_comment (v));
-          build_class_expr expr (vc.first, move (vc.second));
-
-          // Underlying build configuration class set may appear only in the
-          // first builds value.
-          //
-          if (!expr.underlying_classes.empty () && !m.builds.empty ())
-            throw invalid_argument ("unexpected underlying class set");
-
-          m.builds.emplace_back (move (expr));
-        }
-        catch (const invalid_argument& e)
-        {
-          bad_value (string ("invalid package builds: ") + e.what ());
-        }
+        m.builds.push_back (
+          parse_build_class_expr (nv, m.builds.empty (), p.name ()));
       }
       else if (n == "build-include")
       {
-        add_build_constraint (false, v);
+        m.build_constraints.push_back (
+          parse_build_constraint (nv, false /* exclusion */, p.name ()));
       }
       else if (n == "build-exclude")
       {
-        add_build_constraint (true, v);
+        m.build_constraints.push_back (
+          parse_build_constraint (nv, true /* exclusion */, p.name ()));
       }
       else if (n == "depends")
       {
@@ -1994,8 +2039,8 @@ namespace bpkg
                     bool cd,
                     package_manifest_flags fl)
       : package_manifest (p, function<translate_function> (), iu, cd, fl)
-    {
-    }
+  {
+  }
 
   package_manifest::
   package_manifest (manifest_parser& p,
@@ -2006,6 +2051,93 @@ namespace bpkg
   {
     parse_package_manifest (
       p, move (nv), function<translate_function> (), iu, cd, fl, *this);
+  }
+
+  void package_manifest::
+  override (const vector<manifest_name_value>& nvs, const string& name)
+  {
+    // Reset the builds value group on the first call.
+    //
+    bool rb (true);
+    auto reset_builds = [&rb, this] ()
+    {
+      if (rb)
+      {
+        builds.clear ();
+        build_constraints.clear ();
+        rb = false;
+      }
+    };
+
+    // Reset the build emails value group on the first call.
+    //
+    bool rbe (true);
+    auto reset_build_emails = [&rbe, this] ()
+    {
+      if (rbe)
+      {
+        build_email = nullopt;
+        build_warning_email = nullopt;
+        build_error_email = nullopt;
+        rbe = false;
+      }
+    };
+
+    for (const manifest_name_value& nv: nvs)
+    {
+      const string& n (nv.name);
+
+      if (n == "builds")
+      {
+        reset_builds ();
+        builds.push_back (parse_build_class_expr (nv, builds.empty (), name));
+      }
+      else if (n == "build-include")
+      {
+        reset_builds ();
+
+        build_constraints.push_back (
+          parse_build_constraint (nv, false /* exclusion */, name));
+      }
+      else if (n == "build-exclude")
+      {
+        reset_builds ();
+
+        build_constraints.push_back (
+          parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if (n == "build-email")
+      {
+        reset_build_emails ();
+        build_email = parse_email (nv, "build", name, true /* empty */);
+      }
+      else if (n == "build-warning-email")
+      {
+        reset_build_emails ();
+        build_warning_email = parse_email (nv, "build warning", name);
+      }
+      else if (n == "build-error-email")
+      {
+        reset_build_emails ();
+        build_error_email = parse_email (nv, "build error", name);
+      }
+      else
+      {
+        string d ("cannot override '" + n + "' value");
+
+        throw !name.empty ()
+              ? parsing (name, nv.name_line, nv.name_column, d)
+              : parsing (d);
+      }
+    }
+  }
+
+  void package_manifest::
+  validate_overrides (const vector<manifest_name_value>& nvs,
+                      const string& name)
+  {
+    package_manifest p;
+    p.override (nvs, name);
   }
 
   static const string description_file ("description-file");

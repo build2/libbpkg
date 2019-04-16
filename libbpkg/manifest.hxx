@@ -636,7 +636,7 @@ namespace bpkg
     effective_project () const noexcept {return project ? *project : name;}
 
   public:
-    package_manifest () = default; // VC export.
+    package_manifest () = default;
 
     // Create individual manifest.
     //
@@ -680,6 +680,31 @@ namespace bpkg
                       bool ignore_unknown,
                       bool complete_depends,
                       package_manifest_flags);
+
+    // Override manifest values with the specified. Throw manifest_parsing if
+    // any value is invalid, cannot be overridden, or its name is not
+    // recognized.
+    //
+    // The specified values override the whole groups they belong to,
+    // resetting all the group values prior to being applied. Currently, only
+    // the following value groups can be overridden: {build-*email} and
+    // {builds, build-{include,exclude}}.
+    //
+    // If a non-empty source name is specified, then the specified values are
+    // assumed to also include the line/column information and the possibly
+    // thrown manifest_parsing exception will contain the invalid value
+    // location information. Otherwise, the exception description will refer
+    // to the invalid value name instead.
+    //
+    void
+    override (const std::vector<butl::manifest_name_value>&,
+              const std::string& source_name);
+
+    // Validate the overrides without applying them to any manifest.
+    //
+    static void
+    validate_overrides (const std::vector<butl::manifest_name_value>&,
+                        const std::string& source_name);
 
     void
     serialize (butl::manifest_serializer&) const;
