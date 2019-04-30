@@ -19,6 +19,7 @@
 #include <libbutl/base64.mxx>
 #include <libbutl/utility.mxx>             // casecmp(), lcase(), alnum(),
                                            // digit(), xdigit(), next_word()
+#include <libbutl/small-vector.mxx>
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
 #include <libbutl/standard-version.mxx>
@@ -1391,6 +1392,104 @@ namespace bpkg
     match_classes (cs, im, expr, r);
   }
 
+  // text_type
+  //
+  string
+  to_string (text_type t)
+  {
+    switch (t)
+    {
+    case text_type::plain:       return "text/plain";
+    case text_type::github_mark: return "text/markdown;variant=GFM";
+    case text_type::common_mark: return "text/markdown;variant=CommonMark";
+    }
+
+    assert (false); // Can't be here.
+    return string ();
+  }
+
+  optional<text_type>
+  to_text_type (const string& t)
+  {
+    auto bad_type = [] (const string& d) {throw invalid_argument (d);};
+
+    // Parse the media type representation (see RFC2045 for details) into the
+    // type/subtype value and the parameter list. Note: we don't support
+    // parameter quoting and comments for simplicity.
+    //
+    size_t p (t.find (';'));
+    const string& tp (p != string::npos ? trim (string (t, 0, p)) : t);
+
+    small_vector<pair<string, string>, 1> ps;
+
+    while (p != string::npos)
+    {
+      // Extract parameter name.
+      //
+      size_t b (p + 1);
+      p = t.find ('=', b);
+
+      if (p == string::npos)
+        bad_type ("missing '='");
+
+      string n (trim (string (t, b, p - b)));
+
+      // Extract parameter value.
+      //
+      b = p + 1;
+      p = t.find (';', b);
+
+      string v (trim (string (t,
+                              b,
+                              p != string::npos ? p - b : string::npos)));
+
+      ps.emplace_back (move (n), move (v));
+    }
+
+    // Calculate the resulting text type, failing on unrecognized media type,
+    // unexpected parameter name or value.
+    //
+    // Note that type, subtype, and parameter names are matched
+    // case-insensitively.
+    //
+    optional<text_type> r;
+
+    // Currently only the plain and markdown text types are allowed. Later we
+    // can potentially introduce some other text types.
+    //
+    if (casecmp (tp, "text/plain") == 0)
+    {
+      // Currently, we don't expect parameters for plain text. Later we can
+      // potentially introduce some plain text variants.
+      //
+      if (ps.empty ())
+        r = text_type::plain;
+    }
+    else if (casecmp (tp, "text/markdown") == 0)
+    {
+      // Currently, a single optional variant parameter with the two possible
+      // values is allowed for markdown. Later we can potentially introduce
+      // some other markdown variants.
+      //
+      if (ps.empty () ||
+          (ps.size () == 1 && casecmp (ps[0].first, "variant") == 0))
+      {
+        // Note that markdown variants are matched case-insensitively (see
+        // RFC7763 for details).
+        //
+        string v;
+        if (ps.empty () || casecmp (v = move (ps[0].second), "GFM") == 0)
+          r = text_type::github_mark;
+        else if (casecmp (v, "CommonMark") == 0)
+          r = text_type::common_mark;
+      }
+    }
+    else if (casecmp (tp, "text/", 5) != 0)
+      bad_type ("text type expected");
+
+    return r;
+  }
+
   // pkg_package_manifest
   //
   static build_class_expr
@@ -1543,6 +1642,13 @@ namespace bpkg
     // parsed.
     //
     vector<name_value> dependencies;
+
+    // We will cache the description and its type values to validate them
+    // later, after both are parsed.
+    //
+    optional<name_value> description;
+    optional<name_value> description_type;
+
     for (nv = p.next (); !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
@@ -1643,9 +1749,9 @@ namespace bpkg
       }
       else if (n == "description")
       {
-        if (m.description)
+        if (description)
         {
-          if (m.description->file)
+          if (description->name == "description-file")
             bad_name ("package description and description-file are "
                       "mutually exclusive");
           else
@@ -1655,32 +1761,30 @@ namespace bpkg
         if (v.empty ())
           bad_value ("empty package description");
 
-        m.description = text_file (move (v));
+        description = move (nv);
       }
       else if (n == "description-file")
       {
         if (flag (package_manifest_flags::forbid_file))
           bad_name ("package description-file not allowed");
 
-        if (m.description)
+        if (description)
         {
-          if (m.description->file)
+          if (description->name == "description-file")
             bad_name ("package description-file redefinition");
           else
             bad_name ("package description-file and description are "
                       "mutually exclusive");
         }
 
-        auto vc (parser::split_comment (v));
-        path p (move (vc.first));
+        description = move (nv);
+      }
+      else if (n == "description-type")
+      {
+        if (description_type)
+          bad_name ("package description-type redefinition");
 
-        if (p.empty ())
-          bad_value ("no path in package description-file");
-
-        if (p.absolute ())
-          bad_value ("package description-file path is absolute");
-
-        m.description = text_file (move (p), move (vc.second));
+        description_type = move (nv);
       }
       else if (n == "changes")
       {
@@ -1900,6 +2004,74 @@ namespace bpkg
     else if (m.license_alternatives.empty ())
       bad_value ("no project license specified");
 
+    // Verify that description is specified if the description type is
+    // specified.
+    //
+    if (description_type && !description)
+      bad_value ("no package description for specified description type");
+
+    // Validate (and set) description and its type.
+    //
+    if (description)
+    {
+      // Restore as bad_value() uses its line/column.
+      //
+      nv = move (*description);
+
+      string& v (nv.value);
+
+      if (nv.name == "description-file")
+      {
+        auto vc (parser::split_comment (v));
+
+        path p;
+        try
+        {
+          p = path (move (vc.first));
+        }
+        catch (const invalid_path& e)
+        {
+          bad_value (string ("invalid package description file: ") +
+                     e.what ());
+        }
+
+        if (p.empty ())
+          bad_value ("no path in package description-file");
+
+        if (p.absolute ())
+          bad_value ("package description-file path is absolute");
+
+        m.description = text_file (move (p), move (vc.second));
+      }
+      else
+        m.description = text_file (move (v));
+
+      if (description_type)
+        m.description_type = move (description_type->value);
+
+      // Verify the description type.
+      //
+      try
+      {
+        m.effective_description_type (iu);
+      }
+      catch (const invalid_argument& e)
+      {
+        if (description_type)
+        {
+          // Restore as bad_value() uses its line/column.
+          //
+          nv = move (*description_type);
+
+          bad_value (string ("invalid package description type: ") +
+                     e.what ());
+        }
+        else
+          bad_value (string ("invalid package description file: ") +
+                     e.what ());
+      }
+    }
+
     // Now, when the version manifest value is parsed, we can parse the
     // dependencies and complete their constrains, if requested.
     //
@@ -1993,6 +2165,21 @@ namespace bpkg
       m.dependencies.push_back (da);
     }
 
+    // @@ If the required description-type value is absent we will not fail
+    //    until toolchain 0.11.0 is released and will set it to plain text
+    //    instead. Not doing so we will fail to build packages coming from
+    //    older pkg repositories. In particular, we will fail to verify that
+    //    the public packages are still buildable with the queued toolchain.
+    //
+    if (m.description       &&
+        !m.description_type &&
+        flag (package_manifest_flags::require_description_type))
+#if 0
+      bad_name ("no package description type specified");
+#else
+      m.description_type = "text/plain";
+#endif
+
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
 
@@ -2008,9 +2195,10 @@ namespace bpkg
       move (nv),
       iu,
       false /* complete_depends */,
-      package_manifest_flags::forbid_file      |
-      package_manifest_flags::require_location |
-      package_manifest_flags::forbid_fragment  |
+      package_manifest_flags::forbid_file              |
+      package_manifest_flags::require_description_type |
+      package_manifest_flags::require_location         |
+      package_manifest_flags::forbid_fragment          |
       package_manifest_flags::forbid_incomplete_depends);
   }
 
@@ -2051,6 +2239,33 @@ namespace bpkg
   {
     parse_package_manifest (
       p, move (nv), function<translate_function> (), iu, cd, fl, *this);
+  }
+
+  optional<text_type> package_manifest::
+  effective_description_type (bool iu) const
+  {
+    if (!description)
+      throw logic_error ("absent description");
+
+    optional<text_type> r;
+
+    if (description_type)
+      r = to_text_type (*description_type);
+    else if (description->file)
+    {
+      string ext (description->path.extension ());
+      if (ext.empty () || casecmp (ext, "txt") == 0)
+        r = text_type::plain;
+      else if (casecmp (ext, "md") == 0 || casecmp (ext, "markdown") == 0)
+        r = text_type::github_mark;
+    }
+    else
+      r = text_type::plain;
+
+    if (!r && !iu)
+      throw invalid_argument ("unknown text type");
+
+    return r;
   }
 
   void package_manifest::
@@ -2144,7 +2359,7 @@ namespace bpkg
   static const string changes_file     ("changes-file");
 
   void package_manifest::
-  load_files (const function<load_function>& loader)
+  load_files (const function<load_function>& loader, bool iu)
   {
     auto load = [&loader] (const string& n, const path& p)
     {
@@ -2158,8 +2373,32 @@ namespace bpkg
 
     // Load the description-file manifest value.
     //
-    if (description && description->file)
-      description = text_file (load (description_file, description->path));
+    if (description)
+    {
+      // Make the description type explicit.
+      //
+      optional<text_type> t (effective_description_type (iu)); // Can throw.
+
+      assert (t || iu); // Can only be absent if we ignore unknown.
+
+      if (!description_type && t)
+        description_type = to_string (*t);
+
+      // At this point the description type can only be absent if the
+      // description comes from a file. Otherwise, we would end up with the
+      // plain text.
+      //
+      assert (description_type || description->file);
+
+      if (description->file)
+      {
+        if (!description_type)
+          description_type = "text/unknown; extension=" +
+                             description->path.extension ();
+
+        description = text_file (load (description_file, description->path));
+      }
+    }
 
     // Load the changes-file manifest values.
     //
@@ -2226,6 +2465,9 @@ namespace bpkg
                                              m.description->comment));
         else
           s.next ("description", m.description->text);
+
+        if (m.description_type)
+          s.next ("description-type", *m.description_type);
       }
 
       for (const auto& c: m.changes)
@@ -2552,8 +2794,14 @@ namespace bpkg
           d + " for " + p.name.string () + "-" + p.version.string ());
       };
 
-      if (p.description && p.description->file)
-        bad_value ("forbidden description-file");
+      if (p.description)
+      {
+        if (p.description->file)
+          bad_value ("forbidden description-file");
+
+        if (!p.description_type)
+          bad_value ("no valid description-type");
+      }
 
       for (const auto& c: p.changes)
         if (c.file)

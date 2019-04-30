@@ -430,7 +430,8 @@ namespace bpkg
     forbid_incomplete_depends = 0x10,
 
     require_location          = 0x20,
-    require_sha256sum         = 0x40
+    require_sha256sum         = 0x40,
+    require_description_type  = 0x80
   };
 
   inline package_manifest_flags
@@ -594,6 +595,28 @@ namespace bpkg
     return os << bce.string ();
   }
 
+  enum class text_type
+  {
+    plain,
+    common_mark,
+    github_mark
+  };
+
+  LIBBPKG_EXPORT std::string
+  to_string (text_type);
+
+  // Throw std::invalid_argument if the argument is not a well-formed text
+  // type. Otherwise, return nullopt for an unknown text variant.
+  //
+  LIBBPKG_EXPORT butl::optional<text_type>
+  to_text_type (const std::string&); // May throw std::invalid_argument.
+
+  inline std::ostream&
+  operator<< (std::ostream& os, text_type t)
+  {
+    return os << to_string (t);
+  }
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -610,6 +633,7 @@ namespace bpkg
     std::vector<licenses> license_alternatives;
     strings tags;
     butl::optional<text_file> description;
+    butl::optional<std::string> description_type;
     std::vector<text_file> changes;
     butl::optional<url_type> url;
     butl::optional<url_type> doc_url;
@@ -634,6 +658,17 @@ namespace bpkg
 
     const package_name&
     effective_project () const noexcept {return project ? *project : name;}
+
+    // Return the description type value if present, text_type::github_mark if
+    // the description refers to a file with the .md or .markdown extension
+    // and text_type::plain if it refers to a file with the .txt extension or
+    // no extension or the description does not come from a file. Depending on
+    // the ignore_unknown value either throw std::invalid_argument or return
+    // nullopt if the description value or the file extension is unknown.
+    // Throw std::logic_error if the description value is nullopt.
+    //
+    butl::optional<text_type>
+    effective_description_type (bool ignore_unknown = false) const;
 
   public:
     package_manifest () = default;
@@ -716,6 +751,9 @@ namespace bpkg
 
     // Load the *-file manifest values using the specified load function that
     // returns the file contents passing through any exception it may throw.
+    // Set the potentially absent description type value to the effective
+    // description type. If the effective type is nullopt then assign a
+    // synthetic unknown type.
     //
     // Note that if the returned file contents is empty, load_files() makes
     // sure that this is allowed by the value's semantics throwing
@@ -726,7 +764,8 @@ namespace bpkg
                                        const butl::path& value);
 
     void
-    load_files (const std::function<load_function>&);
+    load_files (const std::function<load_function>&,
+                bool ignore_unknown = false);
   };
 
   // Create individual package manifest.

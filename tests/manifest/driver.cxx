@@ -20,7 +20,7 @@ using namespace bpkg;
 // Usages:
 //
 // argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s)
-// argv[0] [-c] -p
+// argv[0] -p -c -i
 // argv[0] -ec <version>
 //
 // In the first form read and parse manifest list from stdin and serialize it
@@ -35,8 +35,12 @@ using namespace bpkg;
 // -s   parse signature manifest
 //
 // In the second form read and parse the package manifest from stdin and
-// serialize it to stdout. Complete the dependency constraints if -c is
-// specified. Note: -c, if specified, should go before -p on the command line.
+// serialize it to stdout.
+//
+// -c   complete the dependency constraints
+// -i   ignore unknown
+//
+// Note: the above options should go after -p on the command line.
 //
 // In the third form read and parse dependency constraints from stdin and
 // roundtrip them to stdout together with their effective constraints,
@@ -45,18 +49,8 @@ using namespace bpkg;
 int
 main (int argc, char* argv[])
 {
-  assert (argc <= 3);
-  string opt (argv[1]);
-
-  bool complete_depends (opt == "-c");
-
-  if (complete_depends)
-  {
-    opt = argv[2];
-    assert (opt == "-p");
-  }
-
-  assert ((opt == "-ec" || complete_depends) == (argc == 3));
+  assert (argc >= 2);
+  string mode (argv[1]);
 
   cout.exceptions (ios_base::failbit | ios_base::badbit);
 
@@ -65,8 +59,49 @@ main (int argc, char* argv[])
 
   try
   {
-    if (opt == "-ec")
+    if (mode == "-p")
     {
+      bool complete_depends (false);
+      bool ignore_unknown (false);
+
+      for (int i (2); i != argc; ++i)
+      {
+        string o (argv[i]);
+
+        if (o == "-c")
+          complete_depends = true;
+        else if (o == "-i")
+          ignore_unknown = true;
+        else
+          assert (false);
+      }
+
+      cin.exceptions (ios_base::failbit | ios_base::badbit);
+
+      package_manifest (
+        p,
+        [] (version& v)
+        {
+          // Emulate populating the snapshot information for the latest
+          // snapshot.
+          //
+          if (butl::optional<standard_version> sv =
+              parse_standard_version (v.string ()))
+          {
+            if (sv->latest_snapshot ())
+            {
+              sv->snapshot_sn = 123;
+              v = version (sv->string ());
+            }
+          }
+        },
+        ignore_unknown,
+        complete_depends).serialize (s);
+    }
+    else if (mode == "-ec")
+    {
+      assert (argc == 3);
+
       version v (argv[2]);
 
       cin.exceptions (ios_base::badbit);
@@ -84,41 +119,23 @@ main (int argc, char* argv[])
     }
     else
     {
+      assert (argc == 2);
+
       cin.exceptions (ios_base::failbit | ios_base::badbit);
 
-      if (opt == "-p")
-        package_manifest (
-          p,
-          [] (version& v)
-          {
-            // Emulate populating the snapshot information for the latest
-            // snapshot.
-            //
-            if (butl::optional<standard_version> sv =
-                parse_standard_version (v.string ()))
-            {
-              if (sv->latest_snapshot ())
-              {
-                sv->snapshot_sn = 123;
-                v = version (sv->string ());
-              }
-            }
-          },
-          false /* ignore_unknown */,
-          complete_depends).serialize (s);
-      else if (opt == "-pp")
+      if (mode == "-pp")
         pkg_package_manifests (p).serialize (s);
-      else if (opt == "-dp")
+      else if (mode == "-dp")
         dir_package_manifests (p).serialize (s);
-      else if (opt == "-gp")
+      else if (mode == "-gp")
         git_package_manifests (p).serialize (s);
-      else if (opt == "-pr")
+      else if (mode == "-pr")
         pkg_repository_manifests (p).serialize (s);
-      else if (opt == "-dr")
+      else if (mode == "-dr")
         dir_repository_manifests (p).serialize (s);
-      else if (opt == "-gr")
+      else if (mode == "-gr")
         git_repository_manifests (p).serialize (s);
-      else if (opt == "-s")
+      else if (mode == "-s")
         signature_manifest (p).serialize (s);
       else
         assert (false);

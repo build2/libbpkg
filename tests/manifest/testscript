@@ -100,7 +100,7 @@
 
       : dependency-constraint-version
       :
-      $* -c -p <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
+      $* -p -c <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
         : 1
         name: foo
         version: 2.0.0
@@ -117,12 +117,37 @@
     : manifest
     :
     {
+      test.options += -p
+
+      : invalid
+      :
+      {
+        : description-file
+        :
+        $* <<EOI 2>>~%EOE% != 0
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          description-file: /README
+          EOI
+          %(
+          stdin:6:19: error: package description-file path is absolute
+          %|
+          stdin:6:19: error: invalid package description file: invalid filesystem path
+          %)
+          EOE
+      }
+
       : complete
       :
       {
+        test.options += -c
+
         : final
         :
-        $* -c -p <<EOI >>EOO
+        $* <<EOI >>EOO
           : 1
           name: foo
           version: 2.0.0
@@ -140,7 +165,7 @@
 
         : non-standard
         :
-        $* -c -p <<EOI >>EOO
+        $* <<EOI >>EOO
           : 1
           name: foo
           version: 2.0.0-x
@@ -158,7 +183,7 @@
 
         : non-standard-shortcut
         :
-        $* -c -p <<EOI 2>>EOE != 0
+        $* <<EOI 2>>EOE != 0
           : 1
           name: foo
           version: 2.0.0-x
@@ -171,7 +196,7 @@
 
         : latest-snapshot
         :
-        $* -c -p <<EOI >>EOO
+        $* <<EOI >>EOO
           : 1
           name: foo
           version: 2.0.0-a.0.z
@@ -192,7 +217,7 @@
 
       : incomplete
       :
-      $* -p <<EOF >>EOF
+      $* <<EOF >>EOF
         : 1
         name: foo
         version: 2.0.0
@@ -200,6 +225,308 @@
         license: LGPLv2
         depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
         EOF
+
+      : description-type
+      :
+      {
+        : absent
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          EOI
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          EOO
+
+        : not-text
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          description-type: image/gif
+          EOI
+          stdin:7:19: error: invalid package description type: text type expected
+          EOE
+
+        : deducing
+        :
+        {
+          : fail
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description-file: README.rtf
+            EOI
+            stdin:6:19: error: invalid package description file: unknown text type
+            EOE
+
+          : ignore-unknown
+          :
+          $* -i <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description-file: README.rtf
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description-file: README.rtf
+            EOO
+        }
+
+        : unknown
+        :
+        {
+          : fail
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdowns
+            EOI
+            stdin:7:19: error: invalid package description type: unknown text type
+            EOE
+
+          : ignore
+          :
+          $* -i <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdowns
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdowns
+            EOO
+        }
+
+        : plain
+        :
+        {
+          : valid
+          :
+          $* <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/plain
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/plain
+            EOO
+
+          : invalid
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/plain;
+            EOI
+            stdin:7:19: error: invalid package description type: missing '='
+            EOE
+        }
+
+        : markdown
+        :
+        {
+          : default
+          :
+          $* <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown
+            EOO
+
+          : gfm
+          :
+          $* <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown; variant=GFM
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown; variant=GFM
+            EOO
+
+          : common-mark
+          :
+          $* <<EOI >>EOO
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown; variant=CommonMark
+            EOI
+            : 1
+            name: libfoo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            description: libfoo is a very modern C++ XML parser.
+            description-type: text/markdown; variant=CommonMark
+            EOO
+
+          : invalid-variant
+          :
+          {
+            : fail
+            :
+            $* <<EOI 2>>EOE != 0
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variant=Original
+              EOI
+              stdin:7:19: error: invalid package description type: unknown text type
+              EOE
+
+            : ignore
+            :
+            $* -i <<EOI >>EOO
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variant=Original
+              EOI
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variant=Original
+              EOO
+          }
+
+          : invalid-parameter
+          :
+          {
+            : fail
+            :
+            $* <<EOI 2>>EOE != 0
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variants=GFM
+              EOI
+              stdin:7:19: error: invalid package description type: unknown text type
+              EOE
+
+            : ignore
+            :
+            $* -i <<EOI >>EOO
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variants=GFM
+              EOI
+              : 1
+              name: libfoo
+              version: 2.0.0
+              summary: Modern C++ parser
+              license: LGPLv2
+              description: libfoo is a very modern C++ XML parser.
+              description-type: text/markdown; variants=GFM
+              EOO
+          }
+        }
+      }
+
+      : builds
+      :
+      {
+        : invalid
+        :
+        {
+          : empty
+          :
+          $* <<EOI 2>"stdin:2:9: error: invalid package builds: class expression separator ':' expected" != 0
+            : 1
+            builds: default -gcc
+            EOI
+        }
+      }
     }
 
     : manifest-list
@@ -219,6 +546,7 @@
       license: BSD
       tags: c++, xml, parser, serializer, pull, streaming, modern
       description: libfoo is a very modern C++ XML parser.
+      description-type: text/plain
       changes: 1.2.3+2: applied upstream patch for critical bug bar
       changes: 1.2.3+1: applied upstream patch for critical bug foo
       url: http://www.example.org/projects/libfoo/; libfoo project page url
@@ -322,23 +650,6 @@
       location: mhello/
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
       EOF
-  }
-
-  : builds
-  :
-  {
-    : invalid
-    :
-    {
-      : empty
-      :
-      $* -pp <<EOI 2>"stdin:4:9: error: invalid package builds: class expression separator ':' expected" != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        builds: default -gcc
-        EOI
-    }
   }
 }
 
