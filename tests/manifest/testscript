@@ -231,21 +231,14 @@
       {
         : absent
         :
-        $* <<EOI >>EOO
+        $* <<EOF >>EOF
           : 1
           name: libfoo
           version: 2.0.0
           summary: Modern C++ parser
           license: LGPLv2
           description: libfoo is a very modern C++ XML parser.
-          EOI
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          EOO
+          EOF
 
         : not-text
         :
@@ -279,21 +272,14 @@
 
           : ignore-unknown
           :
-          $* -i <<EOI >>EOO
+          $* -i <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
             summary: Modern C++ parser
             license: LGPLv2
             description-file: README.rtf
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description-file: README.rtf
-            EOO
+            EOF
         }
 
         : unknown
@@ -315,7 +301,7 @@
 
           : ignore
           :
-          $* -i <<EOI >>EOO
+          $* -i <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
@@ -323,15 +309,7 @@
             license: LGPLv2
             description: libfoo is a very modern C++ XML parser.
             description-type: text/markdowns
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdowns
-            EOO
+            EOF
         }
 
         : plain
@@ -339,7 +317,7 @@
         {
           : valid
           :
-          $* <<EOI >>EOO
+          $* <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
@@ -347,15 +325,7 @@
             license: LGPLv2
             description: libfoo is a very modern C++ XML parser.
             description-type: text/plain
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/plain
-            EOO
+            EOF
 
           : invalid
           :
@@ -377,7 +347,7 @@
         {
           : default
           :
-          $* <<EOI >>EOO
+          $* <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
@@ -385,19 +355,11 @@
             license: LGPLv2
             description: libfoo is a very modern C++ XML parser.
             description-type: text/markdown
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown
-            EOO
+            EOF
 
           : gfm
           :
-          $* <<EOI >>EOO
+          $* <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
@@ -405,19 +367,11 @@
             license: LGPLv2
             description: libfoo is a very modern C++ XML parser.
             description-type: text/markdown; variant=GFM
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown; variant=GFM
-            EOO
+            EOF
 
           : common-mark
           :
-          $* <<EOI >>EOO
+          $* <<EOF >>EOF
             : 1
             name: libfoo
             version: 2.0.0
@@ -425,15 +379,7 @@
             license: LGPLv2
             description: libfoo is a very modern C++ XML parser.
             description-type: text/markdown; variant=CommonMark
-            EOI
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown; variant=CommonMark
-            EOO
+            EOF
 
           : invalid-variant
           :
@@ -454,7 +400,7 @@
 
             : ignore
             :
-            $* -i <<EOI >>EOO
+            $* -i <<EOF >>EOF
               : 1
               name: libfoo
               version: 2.0.0
@@ -462,15 +408,7 @@
               license: LGPLv2
               description: libfoo is a very modern C++ XML parser.
               description-type: text/markdown; variant=Original
-              EOI
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variant=Original
-              EOO
+              EOF
           }
 
           : invalid-parameter
@@ -492,7 +430,7 @@
 
             : ignore
             :
-            $* -i <<EOI >>EOO
+            $* -i <<EOF >>EOF
               : 1
               name: libfoo
               version: 2.0.0
@@ -500,15 +438,7 @@
               license: LGPLv2
               description: libfoo is a very modern C++ XML parser.
               description-type: text/markdown; variants=GFM
-              EOI
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variants=GFM
-              EOO
+              EOF
           }
         }
       }
@@ -526,6 +456,51 @@
             builds: default -gcc
             EOI
         }
+      }
+
+      : upstream-version
+      :
+      {
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: libfoo
+          version: 2.0.0
+          upstream-version: 0.28.0.abc.15
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          EOF
+
+        : duplicate
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: libfoo
+          version: 2.0.0
+          upstream-version: 0.28.0.abc.15
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          upstream-version: 0.28.0.abc.15
+          EOI
+          stdin:8:1: error: upstream package version redefinition
+          EOE
+
+        : stub
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: libfoo
+          version: 0+1
+          upstream-version: 0.28.0.abc.15
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          EOI
+          stdin:4:1: error: upstream package version specified for a stub
+          EOE
       }
     }
 

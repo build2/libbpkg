@@ -1586,6 +1586,8 @@ namespace bpkg
     return email (move (v), move (c));
   }
 
+  const version stub_version (0, "0", nullopt, 0, 0);
+
   static void
   parse_package_manifest (
     parser& p,
@@ -1636,6 +1638,11 @@ namespace bpkg
     {
       return (fl & f) != package_manifest_flags::none;
     };
+
+    // Cache the upstream version manifest value and validate whether it's
+    // allowed later, after the version value is parsed.
+    //
+    optional<name_value> upstream_version;
 
     // We will cache the depends manifest values to parse and, if requested,
     // complete the dependency constraints later, after the version value is
@@ -1705,6 +1712,16 @@ namespace bpkg
             bad_value ("invalid translated package version " +
                        m.version.string () + ": earliest release");
         }
+      }
+      else if (n == "upstream-version")
+      {
+        if (upstream_version)
+          bad_name ("upstream package version redefinition");
+
+        if (v.empty ())
+          bad_value ("empty upstream package version");
+
+        upstream_version = move (nv);
       }
       else if (n == "project")
       {
@@ -2003,6 +2020,20 @@ namespace bpkg
       bad_value ("no package summary specified");
     else if (m.license_alternatives.empty ())
       bad_value ("no project license specified");
+
+    // Verify that the upstream version is not specified for a stub.
+    //
+    if (upstream_version)
+    {
+      // Restore as bad_name() uses its line/column.
+      //
+      nv = move (*upstream_version);
+
+      if (m.version.compare (stub_version, true) == 0)
+        bad_name ("upstream package version specified for a stub");
+
+      m.upstream_version = move (nv.value);
+    }
 
     // Verify that description is specified if the description type is
     // specified.
@@ -2432,6 +2463,9 @@ namespace bpkg
 
     s.next ("name", m.name.string ());
     s.next ("version", m.version.string ());
+
+    if (m.upstream_version)
+      s.next ("upstream-version", *m.upstream_version);
 
     if (m.project)
       s.next ("project", m.project->string ());

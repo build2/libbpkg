@@ -627,6 +627,7 @@ namespace bpkg
 
     package_name name;
     version_type version;
+    butl::optional<std::string> upstream_version;
     butl::optional<package_name> project;
     butl::optional<priority_type> priority;
     std::string summary;
