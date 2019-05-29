@@ -250,16 +250,29 @@ namespace bpkg
   };
 
   // url
+  // doc-url
+  // src-url
   // package-url
   //
-  class url: public std::string
+  // URL that has the following constraints:
+  //
+  // - is not rootless
+  // - is not local (the scheme is not `file`)
+  // - authority is present and is not empty
+  //
+  // See libbutl/url.mxx for details.
+  //
+  class url: public butl::url
   {
   public:
     std::string comment;
 
+    // Throw invalid_argument on parsing or constraints checking error.
+    //
     explicit
-    url (std::string u = "", std::string c = "")
-        : std::string (std::move (u)), comment (std::move (c)) {}
+    url (const std::string& u, std::string c = "");
+
+    url () = default;
   };
 
   // email

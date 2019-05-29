@@ -598,6 +598,21 @@ namespace bpkg
     return *this;
   }
 
+  // url
+  //
+  url::
+  url (const std::string& u, std::string c): butl::url (u), comment (move (c))
+  {
+    if (rootless)
+      throw invalid_argument ("rootless URL");
+
+    if (casecmp (scheme, "file") == 0)
+      throw invalid_argument ("local URL");
+
+    if (!authority || authority->empty ())
+      throw invalid_argument ("no authority");
+  }
+
   // depends
   //
   dependency_constraint::
@@ -1631,7 +1646,18 @@ namespace bpkg
       if (v.empty ())
         bad_value (string ("empty ") + what + " url");
 
-      return url (move (p.first), move (p.second));
+      url r;
+
+      try
+      {
+        r = url (p.first, move (p.second));
+      }
+      catch (const invalid_argument& e)
+      {
+        bad_value (string ("invalid ") + what + " url: " + e.what ());
+      }
+
+      return r;
     };
 
     auto flag = [fl] (package_manifest_flags f)
@@ -2514,19 +2540,22 @@ namespace bpkg
       }
 
       if (m.url)
-        s.next ("url", serializer::merge_comment (*m.url, m.url->comment));
+        s.next ("url",
+                serializer::merge_comment (m.url->string (), m.url->comment));
 
       if (m.doc_url)
         s.next ("doc-url",
-                serializer::merge_comment (*m.doc_url, m.doc_url->comment));
+                serializer::merge_comment (m.doc_url->string (),
+                                           m.doc_url->comment));
 
       if (m.src_url)
         s.next ("src-url",
-                serializer::merge_comment (*m.src_url, m.src_url->comment));
+                serializer::merge_comment (m.src_url->string (),
+                                           m.src_url->comment));
 
       if (m.package_url)
         s.next ("package-url",
-                serializer::merge_comment (*m.package_url,
+                serializer::merge_comment (m.package_url->string (),
                                            m.package_url->comment));
 
       if (m.email)

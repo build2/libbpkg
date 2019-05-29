@@ -138,6 +138,55 @@
           stdin:6:19: error: invalid package description file: invalid filesystem path
           %)
           EOE
+
+        : url
+        :
+        {
+          : no-scheme
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            src-url: libfoo
+            EOI
+            stdin:2:10: error: invalid src url: no scheme
+            EOE
+
+          : rootless
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            src-url: pkcs11:libfoo
+            EOI
+            stdin:2:10: error: invalid src url: rootless URL
+            EOE
+
+          : local
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            src-url: file:/libfoo/bar
+            EOI
+            stdin:2:10: error: invalid src url: local URL
+            EOE
+
+          : authority-absent
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            src-url: http:/libfoo/bar
+            EOI
+            stdin:2:10: error: invalid src url: no authority
+            EOE
+
+          : authority-empty
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            src-url: http:///libfoo/bar
+            EOI
+            stdin:2:10: error: invalid src url: no authority
+            EOE
+        }
       }
 
       : complete
