@@ -3268,7 +3268,7 @@ namespace bpkg
   typed_repository_url::
   typed_repository_url (const string& s)
   {
-    using traits = butl::url::traits;
+    using traits = butl::url::traits_type;
 
     if (traits::find (s) == 0) // Looks like a non-rootless URL?
     {
