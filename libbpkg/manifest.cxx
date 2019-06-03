@@ -1660,6 +1660,45 @@ namespace bpkg
       return r;
     };
 
+    // Parse a string list (topics, keywords, etc). If the list length exceeds
+    // five entries, then truncate it if the truncate flag is set and throw
+    // manifest_parsing otherwise.
+    //
+    auto parse_list = [&bad_name, &bad_value] (const string& v,
+                                               strings& r,
+                                               char delim,
+                                               bool single_word,
+                                               bool truncate,
+                                               const char* what)
+    {
+      if (!r.empty ())
+        bad_name (string ("package ") + what + " redefinition");
+
+      // Note that we parse the whole list to validate the entries.
+      //
+      list_parser lp (v.begin (), v.end (), delim);
+      for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+      {
+        if (single_word && lv.find_first_of (spaces) != string::npos)
+          bad_value (string ("only single-word ") + what + " allowed");
+
+        r.push_back (move (lv));
+      }
+
+      if (r.empty ())
+        bad_value (string ("empty package ") + what + " specification");
+
+      // If the list length limit is exceeded then truncate it or throw.
+      //
+      if (r.size () > 5)
+      {
+        if (truncate)
+          r.resize (5);
+        else
+          bad_value (string ("up to five ") + what + " allowed");
+      }
+    };
+
     auto flag = [fl] (package_manifest_flags f)
     {
       return (fl & f) != package_manifest_flags::none;
@@ -1773,22 +1812,32 @@ namespace bpkg
 
         m.summary = move (v);
       }
+      else if (n == "topics")
+      {
+        parse_list (v,
+                    m.topics,
+                    ','   /* delim */,
+                    false /* single_word */,
+                    false /* truncate */,
+                    "topics");
+      }
+      else if (n == "keywords")
+      {
+        parse_list (v,
+                    m.keywords,
+                    ' '   /* delim */,
+                    true  /* single_word */,
+                    false /* truncate */,
+                    "keywords");
+      }
       else if (n == "tags")
       {
-        if (!m.tags.empty ())
-          bad_name ("package tags redefinition");
-
-        list_parser lp (v.begin (), v.end ());
-        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-        {
-          if (lv.find_first_of (spaces) != string::npos)
-            bad_value ("only single-word tags allowed");
-
-          m.tags.push_back (move (lv));
-        }
-
-        if (m.tags.empty ())
-          bad_value ("empty package tags specification");
+        parse_list (v,
+                    m.keywords,
+                    ','  /* delim */,
+                    true /* single_word */,
+                    true /* truncate */,
+                    "tags");
       }
       else if (n == "description")
       {
@@ -2514,8 +2563,11 @@ namespace bpkg
 
     if (!header_only)
     {
-      if (!m.tags.empty ())
-        s.next ("tags", concatenate (m.tags));
+      if (!m.topics.empty ())
+        s.next ("topics", concatenate (m.topics));
+
+      if (!m.keywords.empty ())
+        s.next ("keywords", concatenate (m.keywords, " "));
 
       if (m.description)
       {

@@ -645,7 +645,8 @@ namespace bpkg
     butl::optional<priority_type> priority;
     std::string summary;
     std::vector<licenses> license_alternatives;
-    strings tags;
+    strings topics;
+    strings keywords;
     butl::optional<text_file> description;
     butl::optional<std::string> description_type;
     std::vector<text_file> changes;

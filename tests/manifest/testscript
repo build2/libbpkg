@@ -551,6 +551,104 @@
           stdin:4:1: error: upstream package version specified for a stub
           EOE
       }
+
+      : keywords
+      :
+      {
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          keywords: c++ library lib foo libfoo
+          EOF
+
+        : redefinition
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          keywords: c++ library lib foo libfoo
+          keywords: c++ library lib foo libfoo
+          EOI
+          stdin:3:1: error: package keywords redefinition
+          EOE
+
+        : too-many
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          keywords: c++ library lib foo libfoo libbar
+          EOI
+          stdin:2:11: error: up to five keywords allowed
+          EOE
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          keywords:
+          EOI
+          stdin:2:10: error: empty package keywords specification
+          EOE
+      }
+
+      : tags
+      :
+      {
+        : truncate
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          tags: c++, library, lib, foo, libfoo, libbar
+          EOI
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          keywords: c++ library lib foo libfoo
+          EOO
+
+        : with-space
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          tags: c++ library, lib, foo, libfoo
+          EOI
+          stdin:2:7: error: only single-word tags allowed
+          EOE
+      }
+
+      : topics
+      :
+      {
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          topics: c++ library, foo library, libfoo
+          EOF
+
+        : too-many
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          topics: c++, library, lib, foo, libfoo, libbar
+          EOI
+          stdin:2:9: error: up to five topics allowed
+          EOE
+      }
     }
 
     : manifest-list
@@ -568,7 +666,7 @@
       summary: Modern XML parser
       license: LGPLv2, MIT; Both required.
       license: BSD
-      tags: c++, xml, parser, serializer, pull, streaming, modern
+      keywords: c++ xml parser serializer pull
       description: libfoo is a very modern C++ XML parser.
       description-type: text/plain
       changes: 1.2.3+2: applied upstream patch for critical bug bar
@@ -605,7 +703,7 @@
       version: 3.4A.5+6
       summary: Modern bar management framework
       license: LGPLv2
-      tags: c++, xml, modern
+      keywords: c++, xml, modern
       url: http://www.example.org/projects/libbar/
       email: libbar-users@example.org
       build-email:
