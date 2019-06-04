@@ -2,9 +2,9 @@
 name: libbpkg
 version: 0.11.0-a.0.z
 project: build2
-summary: build2 package dependency manager library
+summary: build2 package dependency manager utility library
 license: MIT
-tags: bpkg, package, dependency, manager
+topics: package dependency management, build toolchain
 description-file: README
 changes-file: NEWS
 url: https://build2.org
