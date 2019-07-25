@@ -1665,7 +1665,7 @@ namespace bpkg
     // manifest_parsing otherwise.
     //
     auto parse_list = [&bad_name, &bad_value] (const string& v,
-                                               strings& r,
+                                               small_vector<string, 5>& r,
                                                char delim,
                                                bool single_word,
                                                bool truncate,

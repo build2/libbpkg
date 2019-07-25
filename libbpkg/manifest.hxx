@@ -18,6 +18,7 @@
 #include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/optional.mxx>
+#include <libbutl/small-vector.mxx>
 #include <libbutl/manifest-forward.hxx>
 
 #include <libbpkg/package-name.hxx>
@@ -240,7 +241,7 @@ namespace bpkg
 
   // license
   //
-  class licenses: public strings
+  class licenses: public butl::small_vector<std::string, 1>
   {
   public:
     std::string comment;
@@ -367,7 +368,7 @@ namespace bpkg
   LIBBPKG_EXPORT std::ostream&
   operator<< (std::ostream&, const dependency&);
 
-  class dependency_alternatives: public std::vector<dependency>
+  class dependency_alternatives: public butl::small_vector<dependency, 1>
   {
   public:
     bool conditional;
@@ -384,7 +385,7 @@ namespace bpkg
 
   // requires
   //
-  class requirement_alternatives: public strings
+  class requirement_alternatives: public butl::small_vector<std::string, 1>
   {
   public:
     bool conditional;
@@ -644,12 +645,18 @@ namespace bpkg
     butl::optional<package_name> project;
     butl::optional<priority_type> priority;
     std::string summary;
+
+    // @@ Replace with small_vector<licenses, 1>. Note that currently it is
+    //    unsupported by the odb::nested_*() functions that are
+    //    std::vector-specific.
+    //
     std::vector<licenses> license_alternatives;
-    strings topics;
-    strings keywords;
+
+    butl::small_vector<std::string, 5> topics;
+    butl::small_vector<std::string, 5> keywords;
     butl::optional<text_file> description;
     butl::optional<std::string> description_type;
-    std::vector<text_file> changes;
+    butl::small_vector<text_file, 1> changes;
     butl::optional<url_type> url;
     butl::optional<url_type> doc_url;
     butl::optional<url_type> src_url;
@@ -661,7 +668,7 @@ namespace bpkg
     butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
-    std::vector<build_class_expr> builds;
+    butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
 
     // The following values are only valid in the manifest list (and only for
@@ -1295,7 +1302,7 @@ namespace bpkg
     default_refs () const {return !name && !commit;}
   };
 
-  using git_ref_filters = std::vector<git_ref_filter>;
+  using git_ref_filters = butl::small_vector<git_ref_filter, 2>;
 
   // Parse a comma-separated list of git reference filters. If the argument
   // starts with the '#' character then prepend the resulting list with the
