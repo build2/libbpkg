@@ -42,7 +42,13 @@ namespace bpkg
     const std::uint16_t epoch;
     const std::string upstream;
     const butl::optional<std::string> release;
-    const std::uint16_t revision;
+
+    // The absent revision semantics depends on the context the version object
+    // is used in. Normally, it is equivalent to zero revision but may have a
+    // special meaning, for example, denoting any package revision.
+    //
+    const butl::optional<std::uint16_t> revision;
+
     const std::uint32_t iteration;
 
     // Upstream part canonical representation.
@@ -56,28 +62,36 @@ namespace bpkg
     // Create a special empty version. It is less than any other valid
     // version (and is conceptually equivalent to +0-0-).
     //
-    version (): epoch (0), release (""), revision (0), iteration (0) {}
+    version (): epoch (0), release (""), iteration (0) {}
 
-    // Throw std::invalid_argument if the passed string is not a valid
-    // version representation.
+    // By default, treat the zero revision as no revision. Throw
+    // std::invalid_argument if the passed string is not a valid version
+    // representation.
     //
     explicit
-    version (const std::string& v): version (v.c_str ()) {}
+    version (const std::string& v, bool fold_zero_revision = true)
+        : version (v.c_str (), fold_zero_revision) {}
 
     explicit
-    version (const char* v): version (data_type (v, data_type::parse::full)) {}
+    version (const char* v, bool fold_zero_revision = true)
+        : version (data_type (v, data_type::parse::full, fold_zero_revision))
+    {
+    }
 
     // Create the version object from separate epoch, upstream, release,
     // revision, and iteration parts.
     //
     // Note that it is possible (and legal) to create the special empty
-    // version via this interface as version(0, string(), string(), 0, 0).
+    // version via this interface as version(0, string(), string(), nullopt, 0).
     //
     version (std::uint16_t epoch,
              std::string upstream,
              butl::optional<std::string> release,
-             std::uint16_t revision,
+             butl::optional<std::uint16_t> revision,
              std::uint32_t iteration);
+
+    std::uint16_t
+    effective_revision () const noexcept {return revision ? *revision : 0;}
 
     version (version&&) = default;
     version (const version&) = default;
@@ -145,7 +159,7 @@ namespace bpkg
       assert (!e ||
               (epoch == 0 &&
                release && release->empty () &&
-               revision == 0 && iteration == 0));
+               !revision && iteration == 0));
 
       return e;
     }
@@ -155,7 +169,7 @@ namespace bpkg
     {
       enum class parse {full, upstream, release};
 
-      data_type (const char*, parse);
+      data_type (const char*, parse, bool fold_zero_revision);
 
       // Note that there is no iteration component as it can't be present in
       // the string representation passed to the ctor.
@@ -163,7 +177,7 @@ namespace bpkg
       std::uint16_t epoch;
       std::string upstream;
       butl::optional<std::string> release;
-      std::uint16_t revision;
+      butl::optional<std::uint16_t> revision;
       std::string canonical_upstream;
       std::string canonical_release;
     };
@@ -305,6 +319,13 @@ namespace bpkg
   // `~$` (min endpoint is open) or `^$` (max endpoint is open). Note that
   // equal endpoints can never be both open.
   //
+  // An absent endpoint version revision has the 'any revision' meaning and
+  // so translates into the effective revision differently, depending on the
+  // range endpoint side and openness:
+  //
+  // [X Y)  ==  [X+0   Y+0)
+  // (X Y]  ==  (X+max Y+max]
+  //
   class LIBBPKG_EXPORT dependency_constraint
   {
   public:
@@ -313,11 +334,15 @@ namespace bpkg
     bool min_open;
     bool max_open;
 
+    // Preserve the zero endpoint version revisions (see above for details).
+    //
+    explicit
     dependency_constraint (const std::string&);
 
     dependency_constraint (butl::optional<version> min_version, bool min_open,
                            butl::optional<version> max_version, bool max_open);
 
+    explicit
     dependency_constraint (const version& v)
         : dependency_constraint (v, false, v, false) {}
 

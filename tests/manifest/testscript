@@ -2,660 +2,638 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-: packages
+: package
 :
 {
+  test.options += -p
+
   : name
   :
   {
     : valid
     :
-    $* -pp <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
-      sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-      :
       name: libfoo.c++-2
       version: 2.0.0
       summary: Modern C++ parser
       license: LGPLv2
       url: http://www.example.org/projects/libfoo/
       email: libfoo-users@example.org
-      location: libfoo.c++-2-2.0.0.tar.bz2
-      sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF
 
-    : invalid
+    : short
     :
-    {
-      : short
-      :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: length is less than two characters' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: b
-        EOI
+    $* <<EOI 2>'stdin:2:7: error: invalid package name: length is less than two characters' != 0
+      : 1
+      name: b
+      EOI
 
-      : illegal
-      :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal name' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: com3
-        EOI
+    : illegal
+    :
+    $* <<EOI 2>'stdin:2:7: error: invalid package name: illegal name' != 0
+      : 1
+      name: com3
+      EOI
 
-      : first-char
-      :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal first character (must be alphabetic)' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: 2b
-        EOI
+    : illegal-first-char
+    :
+    $* <<EOI 2>'stdin:2:7: error: invalid package name: illegal first character (must be alphabetic)' != 0
+      : 1
+      name: 2b
+      EOI
 
-      : last-char
-      :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal last character (must be alphabetic, digit, or plus)' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: foo_
-        EOI
+    : illegal-last-char
+    :
+    $* <<EOI 2>'stdin:2:7: error: invalid package name: illegal last character (must be alphabetic, digit, or plus)' != 0
+      : 1
+      name: foo_
+      EOI
 
-      : char
-      :
-      $* -pp <<EOI 2>'stdin:4:7: error: invalid package name: illegal character' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: foo'bar
-        EOI
-
-      : dependency
-      :
-      $* -pp <<EOI 2>'stdin:8:10: error: invalid prerequisite package name: length is less than two characters' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        depends: b
-        EOI
-
-      : dependency-constraint
-      :
-      $* -pp <<EOI 2>'stdin:8:10: error: $ not allowed' != 0
-        : 1
-        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        :
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        depends: bar == $
-        EOI
-
-      : dependency-constraint-version
-      :
-      $* -p -c <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
-        : 1
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        depends: bar [$ 1.0.0]
-        EOI
-    }
+    : illegal-char
+    :
+    $* <<EOI 2>'stdin:2:7: error: invalid package name: illegal character' != 0
+      : 1
+      name: foo'bar
+      EOI
   }
 
-  : pkg
+  : upstream-version
   :
   {
-    : manifest
+    : valid
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      upstream-version: 0.28.0.abc.15
+      summary: Modern C++ parser
+      license: LGPLv2
+      description: libfoo is a very modern C++ XML parser.
+      EOF
+
+    : duplicate
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      upstream-version: 0.28.0.abc.15
+      summary: Modern C++ parser
+      license: LGPLv2
+      description: libfoo is a very modern C++ XML parser.
+      upstream-version: 0.28.0.abc.15
+      EOI
+      stdin:8:1: error: upstream package version redefinition
+      EOE
+
+    : stub
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 0+1
+      upstream-version: 0.28.0.abc.15
+      summary: Modern C++ parser
+      license: LGPLv2
+      description: libfoo is a very modern C++ XML parser.
+      EOI
+      stdin:4:1: error: upstream package version specified for a stub
+      EOE
+  }
+
+  : topics
+  :
+  {
+    : valid
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      topics: c++ library, foo library, libfoo
+      EOF
+
+    : too-many
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      topics: c++, library, lib, foo, libfoo, libbar
+      EOI
+      stdin:2:9: error: up to five topics allowed
+      EOE
+  }
+
+  : keywords
+  :
+  {
+    : valid
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      keywords: c++ library lib foo libfoo
+      EOF
+
+    : redefinition
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      keywords: c++ library lib foo libfoo
+      keywords: c++ library lib foo libfoo
+      EOI
+      stdin:3:1: error: package keywords redefinition
+      EOE
+
+    : too-many
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      keywords: c++ library lib foo libfoo libbar
+      EOI
+      stdin:2:11: error: up to five keywords allowed
+      EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      keywords:
+      EOI
+      stdin:2:10: error: empty package keywords specification
+      EOE
+  }
+
+  : tags
+  :
+  {
+    : truncate
+    :
+    $* <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tags: c++, library, lib, foo, libfoo, libbar
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      keywords: c++ library lib foo libfoo
+      EOO
+
+    : with-space
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      tags: c++ library, lib, foo, libfoo
+      EOI
+      stdin:2:7: error: only single-word tags allowed
+      EOE
+  }
+
+  : description-file
+  :
+  {
+    : absolute-path
+    :
+    $* <<EOI 2>>~%EOE% != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      description-file: /README
+      EOI
+      %(
+      stdin:6:19: error: package description-file path is absolute
+      %|
+      stdin:6:19: error: invalid package description file: invalid filesystem path
+      %)
+      EOE
+  }
+
+  : description-type
+  :
+  {
+    : absent
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      description: libfoo is a very modern C++ XML parser.
+      EOF
+
+    : not-text
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      description: libfoo is a very modern C++ XML parser.
+      description-type: image/gif
+      EOI
+      stdin:7:19: error: invalid package description type: text type expected
+      EOE
+
+    : deducing
     :
     {
-      test.options += -p
+      : fail
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description-file: README.rtf
+        EOI
+        stdin:6:19: error: invalid package description file: unknown text type
+        EOE
+
+      : ignore-unknown
+      :
+      $* -i <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description-file: README.rtf
+        EOF
+    }
+
+    : unknown
+    :
+    {
+      : fail
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/markdowns
+        EOI
+        stdin:7:19: error: invalid package description type: unknown text type
+        EOE
+
+      : ignore
+      :
+      $* -i <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/markdowns
+        EOF
+    }
+
+    : plain
+    :
+    {
+      : valid
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/plain
+        EOF
 
       : invalid
       :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/plain;
+        EOI
+        stdin:7:19: error: invalid package description type: missing '='
+        EOE
+    }
+
+    : markdown
+    :
+    {
+      : default
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/markdown
+        EOF
+
+      : gfm
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/markdown; variant=GFM
+        EOF
+
+      : common-mark
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: libfoo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        description: libfoo is a very modern C++ XML parser.
+        description-type: text/markdown; variant=CommonMark
+        EOF
+
+      : invalid-variant
+      :
       {
-        : description-file
+        : fail
         :
-        $* <<EOI 2>>~%EOE% != 0
+        $* <<EOI 2>>EOE != 0
           : 1
           name: libfoo
           version: 2.0.0
           summary: Modern C++ parser
           license: LGPLv2
-          description-file: /README
+          description: libfoo is a very modern C++ XML parser.
+          description-type: text/markdown; variant=Original
           EOI
-          %(
-          stdin:6:19: error: package description-file path is absolute
-          %|
-          stdin:6:19: error: invalid package description file: invalid filesystem path
-          %)
+          stdin:7:19: error: invalid package description type: unknown text type
           EOE
 
-        : url
+        : ignore
         :
-        {
-          : no-scheme
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            src-url: libfoo
-            EOI
-            stdin:2:10: error: invalid src url: no scheme
-            EOE
-
-          : rootless
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            src-url: pkcs11:libfoo
-            EOI
-            stdin:2:10: error: invalid src url: rootless URL
-            EOE
-
-          : local
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            src-url: file:/libfoo/bar
-            EOI
-            stdin:2:10: error: invalid src url: local URL
-            EOE
-
-          : authority-absent
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            src-url: http:/libfoo/bar
-            EOI
-            stdin:2:10: error: invalid src url: no authority
-            EOE
-
-          : authority-empty
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            src-url: http:///libfoo/bar
-            EOI
-            stdin:2:10: error: invalid src url: no authority
-            EOE
-        }
+        $* -i <<EOF >>EOF
+          : 1
+          name: libfoo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          description: libfoo is a very modern C++ XML parser.
+          description-type: text/markdown; variant=Original
+          EOF
       }
 
-      : complete
+      : invalid-parameter
       :
       {
-        test.options += -c
-
-        : final
-        :
-        $* <<EOI >>EOO
-          : 1
-          name: foo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
-          EOI
-          : 1
-          name: foo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends: bar == 2.0.0 | libbaz ~2.0.0 | libbox ^2.0.0 | libfox [1.0 2.0.0)
-          EOO
-
-        : non-standard
-        :
-        $* <<EOI >>EOO
-          : 1
-          name: foo
-          version: 2.0.0-x
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends: bar == $ | libfox [1.0 $)
-          EOI
-          : 1
-          name: foo
-          version: 2.0.0-x
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends: bar == 2.0.0-x | libfox [1.0 2.0.0-x)
-          EOO
-
-        : non-standard-shortcut
+        : fail
         :
         $* <<EOI 2>>EOE != 0
           : 1
-          name: foo
-          version: 2.0.0-x
+          name: libfoo
+          version: 2.0.0
           summary: Modern C++ parser
           license: LGPLv2
-          depends: bar ~$
+          description: libfoo is a very modern C++ XML parser.
+          description-type: text/markdown; variants=GFM
           EOI
-          stdin:6:10: error: invalid dependency constraint: dependent version is not standard
+          stdin:7:19: error: invalid package description type: unknown text type
           EOE
 
-        : latest-snapshot
+        : ignore
         :
-        $* <<EOI >>EOO
+        $* -i <<EOF >>EOF
           : 1
-          name: foo
-          version: 2.0.0-a.0.z
+          name: libfoo
+          version: 2.0.0
           summary: Modern C++ parser
           license: LGPLv2
-          depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
-          EOI
-          : 1
-          name: foo
-          version: 2.0.0-a.0.123
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends: bar == 2.0.0-a.0.123 | libbaz [2.0.0-a.0.1 2.0.0-a.1) | libbox\
-           [2.0.0-a.0.1 2.0.0-a.1) | libfox [1.0 2.0.0-a.0.123)
-          EOO
-
+          description: libfoo is a very modern C++ XML parser.
+          description-type: text/markdown; variants=GFM
+          EOF
       }
+    }
+  }
 
-      : incomplete
+  : src-url
+  :
+  {
+    : no-scheme
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      src-url: libfoo
+      EOI
+      stdin:2:10: error: invalid src url: no scheme
+      EOE
+
+    : rootless
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      src-url: pkcs11:libfoo
+      EOI
+      stdin:2:10: error: invalid src url: rootless URL
+      EOE
+
+    : local
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      src-url: file:/libfoo/bar
+      EOI
+      stdin:2:10: error: invalid src url: local URL
+      EOE
+
+    : authority-absent
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      src-url: http:/libfoo/bar
+      EOI
+      stdin:2:10: error: invalid src url: no authority
+      EOE
+
+    : authority-empty
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      src-url: http:///libfoo/bar
+      EOI
+      stdin:2:10: error: invalid src url: no authority
+      EOE
+  }
+
+  : builds
+  :
+  {
+    : empty
+    :
+    $* <<EOI 2>"stdin:2:9: error: invalid package builds: class expression separator ':' expected" != 0
+      : 1
+      builds: default -gcc
+      EOI
+  }
+
+  : dependency
+  :
+  {
+    : short-name
+    :
+    $* <<EOI 2>'stdin:6:10: error: invalid prerequisite package name: length is less than two characters' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: b
+      EOI
+
+    : invalid-version-range
+    :
+    $* -c <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: bar [$ 1.0.0]
+      EOI
+
+    : corner-case
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: bar [1.0.0+2 1.0.0]
+      EOF
+
+    : complete
+    :
+    {
+      test.options += -c
+
+      : final
       :
-      $* <<EOF >>EOF
+      $* <<EOI >>EOO
         : 1
         name: foo
         version: 2.0.0
         summary: Modern C++ parser
         license: LGPLv2
         depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
-        EOF
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == 2.0.0 | libbaz ~2.0.0 | libbox ^2.0.0 | libfox [1.0 2.0.0)
+        EOO
 
-      : description-type
+      : non-standard
       :
-      {
-        : absent
-        :
-        $* <<EOF >>EOF
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          EOF
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0-x
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $ | libfox [1.0 $)
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0-x
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == 2.0.0-x | libfox [1.0 2.0.0-x)
+        EOO
 
-        : not-text
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          description-type: image/gif
-          EOI
-          stdin:7:19: error: invalid package description type: text type expected
-          EOE
-
-        : deducing
-        :
-        {
-          : fail
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description-file: README.rtf
-            EOI
-            stdin:6:19: error: invalid package description file: unknown text type
-            EOE
-
-          : ignore-unknown
-          :
-          $* -i <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description-file: README.rtf
-            EOF
-        }
-
-        : unknown
-        :
-        {
-          : fail
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdowns
-            EOI
-            stdin:7:19: error: invalid package description type: unknown text type
-            EOE
-
-          : ignore
-          :
-          $* -i <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdowns
-            EOF
-        }
-
-        : plain
-        :
-        {
-          : valid
-          :
-          $* <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/plain
-            EOF
-
-          : invalid
-          :
-          $* <<EOI 2>>EOE != 0
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/plain;
-            EOI
-            stdin:7:19: error: invalid package description type: missing '='
-            EOE
-        }
-
-        : markdown
-        :
-        {
-          : default
-          :
-          $* <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown
-            EOF
-
-          : gfm
-          :
-          $* <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown; variant=GFM
-            EOF
-
-          : common-mark
-          :
-          $* <<EOF >>EOF
-            : 1
-            name: libfoo
-            version: 2.0.0
-            summary: Modern C++ parser
-            license: LGPLv2
-            description: libfoo is a very modern C++ XML parser.
-            description-type: text/markdown; variant=CommonMark
-            EOF
-
-          : invalid-variant
-          :
-          {
-            : fail
-            :
-            $* <<EOI 2>>EOE != 0
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variant=Original
-              EOI
-              stdin:7:19: error: invalid package description type: unknown text type
-              EOE
-
-            : ignore
-            :
-            $* -i <<EOF >>EOF
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variant=Original
-              EOF
-          }
-
-          : invalid-parameter
-          :
-          {
-            : fail
-            :
-            $* <<EOI 2>>EOE != 0
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variants=GFM
-              EOI
-              stdin:7:19: error: invalid package description type: unknown text type
-              EOE
-
-            : ignore
-            :
-            $* -i <<EOF >>EOF
-              : 1
-              name: libfoo
-              version: 2.0.0
-              summary: Modern C++ parser
-              license: LGPLv2
-              description: libfoo is a very modern C++ XML parser.
-              description-type: text/markdown; variants=GFM
-              EOF
-          }
-        }
-      }
-
-      : builds
+      : non-standard-shortcut
       :
-      {
-        : invalid
-        :
-        {
-          : empty
-          :
-          $* <<EOI 2>"stdin:2:9: error: invalid package builds: class expression separator ':' expected" != 0
-            : 1
-            builds: default -gcc
-            EOI
-        }
-      }
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0-x
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar ~$
+        EOI
+        stdin:6:10: error: invalid dependency constraint: dependent version is not standard
+        EOE
 
-      : upstream-version
+      : latest-snapshot
       :
-      {
-        : valid
-        :
-        $* <<EOF >>EOF
-          : 1
-          name: libfoo
-          version: 2.0.0
-          upstream-version: 0.28.0.abc.15
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          EOF
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0-a.0.z
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0-a.0.123
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == 2.0.0-a.0.123 | libbaz [2.0.0-a.0.1 2.0.0-a.1) | libbox\
+         [2.0.0-a.0.1 2.0.0-a.1) | libfox [1.0 2.0.0-a.0.123)
+        EOO
 
-        : duplicate
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          name: libfoo
-          version: 2.0.0
-          upstream-version: 0.28.0.abc.15
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          upstream-version: 0.28.0.abc.15
-          EOI
-          stdin:8:1: error: upstream package version redefinition
-          EOE
-
-        : stub
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          name: libfoo
-          version: 0+1
-          upstream-version: 0.28.0.abc.15
-          summary: Modern C++ parser
-          license: LGPLv2
-          description: libfoo is a very modern C++ XML parser.
-          EOI
-          stdin:4:1: error: upstream package version specified for a stub
-          EOE
-      }
-
-      : keywords
-      :
-      {
-        : valid
-        :
-        $* <<EOF >>EOF
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          keywords: c++ library lib foo libfoo
-          EOF
-
-        : redefinition
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          keywords: c++ library lib foo libfoo
-          keywords: c++ library lib foo libfoo
-          EOI
-          stdin:3:1: error: package keywords redefinition
-          EOE
-
-        : too-many
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          keywords: c++ library lib foo libfoo libbar
-          EOI
-          stdin:2:11: error: up to five keywords allowed
-          EOE
-
-        : empty
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          keywords:
-          EOI
-          stdin:2:10: error: empty package keywords specification
-          EOE
-      }
-
-      : tags
-      :
-      {
-        : truncate
-        :
-        $* <<EOI >>EOO
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          tags: c++, library, lib, foo, libfoo, libbar
-          EOI
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          keywords: c++ library lib foo libfoo
-          EOO
-
-        : with-space
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          tags: c++ library, lib, foo, libfoo
-          EOI
-          stdin:2:7: error: only single-word tags allowed
-          EOE
-      }
-
-      : topics
-      :
-      {
-        : valid
-        :
-        $* <<EOF >>EOF
-          : 1
-          name: libfoo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          topics: c++ library, foo library, libfoo
-          EOF
-
-        : too-many
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          topics: c++, library, lib, foo, libfoo, libbar
-          EOI
-          stdin:2:9: error: up to five topics allowed
-          EOE
-      }
     }
 
-    : manifest-list
+    : incomplete
     :
-    : Roundtrip the pkg package manifest list.
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+      EOF
+  }
+}
+
+: package-list
+:
+{
+  : pkg
+  :
+  {
+    test.options += -pp
+
+    : roundtrip
     :
-    $* -pp <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       :
@@ -725,22 +703,37 @@
       location: libbaz/libbaz-+2-3.4A.5+3.tar.gz
       sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF
+
+    : dependency
+    :
+    {
+      : incomplete
+      :
+      $* <<EOI 2>'stdin:8:10: error: $ not allowed' != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: bar == $
+        EOI
+    }
   }
 
   : dir
   :
   {
+    test.options += -dp
+
     : empty
     :
-    : Roundtrip an empty dir package manifest list.
-    :
-    $* -gp <"" >:""
+    $* <"" >:""
 
     : non-empty
     :
-    : Roundtrip the dir package manifest list.
-    :
-    $* -gp <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: hello/
       :
@@ -749,7 +742,7 @@
 
     : duplicate
     :
-    $* -gp <<EOI 2>'stdin:5:1: error: duplicate package manifest' != 0
+    $* <<EOI 2>'stdin:5:1: error: duplicate package manifest' != 0
       : 1
       location: hello/
       :
@@ -762,9 +755,11 @@
   : git
   :
   {
+    test.options += -gp
+
     : fragment
     :
-    $* -gp <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: hello/
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
@@ -775,39 +770,17 @@
   }
 }
 
-: repositories
+: repository-list
 :
 {
-  : base-manifest-redefinition
-  :
-  $* -pr <<EOI 2>'stdin:3:1: error: base repository manifest redefinition' != 0
-    : 1
-    url: http://cppget.org
-    :
-    url: http://cppget.org
-    EOI
-
-  : no-base
-  :
-  $* -pr <<EOO >>EOO
-    : 1
-    location: http://pkg.example.org/1/math
-    type: pkg
-    role: prerequisite
-    :
-    location: ../stable
-    type: pkg
-    role: complement
-    EOO
-
   : pkg
   :
   {
-    : manifest
+    test.options += -pr
+
+    : roundtrip
     :
-    : Roundtrip the pkg repository manifest list.
-    :
-    $* -pr <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: http://pkg.example.org/1/math
       type: pkg
@@ -858,7 +831,7 @@
 
     : prerequisite-type
     :
-    $* -pr <<EOI >>EOO
+    $* <<EOI >>EOO
       : 1
       url: http://cppget.org
       :
@@ -904,16 +877,38 @@
       trust: 37:CE:2C:A5:1D:CF:93:81:D7:07:46:AD:66:B3:C3:90:83:B8:96:9E:34:F0:E7:B\
       3:A2:B0:6C:EF:66:A4:BE:65
       EOO
+
+    : no-base
+    :
+    $* <<EOO >>EOO
+      : 1
+      location: http://pkg.example.org/1/math
+      type: pkg
+      role: prerequisite
+      :
+      location: ../stable
+      type: pkg
+      role: complement
+      EOO
+
+    : base-manifest-redefinition
+    :
+     $* <<EOI 2>'stdin:3:1: error: base repository manifest redefinition' != 0
+      : 1
+      url: http://cppget.org
+      :
+      url: http://cppget.org
+      EOI
   }
 
   : git
   :
   {
-    : manifest
+    test.options += -gr
+
+    : roundtrip
     :
-    : Roundtrip the git repository manifest list.
-    :
-    $* -gr <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: http://example.org/math.git#master
       type: git
@@ -936,7 +931,7 @@
 
     : fragment
     :
-    $* -gr <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: http://example.org/math.git#master
       type: git
@@ -972,7 +967,7 @@
 
     : prerequisite-type
     :
-    $* -gr <<EOI >>EOO
+    $* <<EOI >>EOO
       : 1
       location: http://example.org/math.git#master
       role: prerequisite
@@ -1013,11 +1008,11 @@
   : dir
   :
   {
-    : manifest
+    test.options += -dr
+
+    : roundtrip
     :
-    : Roundtrip the dir repository manifest list.
-    :
-    $* -dr <<EOF >>EOF
+    $* <<EOF >>EOF
       : 1
       location: ../stable
       type: dir
@@ -1027,7 +1022,7 @@
 
     : prerequisite-with-fragment
     :
-    $* -dr <<EOI 2>>EOE != 0
+    $* <<EOI 2>>EOE != 0
       : 1
       location: ../stable.git#stable
       type: dir
@@ -1039,13 +1034,10 @@
   }
 }
 
-
 : signature
 :
-: Roundtrip the signature manifest.
-:
 {
-  : manifest
+  : roundtrip
   :
   $* -s <<EOF >>EOF
     : 1

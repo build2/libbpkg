@@ -162,7 +162,7 @@ namespace bpkg
   version (uint16_t e,
            std::string u,
            optional<std::string> l,
-           uint16_t r,
+           optional<uint16_t> r,
            uint32_t i)
       : epoch (e),
         upstream (move (u)),
@@ -170,11 +170,14 @@ namespace bpkg
         revision (r),
         iteration (i),
         canonical_upstream (
-          data_type (upstream.c_str (), data_type::parse::upstream).
+          data_type (upstream.c_str (),
+                     data_type::parse::upstream,
+                     false /* fold_zero_revision */).
             canonical_upstream),
         canonical_release (
           data_type (release ? release->c_str () : nullptr,
-                     data_type::parse::release).
+                     data_type::parse::release,
+                     false /* fold_zero_revision */).
             canonical_release)
   {
     // Check members constrains.
@@ -187,7 +190,7 @@ namespace bpkg
       if (!release || !release->empty ())
         throw invalid_argument ("not-empty release for empty version");
 
-      if (revision != 0)
+      if (revision)
         throw invalid_argument ("revision for empty version");
 
       if (iteration != 0)
@@ -196,7 +199,7 @@ namespace bpkg
     // Empty release signifies the earliest possible release. Revision and/or
     // iteration are meaningless in such a context.
     //
-    else if (release && release->empty () && (revision != 0 || iteration != 0))
+    else if (release && release->empty () && (revision || iteration != 0))
       throw invalid_argument ("revision for earliest possible release");
   }
 
@@ -251,8 +254,11 @@ namespace bpkg
   }
 
   version::data_type::
-  data_type (const char* v, parse pr): revision (0)
+  data_type (const char* v, parse pr, bool fold_zero_rev)
   {
+    if (fold_zero_rev)
+      assert (pr == parse::full);
+
     // Otherwise compiler gets confused with string() member.
     //
     using std::string;
@@ -418,7 +424,10 @@ namespace bpkg
       if (lnn >= cb) // Contains non-digits.
         bad_arg ("revision should be 2-byte unsigned integer");
 
-      revision = uint16 (cb, "revision");
+      std::uint16_t rev (uint16 (cb, "revision"));
+
+      if (rev != 0 || !fold_zero_rev)
+        revision = rev;
     }
     else if (cb != p)
     {
@@ -489,7 +498,7 @@ namespace bpkg
           canonical_upstream.empty () &&
           canonical_release.empty ())
       {
-        assert (revision == 0); // Can't happen if through all previous checks.
+        assert (!revision); // Can't happen if through all previous checks.
         bad_arg ("empty version");
       }
     }
@@ -534,10 +543,10 @@ namespace bpkg
 
     if (!ignore_revision)
     {
-      if (revision != 0)
+      if (revision)
       {
         v += '+';
-        v += to_string (revision);
+        v += to_string (*revision);
       }
 
       if (!ignore_iteration && iteration != 0)
@@ -646,7 +655,7 @@ namespace bpkg
       if (mnv != "$")
       try
       {
-        min_version = version (mnv);
+        min_version = version (mnv, false /* fold_zero_revision */);
       }
       catch (const invalid_argument& e)
       {
@@ -674,7 +683,7 @@ namespace bpkg
       if (mxv != "$")
       try
       {
-        max_version = version (mxv);
+        max_version = version (mxv, false /* fold_zero_revision */);
       }
       catch (const invalid_argument& e)
       {
@@ -735,6 +744,11 @@ namespace bpkg
         {
           assert (vc.min_version && vc.max_version);
 
+          // Note that standard_version::string() folds the zero revision.
+          // However, that's ok since the shortcut operator ~X.Y.Z+0
+          // translates into [X.Y.Z+0 X.Y+1.0-) which covers the same versions
+          // set as [X.Y.Z X.Y+1.0-).
+          //
           *this = dependency_constraint (
             version (vc.min_version->string ()),
             vc.min_open,
@@ -789,7 +803,7 @@ namespace bpkg
         // version.
         //
         if (vs != "$")
-          v = version (vs);
+          v = version (vs, false /* fold_zero_revision */);
 
         switch (operation)
         {
@@ -844,7 +858,19 @@ namespace bpkg
       // max version.
       //
       if (*min_version > *max_version && !mxe)
-        throw invalid_argument ("min version is greater than max version");
+      {
+        // Handle the (X+Y X] and [X+Y X] corner cases (any revision of
+        // version X greater (or equal) than X+Y). Note that technically
+        // X+Y > X (see version::compare() for details).
+        //
+        // Also note that we reasonably fail for (X+Y X) and [X+Y X).
+        //
+        if (!(!max_open              &&
+              !max_version->revision &&
+              max_version->compare (*min_version,
+                                    true /* ignore_revision */) == 0))
+          throw invalid_argument ("min version is greater than max version");
+      }
 
       if (*min_version == *max_version)
       {
@@ -884,7 +910,7 @@ namespace bpkg
     v = version (v.epoch,
                  move (v.upstream),
                  move (v.release),
-                 0 /* revision */,
+                 nullopt /* revision */,
                  0 /* iteration */);
 
     // Calculate effective constraint for a shortcut operator.
@@ -1601,7 +1627,7 @@ namespace bpkg
     return email (move (v), move (c));
   }
 
-  const version stub_version (0, "0", nullopt, 0, 0);
+  const version stub_version (0, "0", nullopt, nullopt, 0);
 
   static void
   parse_package_manifest (
@@ -1747,7 +1773,7 @@ namespace bpkg
 
         try
         {
-          m.version = version (move (v));
+          m.version = version (v);
         }
         catch (const invalid_argument& e)
         {
@@ -2104,7 +2130,7 @@ namespace bpkg
       //
       nv = move (*upstream_version);
 
-      if (m.version.compare (stub_version, true) == 0)
+      if (m.version.compare (stub_version, true /* ignore_revision */) == 0)
         bad_name ("upstream package version specified for a stub");
 
       m.upstream_version = move (nv.value);
