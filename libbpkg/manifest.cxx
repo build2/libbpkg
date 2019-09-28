@@ -17,7 +17,7 @@
 #include <libbutl/url.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/base64.mxx>
-#include <libbutl/utility.mxx>             // casecmp(), lcase(), alnum(),
+#include <libbutl/utility.mxx>             // icasecmp(), lcase(), alnum(),
                                            // digit(), xdigit(), next_word()
 #include <libbutl/small-vector.mxx>
 #include <libbutl/manifest-parser.mxx>
@@ -615,7 +615,7 @@ namespace bpkg
     if (rootless)
       throw invalid_argument ("rootless URL");
 
-    if (casecmp (scheme, "file") == 0)
+    if (icasecmp (scheme, "file") == 0)
       throw invalid_argument ("local URL");
 
     if (!authority || authority->empty ())
@@ -1498,7 +1498,7 @@ namespace bpkg
     // Currently only the plain and markdown text types are allowed. Later we
     // can potentially introduce some other text types.
     //
-    if (casecmp (tp, "text/plain") == 0)
+    if (icasecmp (tp, "text/plain") == 0)
     {
       // Currently, we don't expect parameters for plain text. Later we can
       // potentially introduce some plain text variants.
@@ -1506,26 +1506,26 @@ namespace bpkg
       if (ps.empty ())
         r = text_type::plain;
     }
-    else if (casecmp (tp, "text/markdown") == 0)
+    else if (icasecmp (tp, "text/markdown") == 0)
     {
       // Currently, a single optional variant parameter with the two possible
       // values is allowed for markdown. Later we can potentially introduce
       // some other markdown variants.
       //
       if (ps.empty () ||
-          (ps.size () == 1 && casecmp (ps[0].first, "variant") == 0))
+          (ps.size () == 1 && icasecmp (ps[0].first, "variant") == 0))
       {
         // Note that markdown variants are matched case-insensitively (see
         // RFC7763 for details).
         //
         string v;
-        if (ps.empty () || casecmp (v = move (ps[0].second), "GFM") == 0)
+        if (ps.empty () || icasecmp (v = move (ps[0].second), "GFM") == 0)
           r = text_type::github_mark;
-        else if (casecmp (v, "CommonMark") == 0)
+        else if (icasecmp (v, "CommonMark") == 0)
           r = text_type::common_mark;
       }
     }
-    else if (casecmp (tp, "text/", 5) != 0)
+    else if (icasecmp (tp, "text/", 5) != 0)
       bad_type ("text type expected");
 
     return r;
@@ -2386,9 +2386,9 @@ namespace bpkg
     else if (description->file)
     {
       string ext (description->path.extension ());
-      if (ext.empty () || casecmp (ext, "txt") == 0)
+      if (ext.empty () || icasecmp (ext, "txt") == 0)
         r = text_type::plain;
-      else if (casecmp (ext, "md") == 0 || casecmp (ext, "markdown") == 0)
+      else if (icasecmp (ext, "md") == 0 || icasecmp (ext, "markdown") == 0)
         r = text_type::github_mark;
     }
     else
@@ -3114,22 +3114,22 @@ namespace bpkg
         bad_url ("invalid path");
     };
 
-    if (casecmp (scheme, "http") == 0)
+    if (icasecmp (scheme, "http") == 0)
     {
       translate_remote ();
       return scheme_type::http;
     }
-    else if (casecmp (scheme, "https") == 0)
+    else if (icasecmp (scheme, "https") == 0)
     {
       translate_remote ();
       return scheme_type::https;
     }
-    else if (casecmp (scheme, "git") == 0)
+    else if (icasecmp (scheme, "git") == 0)
     {
       translate_remote ();
       return scheme_type::git;
     }
-    else if (casecmp (scheme, "ssh") == 0)
+    else if (icasecmp (scheme, "ssh") == 0)
     {
       translate_remote ();
 
@@ -3142,13 +3142,13 @@ namespace bpkg
       //
       return scheme_type::ssh;
     }
-    else if (casecmp (scheme, "file") == 0)
+    else if (icasecmp (scheme, "file") == 0)
     {
       if (authority)
       {
         if (!authority->empty () &&
-            (casecmp (authority->host, "localhost") != 0 ||
-             authority->port != 0 ||
+            (icasecmp (authority->host, "localhost") != 0 ||
+             authority->port != 0                         ||
              !authority->user.empty ()))
           throw invalid_argument ("invalid authority");
 
