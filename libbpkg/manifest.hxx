@@ -306,8 +306,6 @@ namespace bpkg
         : std::string (std::move (e)), comment (std::move (c)) {}
   };
 
-  // depends
-  //
   // Represented as a version range. Note that the versions may refer to the
   // dependent package version and can be completed with the actual versions
   // using the effective() function. Such versions are represented as an empty
@@ -326,7 +324,7 @@ namespace bpkg
   // [X Y)  ==  [X+0   Y+0)
   // (X Y]  ==  (X+max Y+max]
   //
-  class LIBBPKG_EXPORT dependency_constraint
+  class LIBBPKG_EXPORT version_constraint
   {
   public:
     butl::optional<version> min_version;
@@ -337,16 +335,16 @@ namespace bpkg
     // Preserve the zero endpoint version revisions (see above for details).
     //
     explicit
-    dependency_constraint (const std::string&);
+    version_constraint (const std::string&);
 
-    dependency_constraint (butl::optional<version> min_version, bool min_open,
-                           butl::optional<version> max_version, bool max_open);
+    version_constraint (butl::optional<version> min_version, bool min_open,
+                        butl::optional<version> max_version, bool max_open);
 
     explicit
-    dependency_constraint (const version& v)
-        : dependency_constraint (v, false, v, false) {}
+    version_constraint (const version& v)
+        : version_constraint (v, false, v, false) {}
 
-    dependency_constraint () = default;
+    version_constraint () = default;
 
     bool
     empty () const noexcept {return !min_version && !max_version;}
@@ -364,35 +362,49 @@ namespace bpkg
     // version in range, non-standard or latest snapshot version for a
     // shortcut operator, etc.).
     //
-    dependency_constraint
+    version_constraint
     effective (version) const;
+
+    std::string
+    string () const;
   };
 
-  LIBBPKG_EXPORT std::ostream&
-  operator<< (std::ostream&, const dependency_constraint&);
-
-  inline bool
-  operator== (const dependency_constraint& x, const dependency_constraint& y)
+  inline std::ostream&
+  operator<< (std::ostream& os, const version_constraint& vc)
   {
-    return x.min_version == y.min_version && x.max_version == y.max_version &&
-      x.min_open == y.min_open && x.max_open == y.max_open;
+    return os << vc.string ();
   }
 
   inline bool
-  operator!= (const dependency_constraint& x, const dependency_constraint& y)
+  operator== (const version_constraint& x, const version_constraint& y)
+  {
+    return x.min_version == y.min_version && x.max_version == y.max_version &&
+           x.min_open == y.min_open && x.max_open == y.max_open;
+  }
+
+  inline bool
+  operator!= (const version_constraint& x, const version_constraint& y)
   {
     return !(x == y);
   }
 
-  struct dependency
+  struct LIBBPKG_EXPORT dependency
   {
     package_name name;
-    butl::optional<dependency_constraint> constraint;
+    butl::optional<version_constraint> constraint;
+
+    std::string
+    string () const;
   };
 
-  LIBBPKG_EXPORT std::ostream&
-  operator<< (std::ostream&, const dependency&);
+  inline std::ostream&
+  operator<< (std::ostream& os, const dependency& d)
+  {
+    return os << d.string ();
+  }
 
+  // depends
+  //
   class dependency_alternatives: public butl::small_vector<dependency, 1>
   {
   public:
@@ -460,17 +472,17 @@ namespace bpkg
   //
   enum class package_manifest_flags: std::uint16_t
   {
-    none                      = 0x00,
+    none                           = 0x00,
 
-    forbid_file               = 0x01, // Forbid *-file manifest values.
-    forbid_location           = 0x02,
-    forbid_sha256sum          = 0x04,
-    forbid_fragment           = 0x08,
-    forbid_incomplete_depends = 0x10,
+    forbid_file                    = 0x01, // Forbid *-file manifest values.
+    forbid_location                = 0x02,
+    forbid_sha256sum               = 0x04,
+    forbid_fragment                = 0x08,
+    forbid_incomplete_dependencies = 0x10,
 
-    require_location          = 0x20,
-    require_sha256sum         = 0x40,
-    require_description_type  = 0x80
+    require_location               = 0x20,
+    require_sha256sum              = 0x40,
+    require_description_type       = 0x80
   };
 
   inline package_manifest_flags
@@ -693,6 +705,10 @@ namespace bpkg
     butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
+    butl::small_vector<dependency, 1> tests;
+    butl::small_vector<dependency, 1> examples;
+    butl::small_vector<dependency, 1> benchmarks;
+
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
 
@@ -727,7 +743,7 @@ namespace bpkg
     //
     package_manifest (butl::manifest_parser&,
                       bool ignore_unknown = false,
-                      bool complete_depends = true,
+                      bool complete_dependencies = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |

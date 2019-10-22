@@ -61,7 +61,7 @@ main (int argc, char* argv[])
   {
     if (mode == "-p")
     {
-      bool complete_depends (false);
+      bool complete_dependencies (false);
       bool ignore_unknown (false);
 
       for (int i (2); i != argc; ++i)
@@ -69,7 +69,7 @@ main (int argc, char* argv[])
         string o (argv[i]);
 
         if (o == "-c")
-          complete_depends = true;
+          complete_dependencies = true;
         else if (o == "-i")
           ignore_unknown = true;
         else
@@ -96,7 +96,7 @@ main (int argc, char* argv[])
           }
         },
         ignore_unknown,
-        complete_depends).serialize (s);
+        complete_dependencies).serialize (s);
     }
     else if (mode == "-ec")
     {
@@ -109,8 +109,8 @@ main (int argc, char* argv[])
       string s;
       while (!eof (getline (cin, s)))
       {
-        dependency_constraint c (s);
-        dependency_constraint ec (c.effective (v));
+        version_constraint c (s);
+        version_constraint ec (c.effective (v));
 
         assert (c.complete () == (c == ec));
 

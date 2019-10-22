@@ -499,7 +499,7 @@
       EOI
   }
 
-  : dependency
+  : depends
   :
   {
     : short-name
@@ -515,7 +515,7 @@
 
     : invalid-version-range
     :
-    $* -c <<EOI 2>'stdin:6:10: error: invalid dependency constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>'stdin:6:10: error: invalid prerequisite package constraint: min version is greater than max version' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -586,7 +586,7 @@
         license: LGPLv2
         depends: bar ~$
         EOI
-        stdin:6:10: error: invalid dependency constraint: dependent version is not standard
+        stdin:6:10: error: invalid prerequisite package constraint: dependent version is not standard
         EOE
 
       : latest-snapshot
@@ -607,7 +607,6 @@
         depends: bar == 2.0.0-a.0.123 | libbaz [2.0.0-a.0.1 2.0.0-a.1) | libbox\
          [2.0.0-a.0.1 2.0.0-a.1) | libfox [1.0 2.0.0-a.0.123)
         EOO
-
     }
 
     : incomplete
@@ -619,6 +618,102 @@
       summary: Modern C++ parser
       license: LGPLv2
       depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
+      EOF
+  }
+
+  : tests
+  :
+  {
+    : short-name
+    :
+    $* <<EOI 2>'stdin:6:8: error: invalid tests package name: length is less than two characters' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: b
+      EOI
+
+    : invalid-version-range-incomplete
+    :
+    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: min version is greater than max version' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar [$ 1.0.0]
+      EOI
+
+    : invalid-version-range
+    :
+    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: min version is greater than max version' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar [2.0.0 1.0.0]
+      EOI
+
+    : invalid-version
+    :
+    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: invalid version: equal version endpoints are earliest' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar == 2.0.0-
+      EOI
+
+    : complete
+    :
+    {
+      test.options += -c
+
+      : final
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar == $
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar == 2.0.0
+        EOO
+
+      : non-standard-shortcut
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0-x
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar ~$
+        EOI
+        stdin:6:8: error: invalid tests package constraint: dependent version is not standard
+        EOE
+    }
+
+    : incomplete
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar == $
       EOF
   }
 }
@@ -670,6 +765,9 @@
       requires: ? ; libc++ standard library if using Clang on Mac OS X.
       requires: zlib; Most Linux/UNIX systems already have one; or get it at\
        www.zlib.net.
+      tests: libfoo-tests
+      examples: libfoo-examples == 1.2.3
+      benchmarks: libfoo-benchmarks ~1.2.0
       builds: +!windows &( +gcc +clang ) +( +windows &msvc )
       build-include: linux*
       build-include: freebsd*
