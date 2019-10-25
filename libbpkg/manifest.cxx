@@ -2297,20 +2297,10 @@ namespace bpkg
       m.dependencies.push_back (da);
     }
 
-    // @@ If the required description-type value is absent we will not fail
-    //    until toolchain 0.11.0 is released and will set it to plain text
-    //    instead. Not doing so we will fail to build packages coming from
-    //    older pkg repositories. In particular, we will fail to verify that
-    //    the public packages are still buildable with the queued toolchain.
-    //
     if (m.description       &&
         !m.description_type &&
         flag (package_manifest_flags::require_description_type))
-#if 0
       bad_name ("no package description type specified");
-#else
-      m.description_type = "text/plain";
-#endif
 
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
