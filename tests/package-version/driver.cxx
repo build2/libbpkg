@@ -304,6 +304,14 @@ namespace bpkg
         assert (v.canonical_release == "~");
         assert (test_constructor (v));
       }
+
+      // Miscompiled by Clang 9.0.0 (see Clang bug report #43710 for details).
+      //
+#if !(defined(__clang__)   && \
+      __clang_major__ == 9 && \
+      __clang_minor__ == 0 && \
+      __clang_patchlevel__ == 0)
+
       {
         version v (2, "1", nullopt, 2, 0);
         assert (v.string () == "+2-1+2");
@@ -318,6 +326,9 @@ namespace bpkg
         assert (v.canonical_release.empty ());
         assert (test_constructor (v));
       }
+
+#endif
+
       {
         version v (3, "2.0", nullopt, 3, 4);
         assert (v.string (false, false) == "+3-2.0+3#4");
