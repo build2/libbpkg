@@ -317,7 +317,8 @@ namespace bpkg
   // `~$` (min endpoint is open) or `^$` (max endpoint is open). Note that
   // equal endpoints can never be both open.
   //
-  // An absent endpoint version revision has the 'any revision' meaning and
+  // An absent endpoint version revision has the 'any revision' meaning
+  // (except for an earliest release for which the revision is meaningless) and
   // so translates into the effective revision differently, depending on the
   // range endpoint side and openness:
   //
