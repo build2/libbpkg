@@ -1,5 +1,4 @@
 // file      : libbpkg/manifest.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef LIBBPKG_MANIFEST_HXX

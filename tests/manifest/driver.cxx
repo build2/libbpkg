@@ -1,5 +1,4 @@
 // file      : tests/manifest/driver.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <ios>      // ios_base::failbit, ios_base::badbit
