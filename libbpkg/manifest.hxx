@@ -788,6 +788,10 @@ namespace bpkg
     // the following value groups can be overridden: {build-*email} and
     // {builds, build-{include,exclude}}.
     //
+    // Note that the build constraints group values are overridden
+    // hierarchically so that the build-{include,exclude} overrides don't
+    // affect the builds values.
+    //
     // If a non-empty source name is specified, then the specified values are
     // assumed to also include the line/column information and the possibly
     // thrown manifest_parsing exception will contain the invalid value

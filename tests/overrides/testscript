@@ -53,12 +53,35 @@
     summary: Modern C++ parser
     license: LGPLv2
     builds: default
+    build-exclude: freebsd*
     EOI
     : 1
     name: libfoo
     version: 2.0.0
     summary: Modern C++ parser
     license: LGPLv2
+    builds: default
+    build-include: linux*
+    build-exclude: *; Only supports Linux.
+    EOO
+
+  : builds-build-include-exclude
+  :
+  $* 'build-include: linux*' 'build-exclude: *; Only supports Linux.' 'builds: all' <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    builds: default
+    build-exclude: windows; Only supports POSIX.
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    builds: all
     build-include: linux*
     build-exclude: *; Only supports Linux.
     EOO

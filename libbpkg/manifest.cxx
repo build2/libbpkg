@@ -2413,15 +2413,27 @@ namespace bpkg
   void package_manifest::
   override (const vector<manifest_name_value>& nvs, const string& name)
   {
+    // Reset the build constraints value sub-group on the first call.
+    //
+    bool rbc (true);
+    auto reset_build_constraints = [&rbc, this] ()
+    {
+      if (rbc)
+      {
+        build_constraints.clear ();
+        rbc = false;
+      }
+    };
+
     // Reset the builds value group on the first call.
     //
     bool rb (true);
-    auto reset_builds = [&rb, this] ()
+    auto reset_builds = [&rb, &reset_build_constraints, this] ()
     {
       if (rb)
       {
         builds.clear ();
-        build_constraints.clear ();
+        reset_build_constraints ();
         rb = false;
       }
     };
@@ -2451,14 +2463,14 @@ namespace bpkg
       }
       else if (n == "build-include")
       {
-        reset_builds ();
+        reset_build_constraints ();
 
         build_constraints.push_back (
           parse_build_constraint (nv, false /* exclusion */, name));
       }
       else if (n == "build-exclude")
       {
-        reset_builds ();
+        reset_build_constraints ();
 
         build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
