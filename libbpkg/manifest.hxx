@@ -276,7 +276,7 @@ namespace bpkg
   //
   // See libbutl/url.mxx for details.
   //
-  class url: public butl::url
+  class manifest_url: public butl::url
   {
   public:
     std::string comment;
@@ -284,9 +284,9 @@ namespace bpkg
     // Throw invalid_argument on parsing or constraints checking error.
     //
     explicit
-    url (const std::string& u, std::string c = "");
+    manifest_url (const std::string& u, std::string c = "");
 
-    url () = default;
+    manifest_url () = default;
   };
 
   // email
@@ -673,7 +673,6 @@ namespace bpkg
   public:
     using version_type = bpkg::version;
     using priority_type = bpkg::priority;
-    using url_type = bpkg::url;
     using email_type = bpkg::email;
 
     package_name name;
@@ -694,10 +693,10 @@ namespace bpkg
     butl::optional<text_file> description;
     butl::optional<std::string> description_type;
     butl::small_vector<text_file, 1> changes;
-    butl::optional<url_type> url;
-    butl::optional<url_type> doc_url;
-    butl::optional<url_type> src_url;
-    butl::optional<url_type> package_url;
+    butl::optional<manifest_url> url;
+    butl::optional<manifest_url> doc_url;
+    butl::optional<manifest_url> src_url;
+    butl::optional<manifest_url> package_url;
     butl::optional<email_type> email;
     butl::optional<email_type> package_email;
     butl::optional<email_type> build_email;

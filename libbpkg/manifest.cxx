@@ -606,10 +606,12 @@ namespace bpkg
     return *this;
   }
 
-  // url
+  // manifest_url
   //
-  url::
-  url (const std::string& u, std::string c): butl::url (u), comment (move (c))
+  manifest_url::
+  manifest_url (const std::string& u, std::string c)
+      : url (u),
+        comment (move (c))
   {
     if (rootless)
       throw invalid_argument ("rootless URL");
@@ -1643,18 +1645,19 @@ namespace bpkg
       r = bpkg::parse_email (nv, what, source_name, empty);
     };
 
-    auto parse_url = [&bad_value] (const string& v, const char* what) -> url
+    auto parse_url = [&bad_value] (const string& v,
+                                   const char* what) -> manifest_url
     {
       auto p (parser::split_comment (v));
 
       if (v.empty ())
         bad_value (string ("empty ") + what + " url");
 
-      url r;
+      manifest_url r;
 
       try
       {
-        r = url (p.first, move (p.second));
+        r = manifest_url (p.first, move (p.second));
       }
       catch (const invalid_argument& e)
       {
@@ -3270,7 +3273,7 @@ namespace bpkg
   {
     try
     {
-      return path_type (butl::url::decode (path));
+      return path_type (url::decode (path));
     }
     catch (const invalid_path&)
     {
@@ -3281,8 +3284,6 @@ namespace bpkg
    repository_url_traits::string_type repository_url_traits::
    translate_path (const path_type& path)
    {
-     using butl::url;
-
      // If the path is absolute then this is a local URL object and the file://
      // URL notation is being produced. Thus, on POSIX we need to make the path
      // relative (to the authority "root"). On Windows the path should stay
@@ -3377,7 +3378,7 @@ namespace bpkg
   typed_repository_url::
   typed_repository_url (const string& s)
   {
-    using traits = butl::url::traits_type;
+    using traits = url::traits_type;
 
     if (traits::find (s) == 0) // Looks like a non-rootless URL?
     {
