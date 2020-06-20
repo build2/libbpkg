@@ -1511,6 +1511,31 @@ namespace bpkg
     return r;
   }
 
+  // test_dependency_type
+  //
+  string
+  to_string (test_dependency_type t)
+  {
+    switch (t)
+    {
+    case test_dependency_type::tests:      return "tests";
+    case test_dependency_type::examples:   return "examples";
+    case test_dependency_type::benchmarks: return "benchmarks";
+    }
+
+    assert (false); // Can't be here.
+    return string ();
+  }
+
+  test_dependency_type
+  to_test_dependency_type (const string& t)
+  {
+         if (t == "tests")      return test_dependency_type::tests;
+    else if (t == "examples")   return test_dependency_type::examples;
+    else if (t == "benchmarks") return test_dependency_type::benchmarks;
+    else throw invalid_argument ("invalid test dependency type '" + t + "'");
+  }
+
   // pkg_package_manifest
   //
   static build_class_expr
@@ -1716,14 +1741,12 @@ namespace bpkg
     //
     optional<name_value> upstream_version;
 
-    // We will cache the depends, tests, examples, and benchmarks manifest
-    // values to parse and, if requested, complete the version constraints
-    // later, after the version value is parsed.
+    // We will cache the depends and the test dependency manifest values to
+    // parse and, if requested, complete the version constraints later, after
+    // the version value is parsed.
     //
     vector<name_value> dependencies;
     small_vector<name_value, 1> tests;
-    small_vector<name_value, 1> examples;
-    small_vector<name_value, 1> benchmarks;
 
     // We will cache the description and its type values to validate them
     // later, after both are parsed.
@@ -2040,17 +2063,9 @@ namespace bpkg
       {
         dependencies.push_back (move (nv));
       }
-      else if (n == "tests")
+      else if (n == "tests" || n == "examples" || n == "benchmarks")
       {
         tests.push_back (move (nv));
-      }
-      else if (n == "examples")
-      {
-        examples.push_back (move (nv));
-      }
-      else if (n == "benchmarks")
-      {
-        benchmarks.push_back (move (nv));
       }
       else if (n == "location")
       {
@@ -2201,8 +2216,7 @@ namespace bpkg
     }
 
     // Now, when the version manifest value is parsed, we can parse the
-    // dependencies, tests, examples, and benchmarks and complete their
-    // constraints, if requested.
+    // dependencies and complete their constraints, if requested.
     //
     auto parse_dependency = [&m, cd, &flag, &bad_value] (string&& d,
                                                          const char* what)
@@ -2268,6 +2282,8 @@ namespace bpkg
       return r;
     };
 
+    // Parse the regular dependencies.
+    //
     for (name_value& d: dependencies)
     {
       nv = move (d); // Restore as bad_value() uses its line/column.
@@ -2304,21 +2320,29 @@ namespace bpkg
       m.dependencies.push_back (da);
     }
 
-    auto parse_deps = [&nv, &parse_dependency]
-                      (small_vector<name_value, 1>&& nvs, const char* what)
+    // Parse the test dependencies.
+    //
+    for (name_value& v: tests)
     {
-      small_vector<dependency, 1> r;
-      for (name_value& v: nvs)
-      {
-        nv = move (v); // Restore as bad_value() uses its line/column.
-        r.push_back (parse_dependency (move (nv.value), what));
-      }
-      return r;
-    };
+      nv = move (v); // Restore as bad_value() uses its line/column.
 
-    m.tests      = parse_deps (move (tests),      "tests");
-    m.examples   = parse_deps (move (examples),   "examples");
-    m.benchmarks = parse_deps (move (benchmarks), "benchmarks");
+      dependency d (parse_dependency (move (nv.value), nv.name.c_str ()));
+
+      try
+      {
+        m.tests.emplace_back (
+          move (d.name),
+          to_test_dependency_type (nv.name),
+          move (d.constraint));
+      }
+      catch (const invalid_argument&)
+      {
+        // to_test_dependency_type() can't throw since the type string is
+        // already validated.
+        //
+        assert (false);
+      }
+    }
 
     if (m.description       &&
         !m.description_type &&
@@ -2699,14 +2723,8 @@ namespace bpkg
                  : (r.buildtime ? "* " : "")) +
                 serializer::merge_comment (concatenate (r, " | "), r.comment));
 
-      for (const dependency& t: m.tests)
-        s.next ("tests", t.string ());
-
-      for (const dependency& t: m.examples)
-        s.next ("examples", t.string ());
-
-      for (const dependency& t: m.benchmarks)
-        s.next ("benchmarks", t.string ());
+      for (const test_dependency& p: m.tests)
+        s.next (to_string (p.type), p.string ());
 
       for (const build_class_expr& e: m.builds)
         s.next ("builds", serializer::merge_comment (e.string (), e.comment));

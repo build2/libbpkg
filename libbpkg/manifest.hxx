@@ -276,7 +276,7 @@ namespace bpkg
   //
   // See libbutl/url.mxx for details.
   //
-  class manifest_url: public butl::url
+  class LIBBPKG_EXPORT manifest_url: public butl::url
   {
   public:
     std::string comment;
@@ -668,6 +668,38 @@ namespace bpkg
     return os << to_string (t);
   }
 
+  enum class test_dependency_type
+  {
+    tests,
+    examples,
+    benchmarks
+  };
+
+  LIBBPKG_EXPORT std::string
+  to_string (test_dependency_type);
+
+  // May throw std::invalid_argument.
+  //
+  LIBBPKG_EXPORT test_dependency_type
+  to_test_dependency_type (const std::string&);
+
+  inline std::ostream&
+  operator<< (std::ostream& os, test_dependency_type t)
+  {
+    return os << to_string (t);
+  }
+
+  struct test_dependency: dependency
+  {
+    test_dependency_type type;
+
+    test_dependency () = default;
+    test_dependency (package_name n,
+                     test_dependency_type t,
+                     butl::optional<version_constraint> c)
+        : dependency {std::move (n), std::move (c)}, type (t) {}
+  };
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -704,9 +736,7 @@ namespace bpkg
     butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
     std::vector<requirement_alternatives> requirements;
-    butl::small_vector<dependency, 1> tests;
-    butl::small_vector<dependency, 1> examples;
-    butl::small_vector<dependency, 1> benchmarks;
+    butl::small_vector<test_dependency, 1> tests;
 
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
