@@ -276,14 +276,16 @@ namespace bpkg
   //
   // See libbutl/url.mxx for details.
   //
-  class LIBBPKG_EXPORT manifest_url: public butl::url
+  // NOTE: this class must not be DLL-exported wholesale (non-exported base).
+  //
+  class manifest_url: public butl::url
   {
   public:
     std::string comment;
 
     // Throw invalid_argument on parsing or constraints checking error.
     //
-    explicit
+    explicit LIBBPKG_EXPORT
     manifest_url (const std::string& u, std::string c = "");
 
     manifest_url () = default;
