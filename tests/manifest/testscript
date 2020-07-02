@@ -102,6 +102,49 @@
       EOE
   }
 
+  : license
+  :
+  {
+    : no-scheme
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: MIT
+      EOF
+
+    : other-scheme
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: other:proprietary
+      EOF
+
+    : user-defined
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: DocumentRef-spdx-tool-1.2:LicenseRef-MIT-Style-2; MIT-alike
+      EOF
+
+    : invalid-scheme
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      license: custom:proprietary
+      EOI
+      stdin:2:10: error: invalid package license scheme
+      EOE
+  }
+
   : topics
   :
   {

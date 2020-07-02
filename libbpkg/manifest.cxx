@@ -2006,7 +2006,25 @@ namespace bpkg
 
         list_parser lp (vc.first.begin (), vc.first.end ());
         for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+        {
+          // Reserve the license schemes for the future use and only recognize
+          // the 'other' scheme for now, if specified. By default, the 'spdx'
+          // scheme is implied.
+          //
+          // Note that if the substring that precedes ':' contains the
+          // 'DocumentRef-' substring, then this is not a license scheme but
+          // the license is a SPDX License Expression (see SPDX user defined
+          // license reference for details).
+          //
+          size_t p (lv.find (':'));
+
+          if (p != string::npos            &&
+              lv.find ("DocumentRef-") > p &&
+              lv.compare (0, p, "other") != 0)
+            bad_value ("invalid package license scheme");
+
           l.push_back (move (lv));
+        }
 
         if (l.empty ())
           bad_value ("empty package license specification");
