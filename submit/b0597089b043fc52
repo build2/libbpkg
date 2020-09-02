@@ -1,0 +1,6 @@
+: 1
+name: libbpkg
+version: 0.14.0-a.0.20200721135502.da8e0673fc1e
+project: build2
+summary: build2 package dependency manager utility library
+license: MIT
