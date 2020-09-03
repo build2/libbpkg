@@ -3153,12 +3153,12 @@ namespace bpkg
       if (!authority || authority->host.empty ())
         bad_url ("invalid host");
 
-      if (authority->host.kind != url_host_kind::name)
-        bad_url ("unsupported host type");
-
       // Normalize the host name.
       //
-      lcase (authority->host.value);
+      // @@ Also add IPv4/6 addresses normalization.
+      //
+      if (authority->host.kind == url_host_kind::name)
+        lcase (authority->host.value);
 
       // We don't distinguish between the absent and empty paths for the
       // remote repository URLs.
