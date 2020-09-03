@@ -1026,8 +1026,8 @@ namespace bpkg
   //   non-empty object with non-empty path never contains the trailing slash
   //   (except for the root path on POSIX system).
   //
-  // - For the remote URL object the host name is in the lower case (IPv4/6 are
-  //   not supported) and the path is relative.
+  // - For the remote URL object the host component is normalized (see
+  //   butl::basic_url_host for details) and the path is relative.
   //
   // - For the local URL object the path can be relative or absolute. Query
   //   can not be present. Represent the object using the file:// notation if

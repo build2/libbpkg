@@ -562,6 +562,11 @@ namespace bpkg
       assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
     }
     {
+      repository_location l (loc ("http://00.00.010.0/qw/1/a/b/"));
+      assert (l.string () == "http://0.0.10.0/qw/1/a/b");
+      assert (l.canonical_name () == "pkg:0.0.10.0/qw/a/b");
+    }
+    {
       repository_location l (loc ("http://pkg.CPPget.org/qw/1/a/b/"));
       assert (l.string () == "http://pkg.cppget.org/qw/1/a/b");
       assert (l.canonical_name () == "pkg:cppget.org/qw/a/b");
