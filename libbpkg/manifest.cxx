@@ -3766,6 +3766,19 @@ namespace bpkg
     //
     path sp;
 
+    // Convert the local repository location path to lower case on Windows.
+    //
+    // Note that we need to do that prior to stripping the special path
+    // components to match them case-insensitively, so, for example, the
+    // c:\pkg\1\stable and c:\Pkg\1\stable (or c:\repo.git and c:\repo.Git)
+    // repository locations end up with the same canonical name.
+    //
+    #ifdef _WIN32
+    const path& p (local () ? path (lcase (up.string ())) : up);
+    #else
+    const path& p (up);
+    #endif
+
     switch (type_)
     {
     case repository_type::pkg:
@@ -3773,7 +3786,7 @@ namespace bpkg
         // Produce the pkg repository canonical name <prefix>/<path> part (see
         // the Repository Chaining documentation for more details).
         //
-        sp = strip_path (up,
+        sp = strip_path (p,
                          remote ()
                          ? strip_mode::component
                          : strip_mode::path);
@@ -3783,7 +3796,7 @@ namespace bpkg
         // stripping just the version component.
         //
         if (absolute () && sp.empty ())
-          sp = strip_path (up, strip_mode::version);
+          sp = strip_path (p, strip_mode::version);
 
         break;
       }
@@ -3791,7 +3804,7 @@ namespace bpkg
       {
         // For dir repository we use the absolute (normalized) path.
         //
-        sp = up;
+        sp = p;
         break;
       }
     case repository_type::git:
@@ -3799,7 +3812,7 @@ namespace bpkg
         // For git repository we use the absolute (normalized) path, stripping
         // the .git extension if present.
         //
-        sp = strip_path (up, strip_mode::extension);
+        sp = strip_path (p, strip_mode::extension);
         break;
       }
     }

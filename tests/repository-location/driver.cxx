@@ -765,6 +765,18 @@ namespace bpkg
       assert (l1.string () == l2.string ());
       assert (l1.canonical_name () == l2.canonical_name ());
     }
+    {
+      repository_location l1 (loc ("c:/var/pkg/1/misc"));
+      repository_location l2 (loc ("c:/var/Pkg/1/Misc"));
+      assert (l1.canonical_name () == "pkg:misc");
+      assert (l2.canonical_name () == l1.canonical_name ());
+    }
+    {
+      repository_location l1 (loc ("c:\\repo.git", repository_type::git));
+      repository_location l2 (loc ("C:/Repo.Git", repository_type::git));
+      assert (l1.canonical_name () == "git:c:\\repo");
+      assert (l2.canonical_name () == l1.canonical_name ());
+    }
 #endif
     {
       repository_location l1 (loc ("http://www.cppget.org/1/stable"));
