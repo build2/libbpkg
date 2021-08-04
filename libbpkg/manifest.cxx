@@ -4573,4 +4573,41 @@ namespace bpkg
 
     s.next ("", ""); // End of manifest.
   }
+
+  // extract_package_*()
+  //
+  package_name
+  extract_package_name (const char* s, bool allow_version)
+  {
+    if (!allow_version)
+      return package_name (s);
+
+    // Calculate the package name length as a length of the prefix that
+    // doesn't contain spaces, slashes and the version constraint starting
+    // characters. Note that none of them are valid package name characters.
+    //
+    size_t n (strcspn (s, " /=<>([~^"));
+    return package_name (string (s, n));
+  }
+
+  version
+  extract_package_version (const char* s, bool fold_zero_revision)
+  {
+    using traits = string::traits_type;
+
+    if (const char* p = traits::find (s, traits::length (s), '/'))
+    {
+      version r (p + 1, fold_zero_revision);
+
+      if (r.release && r.release->empty ())
+        throw invalid_argument ("earliest version");
+
+      if (r.compare (stub_version, true /* ignore_revision */) == 0)
+        throw invalid_argument ("stub version");
+
+      return r;
+    }
+
+    return version ();
+  }
 }

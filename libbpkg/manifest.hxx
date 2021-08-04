@@ -1568,6 +1568,36 @@ namespace bpkg
                         butl::manifest_name_value start,
                         bool ignore_unknown);
   };
+
+  // Extract the package name component from <name>[/<version>] or
+  // <name><version-constraint>. Throw invalid_argument on parsing error.
+  //
+  // Note: the version and version constraint are not verified.
+  //
+  LIBBPKG_EXPORT package_name
+  extract_package_name (const char*, bool allow_version = true);
+
+  inline package_name
+  extract_package_name (const std::string& s, bool allow_version = true)
+  {
+    return extract_package_name (s.c_str (), allow_version);
+  }
+
+  // Extract the package version component from <name>[/<version>]. Return
+  // empty version if none is specified. Throw invalid_argument on parsing
+  // error and for the earliest and stub versions.
+  //
+  // Note: the package name is not verified.
+  //
+  LIBBPKG_EXPORT version
+  extract_package_version (const char*, bool fold_zero_revision = true);
+
+  inline version
+  extract_package_version (const std::string& s,
+                           bool fold_zero_revision = true)
+  {
+    return extract_package_version (s.c_str (), fold_zero_revision);
+  }
 }
 
 #endif // LIBBPKG_MANIFEST_HXX
