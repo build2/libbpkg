@@ -694,12 +694,22 @@ namespace bpkg
   struct test_dependency: dependency
   {
     test_dependency_type type;
+    bool buildtime;
 
     test_dependency () = default;
     test_dependency (package_name n,
                      test_dependency_type t,
+                     bool b,
                      butl::optional<version_constraint> c)
-        : dependency {std::move (n), std::move (c)}, type (t) {}
+        : dependency {std::move (n), std::move (c)}, type (t), buildtime (b) {}
+
+    inline std::string
+    string () const
+    {
+      return buildtime
+             ? "* " + dependency::string ()
+             :        dependency::string ();
+    }
   };
 
   class LIBBPKG_EXPORT package_manifest

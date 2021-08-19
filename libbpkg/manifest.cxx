@@ -2340,17 +2340,27 @@ namespace bpkg
 
     // Parse the test dependencies.
     //
-    for (name_value& v: tests)
+    for (name_value& t: tests)
     {
-      nv = move (v); // Restore as bad_value() uses its line/column.
+      nv = move (t); // Restore as bad_value() uses its line/column.
 
-      dependency d (parse_dependency (move (nv.value), nv.name.c_str ()));
+      string& v (nv.value);
+
+      bool b (v[0] == '*');
+      size_t p (v.find_first_not_of (spaces, b ? 1 : 0));
+
+      if (p == string::npos)
+        bad_value ("no " + nv.name + " package name specified");
+
+      dependency d (parse_dependency (p == 0 ? move (v) : string (v, p),
+                                      nv.name.c_str ()));
 
       try
       {
         m.tests.emplace_back (
           move (d.name),
           to_test_dependency_type (nv.name),
+          b,
           move (d.constraint));
       }
       catch (const invalid_argument&)

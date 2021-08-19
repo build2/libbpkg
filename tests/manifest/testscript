@@ -710,6 +710,28 @@
       tests: bar == 2.0.0-
       EOI
 
+    : no-name
+    :
+    $* <<EOI 2>'stdin:6:8: error: no tests package name specified' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: *
+      EOI
+
+    : buildtime
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: * foo-tests
+      EOF
+
     : complete
     :
     {
