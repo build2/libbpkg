@@ -1013,6 +1013,51 @@ namespace bpkg
     return r;
   }
 
+  // dependency
+  //
+  dependency::
+  dependency (std::string d)
+  {
+    using std::string;
+    using iterator = string::const_iterator;
+
+    iterator b (d.begin ());
+    iterator i (b);
+    iterator ne (b); // End of name.
+    iterator e (d.end ());
+
+    // Find end of name (ne).
+    //
+    // Grep for '=<>([~^' in the bpkg source code and update, if changed.
+    //
+    const string cb ("=<>([~^");
+    for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
+    {
+      if (!space (c))
+        ne = i + 1;
+    }
+
+    try
+    {
+      name = package_name (i == e ? move (d) : string (b, ne));
+    }
+    catch (const invalid_argument& e)
+    {
+      throw invalid_argument (string ("invalid package name: ") + e.what ());
+    }
+
+    if (i != e)
+    try
+    {
+      constraint = version_constraint (string (i, e));
+    }
+    catch (const invalid_argument& e)
+    {
+      throw invalid_argument (string ("invalid package constraint: ") +
+                              e.what ());
+    }
+  }
+
   std::string dependency::
   string () const
   {
@@ -1049,6 +1094,53 @@ namespace bpkg
       o << "; " << as.comment;
 
     return o;
+  }
+
+  // requirement_alternatives
+  //
+  requirement_alternatives::
+  requirement_alternatives (const std::string& v)
+  {
+    using std::string;
+
+    // Allow specifying ?* in any order.
+    //
+    size_t n (v.size ());
+    size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
+    size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
+
+    auto vc (parser::split_comment (v));
+
+    conditional = (cond != 0);
+    buildtime   = (btim != 0);
+    comment     = move (vc.second);
+
+    const string& vl (vc.first);
+
+    string::const_iterator b (vl.begin ());
+    string::const_iterator e (vl.end ());
+
+    if (conditional || buildtime)
+    {
+      string::size_type p (vl.find_first_not_of (spaces, cond + btim));
+      b = p == string::npos ? e : b + p;
+    }
+
+    list_parser lp (b, e, '|');
+    for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+      push_back (lv);
+
+    if (empty () && comment.empty ())
+      throw invalid_argument ("empty package requirement specification");
+  }
+
+  std::string requirement_alternatives::
+  string () const
+  {
+    return (conditional
+            ? (buildtime ? "?* " : "? ")
+            : (buildtime ? "* " : "")) +
+           serializer::merge_comment (concatenate (*this, " | "), comment);
   }
 
   // build_class_term
@@ -1535,6 +1627,25 @@ namespace bpkg
     else if (t == "examples")   return test_dependency_type::examples;
     else if (t == "benchmarks") return test_dependency_type::benchmarks;
     else throw invalid_argument ("invalid test dependency type '" + t + "'");
+  }
+
+
+  // test_dependency
+  //
+  test_dependency::
+  test_dependency (std::string v, test_dependency_type t)
+      : type (t)
+  {
+    using std::string;
+
+    buildtime = (v[0] == '*');
+    size_t p (v.find_first_not_of (spaces, buildtime ? 1 : 0));
+
+    if (p == string::npos)
+      throw invalid_argument ("no package name specified");
+
+    static_cast<dependency&> (*this) =
+      dependency (p == 0 ? move (v) : string (v, p));
   }
 
   // pkg_package_manifest
@@ -2034,34 +2145,14 @@ namespace bpkg
       }
       else if (n == "requires")
       {
-        // Allow specifying ?* in any order.
-        //
-        size_t n (v.size ());
-        size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
-        size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
-
-        auto vc (parser::split_comment (v));
-
-        const string& vl (vc.first);
-        requirement_alternatives ra (cond != 0, btim != 0, move (vc.second));
-
-        string::const_iterator b (vl.begin ());
-        string::const_iterator e (vl.end ());
-
-        if (ra.conditional || ra.buildtime)
+        try
         {
-          string::size_type p (vl.find_first_not_of (spaces, cond + btim));
-          b = p == string::npos ? e : b + p;
+          m.requirements.push_back (requirement_alternatives (v));
         }
-
-        list_parser lp (b, e, '|');
-        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-          ra.push_back (lv);
-
-        if (ra.empty () && ra.comment.empty ())
-          bad_value ("empty package requirement specification");
-
-        m.requirements.push_back (move (ra));
+        catch (const invalid_argument& e)
+        {
+          bad_value (e.what ());
+        }
       }
       else if (n == "builds")
       {
@@ -2237,68 +2328,29 @@ namespace bpkg
     // Now, when the version manifest value is parsed, we can parse the
     // dependencies and complete their constraints, if requested.
     //
-    auto parse_dependency = [&m, cd, &flag, &bad_value] (string&& d,
-                                                         const char* what)
+    auto complete_constraint = [&m, cd, &flag] (auto&& dep)
     {
-      using iterator = string::const_iterator;
-
-      iterator b (d.begin ());
-      iterator i (b);
-      iterator ne (b); // End of name.
-      iterator e (d.end ());
-
-      // Find end of name (ne).
-      //
-      // Grep for '=<>([~^' in the bpkg source code and update, if changed.
-      //
-      const string cb ("=<>([~^");
-      for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
-      {
-        if (!space (c))
-          ne = i + 1;
-      }
-
-      package_name nm;
-
+      if (dep.constraint)
       try
       {
-        nm = package_name (i == e ? move (d) : string (b, ne));
+        version_constraint& vc (*dep.constraint);
+
+        if (!vc.complete () &&
+            flag (package_manifest_flags::forbid_incomplete_dependencies))
+          throw invalid_argument ("$ not allowed");
+
+        // Complete the constraint.
+        //
+        if (cd)
+          vc = vc.effective (m.version);
       }
       catch (const invalid_argument& e)
       {
-        bad_value (string ("invalid ") + what + " package name: " +
-                   e.what ());
+        throw invalid_argument (string ("invalid package constraint: ") +
+                                e.what ());
       }
 
-      dependency r;
-
-      if (i == e)
-        r = dependency {move (nm), nullopt};
-      else
-      {
-        try
-        {
-          version_constraint vc (string (i, e));
-
-          if (!vc.complete () &&
-              flag (package_manifest_flags::forbid_incomplete_dependencies))
-            bad_value ("$ not allowed");
-
-          // Complete the constraint.
-          //
-          if (cd)
-            vc = vc.effective (m.version);
-
-          r = dependency {move (nm), move (vc)};
-        }
-        catch (const invalid_argument& e)
-        {
-          bad_value (string ("invalid ") + what + " package constraint: " +
-                     e.what ());
-        }
-      }
-
-      return r;
+      return move (dep);
     };
 
     // Parse the regular dependencies.
@@ -2329,9 +2381,16 @@ namespace bpkg
         b = p == string::npos ? e : b + p;
       }
 
-      list_parser lp (b, e, '|');
-      for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-        da.push_back (parse_dependency (move (lv), "prerequisite"));
+      try
+      {
+        list_parser lp (b, e, '|');
+        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+          da.push_back (complete_constraint (dependency (move (lv))));
+      }
+      catch (const invalid_argument& e)
+      {
+        bad_value (e.what ());
+      }
 
       if (da.empty ())
         bad_value ("empty package dependency specification");
@@ -2345,31 +2404,16 @@ namespace bpkg
     {
       nv = move (t); // Restore as bad_value() uses its line/column.
 
-      string& v (nv.value);
-
-      bool b (v[0] == '*');
-      size_t p (v.find_first_not_of (spaces, b ? 1 : 0));
-
-      if (p == string::npos)
-        bad_value ("no " + nv.name + " package name specified");
-
-      dependency d (parse_dependency (p == 0 ? move (v) : string (v, p),
-                                      nv.name.c_str ()));
-
       try
       {
-        m.tests.emplace_back (
-          move (d.name),
-          to_test_dependency_type (nv.name),
-          b,
-          move (d.constraint));
+        m.tests.push_back (
+          complete_constraint (
+            test_dependency (move (nv.value),
+                             to_test_dependency_type (nv.name))));
       }
-      catch (const invalid_argument&)
+      catch (const invalid_argument& e)
       {
-        // to_test_dependency_type() can't throw since the type string is
-        // already validated.
-        //
-        assert (false);
+        bad_value (e.what ());
       }
     }
 
@@ -2746,14 +2790,10 @@ namespace bpkg
                 serializer::merge_comment (concatenate (d, " | "), d.comment));
 
       for (const requirement_alternatives& r: m.requirements)
-        s.next ("requires",
-                (r.conditional
-                 ? (r.buildtime ? "?* " : "? ")
-                 : (r.buildtime ? "* " : "")) +
-                serializer::merge_comment (concatenate (r, " | "), r.comment));
+        s.next ("requires", r.string ());
 
-      for (const test_dependency& p: m.tests)
-        s.next (to_string (p.type), p.string ());
+      for (const test_dependency& t: m.tests)
+        s.next (to_string (t.type), t.string ());
 
       for (const build_class_expr& e: m.builds)
         s.next ("builds", serializer::merge_comment (e.string (), e.comment));

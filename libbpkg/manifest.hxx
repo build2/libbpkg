@@ -395,6 +395,17 @@ namespace bpkg
     package_name name;
     butl::optional<version_constraint> constraint;
 
+    dependency () = default;
+    dependency (package_name n, butl::optional<version_constraint> c)
+        : name (std::move (n)), constraint (std::move (c)) {}
+
+    // Parse the dependency string representation in the
+    // `<name> [<version-constraint>]` form. Throw std::invalid_argument if
+    // the value is invalid.
+    //
+    explicit
+    dependency (std::string);
+
     std::string
     string () const;
   };
@@ -434,7 +445,23 @@ namespace bpkg
     requirement_alternatives () = default;
     requirement_alternatives (bool d, bool b, std::string c)
         : conditional (d), buildtime (b), comment (std::move (c)) {}
+
+    // Parse the requirement alternatives string representation in the
+    // `[?] [<requirement> [ '|' <requirement>]*] [; <comment>]` form. Throw
+    // std::invalid_argument if the value is invalid.
+    //
+    explicit LIBBPKG_EXPORT
+    requirement_alternatives (const std::string&);
+
+    LIBBPKG_EXPORT std::string
+    string () const;
   };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const requirement_alternatives& ra)
+  {
+    return os << ra.string ();
+  }
 
   class build_constraint
   {
@@ -691,7 +718,7 @@ namespace bpkg
     return os << to_string (t);
   }
 
-  struct test_dependency: dependency
+  struct LIBBPKG_EXPORT test_dependency: dependency
   {
     test_dependency_type type;
     bool buildtime;
@@ -702,6 +729,12 @@ namespace bpkg
                      bool b,
                      butl::optional<version_constraint> c)
         : dependency {std::move (n), std::move (c)}, type (t), buildtime (b) {}
+
+    // Parse the test dependency string representation in the
+    // `[*] <name> [<version-constraint>]` form. Throw std::invalid_argument
+    // if the value is invalid.
+    //
+    test_dependency (std::string, test_dependency_type);
 
     inline std::string
     string () const

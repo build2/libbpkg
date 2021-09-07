@@ -546,7 +546,7 @@
   {
     : short-name
     :
-    $* <<EOI 2>'stdin:6:10: error: invalid prerequisite package name: length is less than two characters' != 0
+    $* <<EOI 2>'stdin:6:10: error: invalid package name: length is less than two characters' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -557,7 +557,7 @@
 
     : invalid-version-range
     :
-    $* -c <<EOI 2>'stdin:6:10: error: invalid prerequisite package constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>'stdin:6:10: error: invalid package constraint: min version is greater than max version' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -628,7 +628,7 @@
         license: LGPLv2
         depends: bar ~$
         EOI
-        stdin:6:10: error: invalid prerequisite package constraint: dependent version is not standard
+        stdin:6:10: error: invalid package constraint: dependent version is not standard
         EOE
 
       : latest-snapshot
@@ -668,7 +668,7 @@
   {
     : short-name
     :
-    $* <<EOI 2>'stdin:6:8: error: invalid tests package name: length is less than two characters' != 0
+    $* <<EOI 2>'stdin:6:8: error: invalid package name: length is less than two characters' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -679,7 +679,7 @@
 
     : invalid-version-range-incomplete
     :
-    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>'stdin:6:8: error: invalid package constraint: min version is greater than max version' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -690,7 +690,7 @@
 
     : invalid-version-range
     :
-    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>'stdin:6:8: error: invalid package constraint: min version is greater than max version' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -701,7 +701,7 @@
 
     : invalid-version
     :
-    $* -c <<EOI 2>'stdin:6:8: error: invalid tests package constraint: invalid version: equal version endpoints are earliest' != 0
+    $* -c <<EOI 2>'stdin:6:8: error: invalid package constraint: invalid version: equal version endpoints are earliest' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -712,7 +712,7 @@
 
     : no-name
     :
-    $* <<EOI 2>'stdin:6:8: error: no tests package name specified' != 0
+    $* <<EOI 2>'stdin:6:8: error: no package name specified' != 0
       : 1
       name: foo
       version: 2.0.0
@@ -765,7 +765,7 @@
         license: LGPLv2
         tests: bar ~$
         EOI
-        stdin:6:8: error: invalid tests package constraint: dependent version is not standard
+        stdin:6:8: error: invalid package constraint: dependent version is not standard
         EOE
     }
 
@@ -871,7 +871,7 @@
     {
       : incomplete
       :
-      $* <<EOI 2>'stdin:8:10: error: $ not allowed' != 0
+      $* <<EOI 2>'stdin:8:10: error: invalid package constraint: $ not allowed' != 0
         : 1
         sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         :
