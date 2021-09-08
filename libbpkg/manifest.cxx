@@ -18,6 +18,7 @@
 #include <libbutl/base64.mxx>
 #include <libbutl/utility.mxx>             // icasecmp(), lcase(), alnum(),
                                            // digit(), xdigit(), next_word()
+#include <libbutl/filesystem.mxx>          // dir_exist()
 #include <libbutl/small-vector.mxx>
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
