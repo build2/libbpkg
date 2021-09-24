@@ -10,6 +10,9 @@
 
 #include <libbpkg/manifest.hxx>
 
+#undef NDEBUG
+#include <cassert>
+
 // Usages:
 //
 // argv[0] -p

@@ -6,7 +6,6 @@
 #include <vector>
 #include <cstddef>  // size_t
 #include <cstdint>  // uint64_t
-#include <cassert>
 #include <iostream>
 
 #include <libbutl/utility.mxx>             // trim()
@@ -14,6 +13,9 @@
 #include <libbutl/manifest-serializer.mxx>
 
 #include <libbpkg/manifest.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;

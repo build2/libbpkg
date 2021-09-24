@@ -3,7 +3,6 @@
 
 #include <ios>      // ios_base::failbit, ios_base::badbit
 #include <string>
-#include <cassert>
 #include <iostream>
 
 #include <libbutl/manifest-parser.mxx>
@@ -11,6 +10,9 @@
 #include <libbutl/standard-version.mxx>
 
 #include <libbpkg/manifest.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;

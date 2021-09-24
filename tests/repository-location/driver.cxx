@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <string>
-#include <cassert>
 #include <sstream>
 #include <iostream>
 #include <stdexcept> // invalid_argument, logic_error
@@ -11,6 +10,9 @@
 #include <libbutl/manifest-parser.mxx>
 
 #include <libbpkg/manifest.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;

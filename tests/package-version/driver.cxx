@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <string>
-#include <cassert>
 #include <cstdint>   // uint16
 #include <iostream>
 #include <exception>
@@ -12,6 +11,9 @@
 #include <libbutl/optional.mxx>
 
 #include <libbpkg/manifest.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;
