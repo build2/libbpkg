@@ -6,8 +6,8 @@
 #include <iostream>
 #include <stdexcept> // invalid_argument, logic_error
 
-#include <libbutl/optional.mxx>
-#include <libbutl/manifest-parser.mxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/manifest-parser.hxx>
 
 #include <libbpkg/manifest.hxx>
 

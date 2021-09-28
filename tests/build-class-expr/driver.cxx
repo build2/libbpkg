@@ -5,8 +5,8 @@
 #include <string>
 #include <iostream>
 
-#include <libbutl/utility.mxx>  // eof(), operator<<(ostream, exception)
-#include <libbutl/optional.mxx>
+#include <libbutl/utility.hxx>  // eof(), operator<<(ostream, exception)
+#include <libbutl/optional.hxx>
 
 #include <libbpkg/manifest.hxx>
 

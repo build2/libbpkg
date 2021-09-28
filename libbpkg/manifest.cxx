@@ -13,16 +13,16 @@
 #include <algorithm> // find(), find_if_not(), find_first_of(), replace()
 #include <stdexcept> // invalid_argument
 
-#include <libbutl/url.mxx>
-#include <libbutl/path.mxx>
-#include <libbutl/base64.mxx>
-#include <libbutl/utility.mxx>             // icasecmp(), lcase(), alnum(),
+#include <libbutl/url.hxx>
+#include <libbutl/path.hxx>
+#include <libbutl/base64.hxx>
+#include <libbutl/utility.hxx>             // icasecmp(), lcase(), alnum(),
                                            // digit(), xdigit(), next_word()
-#include <libbutl/filesystem.mxx>          // dir_exist()
-#include <libbutl/small-vector.mxx>
-#include <libbutl/manifest-parser.mxx>
-#include <libbutl/manifest-serializer.mxx>
-#include <libbutl/standard-version.mxx>
+#include <libbutl/filesystem.hxx>          // dir_exist()
+#include <libbutl/small-vector.hxx>
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
+#include <libbutl/standard-version.hxx>
 
 using namespace std;
 using namespace butl;

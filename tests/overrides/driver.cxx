@@ -8,9 +8,9 @@
 #include <cstdint>  // uint64_t
 #include <iostream>
 
-#include <libbutl/utility.mxx>             // trim()
-#include <libbutl/manifest-parser.mxx>
-#include <libbutl/manifest-serializer.mxx>
+#include <libbutl/utility.hxx>             // trim()
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
 
 #include <libbpkg/manifest.hxx>
 

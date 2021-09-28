@@ -5,9 +5,9 @@
 #include <string>
 #include <iostream>
 
-#include <libbutl/manifest-parser.mxx>
-#include <libbutl/manifest-serializer.mxx>
-#include <libbutl/standard-version.mxx>
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
+#include <libbutl/standard-version.hxx>
 
 #include <libbpkg/manifest.hxx>
 

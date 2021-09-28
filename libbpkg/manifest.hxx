@@ -14,10 +14,10 @@
 #include <stdexcept>  // logic_error
 #include <functional>
 
-#include <libbutl/url.mxx>
-#include <libbutl/path.mxx>
-#include <libbutl/optional.mxx>
-#include <libbutl/small-vector.mxx>
+#include <libbutl/url.hxx>
+#include <libbutl/path.hxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/small-vector.hxx>
 #include <libbutl/manifest-forward.hxx>
 
 #include <libbpkg/package-name.hxx>
@@ -274,7 +274,7 @@ namespace bpkg
   // - is not local (the scheme is not `file`)
   // - authority is present and is not empty
   //
-  // See libbutl/url.mxx for details.
+  // See libbutl/url.hxx for details.
   //
   // NOTE: this class must not be DLL-exported wholesale (non-exported base).
   //
@@ -829,7 +829,7 @@ namespace bpkg
     // release, etc).
     //
     // In particular, the translation function may "patch" the version with
-    // the snapshot information (see <libbutl/standard-version.mxx> for
+    // the snapshot information (see <libbutl/standard-version.hxx> for
     // details). This translation is normally required for manifests of
     // packages that are accessed as directories (as opposed to package
     // archives that should have their version already patched).
