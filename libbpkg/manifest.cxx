@@ -4080,7 +4080,8 @@ namespace bpkg
   parse_repository_manifest (parser& p,
                              name_value nv,
                              repository_type base_type,
-                             bool iu)
+                             bool iu,
+                             bool verify_version = true)
   {
     auto bad_name ([&p, &nv](const string& d) {
         throw parsing (p.name (), nv.name_line, nv.name_column, d);});
@@ -4090,11 +4091,16 @@ namespace bpkg
 
     // Make sure this is the start and we support the version.
     //
-    if (!nv.name.empty ())
-      bad_name ("start of repository manifest expected");
+    if (verify_version)
+    {
+      if (!nv.name.empty ())
+        bad_name ("start of repository manifest expected");
 
-    if (nv.value != "1")
-      bad_value ("unsupported format version");
+      if (nv.value != "1")
+        bad_value ("unsupported format version");
+
+      nv = p.next ();
+    }
 
     repository_manifest r;
 
@@ -4105,7 +4111,7 @@ namespace bpkg
     optional<repository_type> type;
     optional<name_value> location;
 
-    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    for (; !nv.empty (); nv = p.next ())
     {
       string& n (nv.name);
       string& v (nv.value);
@@ -4450,13 +4456,126 @@ namespace bpkg
   parse_repository_manifests (parser& p,
                               repository_type base_type,
                               bool iu,
+                              optional<repositories_manifest_header>& header,
                               vector<repository_manifest>& ms)
   {
+    // Return nullopt on eos. Otherwise, parse and verify the
+    // manifest-starting format version value and return the subsequent
+    // manifest value, that can potentially be empty (for an empty manifest).
+    //
+    // Also save the manifest-starting position (start_nv) for the
+    // diagnostics.
+    //
+    name_value start_nv;
+    auto next_manifest = [&p, &start_nv] () -> optional<name_value>
+    {
+      start_nv = p.next ();
+
+      if (start_nv.empty ())
+        return nullopt;
+
+      // Make sure this is the start and we support the version.
+      //
+      if (!start_nv.name.empty ())
+        throw parsing (p.name (), start_nv.name_line, start_nv.name_column,
+                       "start of repository manifest expected");
+
+      if (start_nv.value != "1")
+        throw parsing (p.name (), start_nv.value_line, start_nv.value_column,
+                       "unsupported format version");
+
+      return p.next ();
+    };
+
+    optional<name_value> nv (next_manifest ());
+
+    if (!nv)
+      throw parsing (p.name (), start_nv.name_line, start_nv.name_column,
+                     "start of repository manifest expected");
+
+    auto bad_name ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv->name_line, nv->name_column, d);});
+
+    auto bad_value ([&p, &nv](const string& d) {
+        throw parsing (p.name (), nv->value_line, nv->value_column, d);});
+
+    // First check if this a header manifest, if any manifest is present.
+    //
+    // Note that if this is none of the known header values, then we assume
+    // this is a repository manifest (rather than a header that starts with an
+    // unknown value; so use one of the original names to make sure it's
+    // recognized as such, for example `compression:none`).
+    //
+    if (nv->name == "min-bpkg-version" ||
+        nv->name == "compression")
+    {
+      header = repositories_manifest_header ();
+
+      // First verify the version, if any.
+      //
+      if (nv->name == "min-bpkg-version")
+      try
+      {
+        const string& v (nv->value);
+        standard_version mbv (v, standard_version::allow_earliest);
+
+        if (mbv > standard_version (LIBBPKG_VERSION_STR))
+          bad_value (
+            "incompatible repositories manifest: minimum bpkg version is " + v);
+
+        header->min_bpkg_version = move (mbv);
+
+        nv = p.next ();
+      }
+      catch (const invalid_argument& e)
+      {
+        bad_value (string ("invalid minimum bpkg version: ") + e.what ());
+      }
+
+      // Parse the remaining header values, failing if min-bpkg-version is
+      // encountered (should be first).
+      //
+      for (; !nv->empty (); nv = p.next ())
+      {
+        const string& n (nv->name);
+        string& v (nv->value);
+
+        if (n == "min-bpkg-version")
+        {
+          bad_name ("minimum bpkg version must be first in repositories "
+                    "manifest header");
+        }
+        else if (n == "compression")
+        {
+          header->compression = move (v);
+        }
+        else if (!iu)
+          bad_name ("unknown name '" + n + "' in repositories manifest header");
+      }
+
+      nv = next_manifest ();
+    }
+
+    // Parse the manifest list.
+    //
+    // Note that if nv is present, then it contains the manifest's first
+    // value, which can potentially be empty (for an empty manifest, which is
+    // recognized as a base manifest).
+    //
+    // Also note that if the header is present but is not followed by
+    // repository manifests (there is no ':' line after the header values),
+    // then the empty manifest list is returned (no base manifest is
+    // automatically added).
+    //
     bool base (false);
 
-    for (name_value nv (p.next ()); !nv.empty (); nv = p.next ())
+    while (nv)
     {
-      ms.push_back (parse_repository_manifest (p, nv, base_type, iu));
+      ms.push_back (parse_repository_manifest (p,
+                                               *nv,
+                                               base_type,
+                                               iu,
+                                               false /* verify_version */));
 
       // Make sure that there is a single base repository manifest in the
       // list.
@@ -4464,19 +4583,38 @@ namespace bpkg
       if (ms.back ().effective_role () == repository_role::base)
       {
         if (base)
-          throw parsing (p.name (), nv.name_line, nv.name_column,
+          throw parsing (p.name (), start_nv.name_line, start_nv.name_column,
                          "base repository manifest redefinition");
         base = true;
       }
+
+      nv = next_manifest ();
     }
   }
 
   // Serialize the repository manifest list.
   //
   static void
-  serialize_repository_manifests (serializer& s,
-                                  const vector<repository_manifest>& ms)
+  serialize_repository_manifests (
+    serializer& s,
+    const optional<repositories_manifest_header>& header,
+    const vector<repository_manifest>& ms)
   {
+    if (header)
+    {
+      s.next ("", "1"); // Start of manifest.
+
+      const repositories_manifest_header& h (*header);
+
+      if (h.min_bpkg_version)
+        s.next ("min-bpkg-version", h.min_bpkg_version->string ());
+
+      if (h.compression)
+        s.next ("compression", *h.compression);
+
+      s.next ("", ""); // End of manifest.
+    }
+
     for (const repository_manifest& r: ms)
       r.serialize (s);
 
@@ -4488,13 +4626,13 @@ namespace bpkg
   pkg_repository_manifests::
   pkg_repository_manifests (parser& p, bool iu)
   {
-    parse_repository_manifests (p, repository_type::pkg, iu, *this);
+    parse_repository_manifests (p, repository_type::pkg, iu, header, *this);
   }
 
   void pkg_repository_manifests::
   serialize (serializer& s) const
   {
-    serialize_repository_manifests (s, *this);
+    serialize_repository_manifests (s, header, *this);
   }
 
   // dir_repository_manifests
@@ -4502,13 +4640,13 @@ namespace bpkg
   dir_repository_manifests::
   dir_repository_manifests (parser& p, bool iu)
   {
-    parse_repository_manifests (p, repository_type::dir, iu, *this);
+    parse_repository_manifests (p, repository_type::dir, iu, header, *this);
   }
 
   void dir_repository_manifests::
   serialize (serializer& s) const
   {
-    serialize_repository_manifests (s, *this);
+    serialize_repository_manifests (s, header, *this);
   }
 
   // git_repository_manifests
@@ -4516,13 +4654,13 @@ namespace bpkg
   git_repository_manifests::
   git_repository_manifests (parser& p, bool iu)
   {
-    parse_repository_manifests (p, repository_type::git, iu, *this);
+    parse_repository_manifests (p, repository_type::git, iu, header, *this);
   }
 
   void git_repository_manifests::
   serialize (serializer& s) const
   {
-    serialize_repository_manifests (s, *this);
+    serialize_repository_manifests (s, header, *this);
   }
 
   // signature_manifest

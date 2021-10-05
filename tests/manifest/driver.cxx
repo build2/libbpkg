@@ -23,6 +23,7 @@ using namespace bpkg;
 // argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s)
 // argv[0] -p -c -i
 // argv[0] -ec <version>
+// argv[0] -v
 //
 // In the first form read and parse manifest list from stdin and serialize it
 // to stdout. The following options specify the manifest type.
@@ -34,6 +35,7 @@ using namespace bpkg;
 // -dr  parse dir repository manifest list
 // -gr  parse git repository manifest list
 // -s   parse signature manifest
+// -v   print the libbpkg version
 //
 // In the second form read and parse the package manifest from stdin and
 // serialize it to stdout.
@@ -47,6 +49,8 @@ using namespace bpkg;
 // roundtrip them to stdout together with their effective constraints,
 // calculated using version passed as an argument.
 //
+// In the forth form print the libbpkg version to stdout and exit.
+//
 int
 main (int argc, char* argv[])
 {
@@ -54,6 +58,12 @@ main (int argc, char* argv[])
   string mode (argv[1]);
 
   cout.exceptions (ios_base::failbit | ios_base::badbit);
+
+  if (mode == "-v")
+  {
+    cout << standard_version (LIBBPKG_VERSION_STR) << endl;
+    return 0;
+  }
 
   manifest_parser     p (cin,  "stdin");
   manifest_serializer s (cout, "stdout");

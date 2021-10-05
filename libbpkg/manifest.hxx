@@ -18,6 +18,7 @@
 #include <libbutl/path.hxx>
 #include <libbutl/optional.hxx>
 #include <libbutl/small-vector.hxx>
+#include <libbutl/standard-version.hxx>
 #include <libbutl/manifest-forward.hxx>
 
 #include <libbpkg/package-name.hxx>
@@ -1524,6 +1525,13 @@ namespace bpkg
                            butl::manifest_name_value start,
                            bool ignore_unknown = false);
 
+  struct repositories_manifest_header
+  {
+  public:
+    butl::optional<butl::standard_version> min_bpkg_version;
+    butl::optional<std::string>            compression;
+  };
+
   class LIBBPKG_EXPORT pkg_repository_manifests:
     public std::vector<repository_manifest>
   {
@@ -1532,6 +1540,9 @@ namespace bpkg
 
     using base_type::base_type;
 
+    butl::optional<repositories_manifest_header> header;
+
+  public:
     pkg_repository_manifests () = default;
     pkg_repository_manifests (butl::manifest_parser&,
                               bool ignore_unknown = false);
@@ -1548,6 +1559,9 @@ namespace bpkg
 
     using base_type::base_type;
 
+    butl::optional<repositories_manifest_header> header;
+
+  public:
     dir_repository_manifests () = default;
     dir_repository_manifests (butl::manifest_parser&,
                               bool ignore_unknown = false);
@@ -1564,6 +1578,9 @@ namespace bpkg
 
     using base_type::base_type;
 
+    butl::optional<repositories_manifest_header> header;
+
+  public:
     git_repository_manifests () = default;
     git_repository_manifests (butl::manifest_parser&,
                               bool ignore_unknown = false);

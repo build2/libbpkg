@@ -935,6 +935,149 @@
 : repository-list
 :
 {
+  : header
+  :
+  {
+    +$* -v | set v
+
+    test.options += -pr
+
+    : version
+    :
+    {
+      $* <<"EOF" >>"EOF"
+        : 1
+        min-bpkg-version: $v
+        :
+        location: http://pkg.example.org/1/math
+        type: pkg
+        role: prerequisite
+        :
+        url: http://cppget.org
+        email: repoman@cppget.org; General mailing list.
+        EOF
+    }
+
+    : invalid-version
+    :
+    {
+      $* <<EOI 2>'stdin:2:19: error: invalid minimum bpkg version: invalid major version' != 0
+        : 1
+        min-bpkg-version: foo
+        EOI
+    }
+
+    : too-new
+    :
+    {
+      $* <<EOI 2>'stdin:2:19: error: incompatible repositories manifest: minimum bpkg version is 1000.0.0' != 0
+        : 1
+        min-bpkg-version: 1000.0.0
+        EOI
+    }
+
+    : non-version
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        compression: none
+        :
+        location: http://pkg.example.org/1/math
+        type: pkg
+        role: prerequisite
+        :
+        url: http://cppget.org
+        email: repoman@cppget.org; General mailing list.
+        EOF
+    }
+
+    : version-non-first
+    :
+    {
+      $* <<"EOI" 2>"stdin:3:1: error: minimum bpkg version must be first in repositories manifest header" != 0
+        : 1
+        compression: none
+        min-bpkg-version: $v
+        EOI
+    }
+
+    : unknown-header-value
+    :
+    {
+      $* <<EOI 2>"stdin:3:1: error: unknown name 'unknown' in repositories manifest header" != 0
+        : 1
+        compression: none
+        unknown: foo
+        EOI
+    }
+
+    : unknown-manifest-value
+    :
+    {
+      $* <<EOI 2>"stdin:2:1: error: unknown name 'unknown' in repository manifest" != 0
+        : 1
+        unknown: foo
+        EOI
+    }
+
+    : empty-repository-manifest
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        compression: none
+        :
+        EOF
+    }
+
+    : base-redefinition
+    :
+    {
+      $* <<EOI 2>'stdin:4:1: error: base repository manifest redefinition' != 0
+        : 1
+        compression: none
+        :
+        :
+        EOI
+    }
+
+    : empty-base
+    :
+    {
+      $* <<"EOF" >>"EOF"
+        : 1
+        compression: none
+        :
+        location: http://pkg.example.org/1/math
+        type: pkg
+        role: prerequisite
+        :
+        EOF
+    }
+
+    : no-repository-manifest
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        compression: none
+        EOF
+    }
+
+    : only-empty-base
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        EOF
+    }
+
+    : empty-manifest-list
+    :
+    $* <'' 2>'stdin:2:1: error: start of repository manifest expected' != 0
+  }
+
   : pkg
   :
   {
