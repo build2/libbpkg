@@ -883,8 +883,19 @@ namespace bpkg
     validate_overrides (const std::vector<butl::manifest_name_value>&,
                         const std::string& source_name);
 
+    // If the minimum libbpkg version is specified, then also apply the
+    // required backward compatibility workarounds to the serialized manifest
+    // so that clients of all libbpkg versions greater or equal to the
+    // specified version can parse it, ignoring unknown values.
+    //
+    // Note that clients of the latest major libbpkg version can fully
+    // recognize the produced manifest and thus can parse it without ignoring
+    // unknown values.
+    //
     void
-    serialize (butl::manifest_serializer&) const;
+    serialize (
+      butl::manifest_serializer&,
+      const butl::optional<butl::standard_version>& = butl::nullopt) const;
 
     // Serialize only package manifest header values.
     //
@@ -946,10 +957,12 @@ namespace bpkg
   // Serialize.
   //
   inline void
-  pkg_package_manifest (butl::manifest_serializer& s,
-                        const package_manifest& m)
+  pkg_package_manifest (
+    butl::manifest_serializer& s,
+    const package_manifest& m,
+    const butl::optional<butl::standard_version>& min_ver = butl::nullopt)
   {
-    m.serialize (s);
+    m.serialize (s, min_ver);
   }
 
   // Normally there is no need to serialize dir and git package manifests,
@@ -978,8 +991,14 @@ namespace bpkg
     pkg_package_manifests (butl::manifest_parser&,
                            bool ignore_unknown = false);
 
+    // If the minimum libbpkg version is specified, then also apply the
+    // required backward compatibility workarounds to the serialized package
+    // manifests list (see package_manifest::serialize() for details).
+    //
     void
-    serialize (butl::manifest_serializer&) const;
+    serialize (
+      butl::manifest_serializer&,
+      const butl::optional<butl::standard_version>& = butl::nullopt) const;
   };
 
   class LIBBPKG_EXPORT dir_package_manifests:

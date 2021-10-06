@@ -2173,8 +2173,18 @@ namespace bpkg
       {
         dependencies.push_back (move (nv));
       }
-      else if (n == "tests" || n == "examples" || n == "benchmarks")
+      // @@ TMP time to drop *-0.14.0?
+      //
+      else if (n == "tests"      || n == "tests-0.14.0"    ||
+               n == "examples"   || n == "examples-0.14.0" ||
+               n == "benchmarks" || n == "benchmarks-0.14.0")
       {
+        // Strip the '-0.14.0' suffix from the value name, if present.
+        //
+        size_t p (n.find ('-'));
+        if (p != string::npos)
+          n.resize (p);
+
         tests.push_back (move (nv));
       }
       else if (n == "location")
@@ -2664,9 +2674,11 @@ namespace bpkg
   }
 
   static void
-  serialize_package_manifest (manifest_serializer& s,
-                              const package_manifest& m,
-                              bool header_only)
+  serialize_package_manifest (
+    manifest_serializer& s,
+    const package_manifest& m,
+    bool header_only,
+    const optional<standard_version>& min_ver = nullopt)
   {
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: version release is not empty,
@@ -2793,7 +2805,23 @@ namespace bpkg
         s.next ("requires", r.string ());
 
       for (const test_dependency& t: m.tests)
-        s.next (to_string (t.type), t.string ());
+      {
+        string n (to_string (t.type));
+
+        // If we generate the manifest for parsing by clients of libbpkg
+        // versions less than 0.14.0-, then replace the introduced in 0.14.0
+        // build-time tests, examples, and benchmarks values with
+        // tests-0.14.0, examples-0.14.0, and benchmarks-0.14.0,
+        // respectively. This way such clients will still be able to parse it,
+        // ignoring unknown values.
+        //
+        // @@ TMP time to drop?
+        //                                               0.14.0-
+        if (t.buildtime && min_ver && min_ver->version < 13999990001ULL)
+          n += "-0.14.0";
+
+        s.next (n, t.string ());
+      }
 
       for (const build_class_expr& e: m.builds)
         s.next ("builds", serializer::merge_comment (e.string (), e.comment));
@@ -2819,9 +2847,9 @@ namespace bpkg
   }
 
   void package_manifest::
-  serialize (serializer& s) const
+  serialize (serializer& s, const optional<standard_version>& min_ver) const
   {
-    serialize_package_manifest (s, *this, false);
+    serialize_package_manifest (s, *this, false, min_ver);
   }
 
   void package_manifest::
@@ -3035,7 +3063,7 @@ namespace bpkg
   }
 
   void pkg_package_manifests::
-  serialize (serializer& s) const
+  serialize (serializer& s, const optional<standard_version>& min_ver) const
   {
     // Serialize the package list manifest.
     //
@@ -3075,7 +3103,7 @@ namespace bpkg
       if (!p.sha256sum)
         bad_value ("no valid sha256sum");
 
-      pkg_package_manifest (s, p);
+      pkg_package_manifest (s, p, min_ver);
     }
 
     s.next ("", ""); // End of stream.
