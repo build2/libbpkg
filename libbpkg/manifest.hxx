@@ -429,10 +429,23 @@ namespace bpkg
     dependency_alternatives () = default;
     dependency_alternatives (bool d, bool b, std::string c)
         : conditional (d), buildtime (b), comment (std::move (c)) {}
+
+    // Parse the dependency alternatives string representation in the
+    // `[?][*] <dependency> [ '|' <dependency>]* [; <comment>]` form. Throw
+    // std::invalid_argument if the value is invalid.
+    //
+    explicit LIBBPKG_EXPORT
+    dependency_alternatives (const std::string&);
+
+    LIBBPKG_EXPORT std::string
+    string () const;
   };
 
-  LIBBPKG_EXPORT std::ostream&
-  operator<< (std::ostream&, const dependency_alternatives&);
+  inline std::ostream&
+  operator<< (std::ostream& os, const dependency_alternatives& da)
+  {
+    return os << da.string ();
+  }
 
   // requires
   //
@@ -838,6 +851,31 @@ namespace bpkg
     using translate_function = void (version_type&);
 
     package_manifest (butl::manifest_parser&,
+                      const std::function<translate_function>&,
+                      bool ignore_unknown = false,
+                      bool complete_depends = true,
+                      package_manifest_flags =
+                        package_manifest_flags::forbid_location  |
+                        package_manifest_flags::forbid_sha256sum |
+                        package_manifest_flags::forbid_fragment);
+
+    // As above but construct the package manifest from the pre-parsed
+    // manifest values list.
+    //
+    // Note that the list is expected not to contain the format version nor
+    // the end-of-manifest/stream pairs.
+    //
+    package_manifest (const std::string& name,
+                      std::vector<butl::manifest_name_value>&&,
+                      bool ignore_unknown = false,
+                      bool complete_dependencies = true,
+                      package_manifest_flags =
+                        package_manifest_flags::forbid_location  |
+                        package_manifest_flags::forbid_sha256sum |
+                        package_manifest_flags::forbid_fragment);
+
+    package_manifest (const std::string& name,
+                      std::vector<butl::manifest_name_value>&&,
                       const std::function<translate_function>&,
                       bool ignore_unknown = false,
                       bool complete_depends = true,

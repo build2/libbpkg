@@ -1074,26 +1074,69 @@ namespace bpkg
 
   // dependency_alternatives
   //
-  ostream&
-  operator<< (ostream& o, const dependency_alternatives& as)
+  dependency_alternatives::
+  dependency_alternatives (const std::string& s)
   {
-    if (as.conditional)
-      o << '?';
+    using std::string;
 
-    if (as.buildtime)
-      o << '*';
+    // Allow specifying ?* in any order.
+    //
+    size_t n (s.size ());
+    size_t cond ((n > 0 && s[0] == '?') || (n > 1 && s[1] == '?') ? 1 : 0);
+    size_t btim ((n > 0 && s[0] == '*') || (n > 1 && s[1] == '*') ? 1 : 0);
 
-    if (as.conditional || as.buildtime)
-      o << ' ';
+    auto vc (parser::split_comment (s));
+
+    conditional = (cond != 0);
+    buildtime   = (btim != 0);
+    comment     = move (vc.second);
+
+    const string& vl (vc.first);
+
+    string::const_iterator b (vl.begin ());
+    string::const_iterator e (vl.end ());
+
+    if (conditional || buildtime)
+    {
+      string::size_type p (vl.find_first_not_of (spaces, cond + btim));
+      b = p == string::npos ? e : b + p;
+    }
+
+    list_parser lp (b, e, '|');
+    for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
+      push_back (dependency (move (lv)));
+  }
+
+  string dependency_alternatives::
+  string () const
+  {
+    using std::string;
+
+    string r;
+
+    if (conditional)
+      r += '?';
+
+    if (buildtime)
+      r += '*';
+
+    if (conditional || buildtime)
+      r += ' ';
 
     bool f (true);
-    for (const dependency& a: as)
-      o << (f ? (f = false, "") : " | ") << a;
+    for (const dependency& a: *this)
+    {
+      r += (f ? (f = false, "") : " | ");
+      r += a.string ();
+    }
 
-    if (!as.comment.empty ())
-      o << "; " << as.comment;
+    if (!comment.empty ())
+    {
+      r += "; ";
+      r += comment;
+    }
 
-    return o;
+    return r;
   }
 
   // requirement_alternatives
@@ -1746,29 +1789,25 @@ namespace bpkg
 
   const version stub_version (0, "0", nullopt, nullopt, 0);
 
+  // Parse until next() returns end-of-manifest value.
+  //
   static void
   parse_package_manifest (
-    parser& p,
-    name_value nv,
-    const function<package_manifest::translate_function>& tf,
+    const string& name,
+    const function<name_value ()>& next,
+    const function<package_manifest::translate_function>& translate,
     bool iu,
     bool cd,
     package_manifest_flags fl,
     package_manifest& m)
   {
-    auto bad_name ([&p, &nv](const string& d) {
-        throw parsing (p.name (), nv.name_line, nv.name_column, d);});
+    name_value nv;
 
-    auto bad_value ([&p, &nv](const string& d) {
-        throw parsing (p.name (), nv.value_line, nv.value_column, d);});
+    auto bad_name ([&name, &nv](const string& d) {
+        throw parsing (name, nv.name_line, nv.name_column, d);});
 
-    // Make sure this is the start and we support the version.
-    //
-    if (!nv.name.empty ())
-      bad_name ("start of package manifest expected");
-
-    if (nv.value != "1")
-      bad_value ("unsupported format version");
+    auto bad_value ([&name, &nv](const string& d) {
+        throw parsing (name, nv.value_line, nv.value_column, d);});
 
     auto parse_email = [&bad_name] (const name_value& nv,
                                     optional<email>& r,
@@ -1866,7 +1905,7 @@ namespace bpkg
     optional<name_value> description;
     optional<name_value> description_type;
 
-    for (nv = p.next (); !nv.empty (); nv = p.next ())
+    for (nv = next (); !nv.empty (); nv = next ())
     {
       string& n (nv.name);
       string& v (nv.value);
@@ -1905,9 +1944,9 @@ namespace bpkg
         if (m.version.release && m.version.release->empty ())
           bad_value ("invalid package version release");
 
-        if (tf)
+        if (translate)
         {
-          tf (m.version);
+          translate (m.version);
 
           // Re-validate the version after the translation.
           //
@@ -2055,7 +2094,7 @@ namespace bpkg
       }
       else if (n == "email")
       {
-        parse_email (nv, m.email, "project", p.name ());
+        parse_email (nv, m.email, "project", name);
       }
       else if (n == "doc-url")
       {
@@ -2080,19 +2119,19 @@ namespace bpkg
       }
       else if (n == "package-email")
       {
-        parse_email (nv, m.package_email, "package", p.name ());
+        parse_email (nv, m.package_email, "package", name);
       }
       else if (n == "build-email")
       {
-        parse_email (nv, m.build_email, "build", p.name (), true /* empty */);
+        parse_email (nv, m.build_email, "build", name, true /* empty */);
       }
       else if (n == "build-warning-email")
       {
-        parse_email (nv, m.build_warning_email, "build warning", p.name ());
+        parse_email (nv, m.build_warning_email, "build warning", name);
       }
       else if (n == "build-error-email")
       {
-        parse_email (nv, m.build_error_email, "build error", p.name ());
+        parse_email (nv, m.build_error_email, "build error", name);
       }
       else if (n == "priority")
       {
@@ -2157,17 +2196,17 @@ namespace bpkg
       else if (n == "builds")
       {
         m.builds.push_back (
-          parse_build_class_expr (nv, m.builds.empty (), p.name ()));
+          parse_build_class_expr (nv, m.builds.empty (), name));
       }
       else if (n == "build-include")
       {
         m.build_constraints.push_back (
-          parse_build_constraint (nv, false /* exclusion */, p.name ()));
+          parse_build_constraint (nv, false /* exclusion */, name));
       }
       else if (n == "build-exclude")
       {
         m.build_constraints.push_back (
-          parse_build_constraint (nv, true /* exclusion */, p.name ()));
+          parse_build_constraint (nv, true /* exclusion */, name));
       }
       else if (n == "depends")
       {
@@ -2371,41 +2410,24 @@ namespace bpkg
 
       const string& v (nv.value);
 
-      // Allow specifying ?* in any order.
+      // Parse dependency alternatives.
       //
-      size_t n (v.size ());
-      size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
-      size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
-
-      auto vc (parser::split_comment (v));
-
-      const string& vl (vc.first);
-      dependency_alternatives da (cond != 0, btim != 0, move (vc.second));
-
-      string::const_iterator b (vl.begin ());
-      string::const_iterator e (vl.end ());
-
-      if (da.conditional || da.buildtime)
-      {
-        string::size_type p (vl.find_first_not_of (spaces, cond + btim));
-        b = p == string::npos ? e : b + p;
-      }
-
       try
       {
-        list_parser lp (b, e, '|');
-        for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-          da.push_back (complete_constraint (dependency (move (lv))));
+        dependency_alternatives da (v);
+
+        if (da.empty ())
+          bad_value ("empty package dependency specification");
+
+        for (dependency& d: da)
+          d = complete_constraint (move (d));
+
+        m.dependencies.push_back (move (da));
       }
       catch (const invalid_argument& e)
       {
         bad_value (e.what ());
       }
-
-      if (da.empty ())
-        bad_value ("empty package dependency specification");
-
-      m.dependencies.push_back (da);
     }
 
     // Parse the test dependencies.
@@ -2437,6 +2459,37 @@ namespace bpkg
 
     if (!m.sha256sum && flag (package_manifest_flags::require_sha256sum))
       bad_name ("no package sha256sum specified");
+  }
+
+  static void
+  parse_package_manifest (
+    parser& p,
+    name_value nv,
+    const function<package_manifest::translate_function>& tf,
+    bool iu,
+    bool cd,
+    package_manifest_flags fl,
+    package_manifest& m)
+  {
+    // Make sure this is the start and we support the version.
+    //
+    if (!nv.name.empty ())
+      throw parsing (p.name (), nv.name_line, nv.name_column,
+                     "start of package manifest expected");
+
+    if (nv.value != "1")
+      throw parsing (p.name (), nv.value_line, nv.value_column,
+                     "unsupported format version");
+
+    // Note that we rely on "small function object" optimization here.
+    //
+    parse_package_manifest (p.name (),
+                            [&p] () {return p.next ();},
+                            tf,
+                            iu,
+                            cd,
+                            fl,
+                            m);
   }
 
   package_manifest
@@ -2479,6 +2532,46 @@ namespace bpkg
                     bool cd,
                     package_manifest_flags fl)
       : package_manifest (p, function<translate_function> (), iu, cd, fl)
+  {
+  }
+
+  package_manifest::
+  package_manifest (const string& name,
+                    vector<name_value>&& vs,
+                    const function<translate_function>& tf,
+                    bool iu,
+                    bool cd,
+                    package_manifest_flags fl)
+  {
+    auto i (vs.begin ());
+    auto e (vs.end ());
+
+    // Note that we rely on "small function object" optimization here.
+    //
+    parse_package_manifest (name,
+                            [&i, &e] ()
+                            {
+                              return i != e ? move (*i++) : name_value ();
+                            },
+                            tf,
+                            iu,
+                            cd,
+                            fl,
+                            *this);
+  }
+
+  package_manifest::
+  package_manifest (const string& name,
+                    vector<name_value>&& vs,
+                    bool iu,
+                    bool cd,
+                    package_manifest_flags fl)
+      : package_manifest (name,
+                          move (vs),
+                          function<translate_function> (),
+                          iu,
+                          cd,
+                          fl)
   {
   }
 
