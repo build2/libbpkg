@@ -4,14 +4,17 @@
 #include <libbpkg/manifest.hxx>
 
 #include <string>
+#include <limits>
 #include <ostream>
 #include <sstream>
 #include <cassert>
-#include <cstring>   // strncmp(), strcmp()
-#include <utility>   // move()
-#include <cstdint>   // uint*_t, UINT16_MAX
-#include <algorithm> // find(), find_if_not(), find_first_of(), replace()
-#include <stdexcept> // invalid_argument
+#include <cstdlib>     // strtoull()
+#include <cstring>     // strncmp(), strcmp(), strchr()
+#include <utility>     // move()
+#include <cstdint>     // uint*_t
+#include <algorithm>   // find(), find_if_not(), find_first_of(), replace()
+#include <stdexcept>   // invalid_argument
+#include <type_traits> // remove_reference
 
 #include <libbutl/url.hxx>
 #include <libbutl/path.hxx>
@@ -172,12 +175,12 @@ namespace bpkg
         canonical_upstream (
           data_type (upstream.c_str (),
                      data_type::parse::upstream,
-                     false /* fold_zero_revision */).
+                     none).
             canonical_upstream),
         canonical_release (
           data_type (release ? release->c_str () : nullptr,
                      data_type::parse::release,
-                     false /* fold_zero_revision */).
+                     none).
             canonical_release)
   {
     // Check members constrains.
@@ -254,9 +257,12 @@ namespace bpkg
   }
 
   version::data_type::
-  data_type (const char* v, parse pr, bool fold_zero_rev)
+  data_type (const char* v, parse pr, version::flags fl)
   {
-    if (fold_zero_rev)
+    if ((fl & version::fold_zero_revision) != 0)
+      assert (pr == parse::full);
+
+    if ((fl & version::allow_iteration) != 0)
       assert (pr == parse::full);
 
     // Otherwise compiler gets confused with string() member.
@@ -271,31 +277,74 @@ namespace bpkg
       return;
     }
 
-    assert (v != nullptr);
-
-    optional<uint16_t> ep;
-
     auto bad_arg = [](const string& d) {throw invalid_argument (d);};
 
-    auto uint16 = [&bad_arg](const string& s, const char* what) -> uint16_t
+    auto parse_uint = [&bad_arg](const string& s, auto& r, const char* what)
     {
-      try
+      using type = typename remove_reference<decltype (r)>::type;
+
+      if (!s.empty () && s[0] != '-' && s[0] != '+') // strtoull() allows these.
       {
-        uint64_t v (stoull (s));
+        const char* b (s.c_str ());
+        char* e (nullptr);
+        errno = 0; // We must clear it according to POSIX.
+        uint64_t v (strtoull (b, &e, 10)); // Can't throw.
 
-        if (v <= UINT16_MAX) // From <cstdint>.
-          return static_cast<uint16_t> (v);
+        if (errno != ERANGE    &&
+            e == b + s.size () &&
+            v <= numeric_limits<type>::max ())
+        {
+          r = static_cast<type> (v);
+          return;
+        }
       }
-      catch (const std::exception&)
-      {
-        // Fall through.
-      }
 
-      bad_arg (string (what) + " should be 2-byte unsigned integer");
-
-      assert (false); // Can't be here.
-      return 0;
+      bad_arg (string (what) + " should be " +
+               std::to_string (sizeof (type)) + "-byte unsigned integer");
     };
+
+    auto parse_uint16 = [&parse_uint](const string& s, const char* what)
+    {
+      uint16_t r;
+      parse_uint (s, r, what);
+      return r;
+    };
+
+    auto parse_uint32 = [&parse_uint](const string& s, const char* what)
+    {
+      uint32_t r;
+      parse_uint (s, r, what);
+      return r;
+    };
+
+    assert (v != nullptr);
+
+    // Parse the iteration, if allowed.
+    //
+    // Note that allowing iteration is not very common, so let's handle it in
+    // an ad hoc way not to complicate the subsequent parsing.
+    //
+    string storage;
+    if (pr == parse::full)
+    {
+      iteration = 0;
+
+      // Note that if not allowed but the iteration is present, then the below
+      // version parsing code will fail with appropriate diagnostics.
+      //
+      if ((fl & version::allow_iteration) != 0)
+      {
+        if (const char* p = strchr (v, '#'))
+        {
+          iteration = parse_uint32 (p + 1, "iteration");
+
+          storage.assign (v, p - v);
+          v = storage.c_str ();
+        }
+      }
+    }
+
+    optional<uint16_t> ep;
 
     enum class mode {epoch, upstream, release, revision};
     mode m (pr == parse::full
@@ -351,7 +400,7 @@ namespace bpkg
             if (lnn >= cb) // Contains non-digits.
               bad_arg ("epoch should be 2-byte unsigned integer");
 
-            ep = uint16 (string (cb, p), "epoch");
+            ep = parse_uint16 (string (cb, p), "epoch");
           }
           else
             canon_part->add (cb, p, lnn < cb);
@@ -424,9 +473,9 @@ namespace bpkg
       if (lnn >= cb) // Contains non-digits.
         bad_arg ("revision should be 2-byte unsigned integer");
 
-      std::uint16_t rev (uint16 (cb, "revision"));
+      uint16_t rev (parse_uint16 (cb, "revision"));
 
-      if (rev != 0 || !fold_zero_rev)
+      if (rev != 0 || (fl & fold_zero_revision) == 0)
         revision = rev;
     }
     else if (cb != p)
@@ -658,7 +707,7 @@ namespace bpkg
       if (mnv != "$")
       try
       {
-        min_version = version (mnv, false /* fold_zero_revision */);
+        min_version = version (mnv, version::none);
       }
       catch (const invalid_argument& e)
       {
@@ -685,7 +734,7 @@ namespace bpkg
       if (mxv != "$")
       try
       {
-        max_version = version (mxv, false /* fold_zero_revision */);
+        max_version = version (mxv, version::none);
       }
       catch (const invalid_argument& e)
       {
@@ -789,7 +838,7 @@ namespace bpkg
         // version.
         //
         if (vs != "$")
-          v = version (vs, false /* fold_zero_revision */);
+          v = version (vs, version::none);
 
         switch (operation)
         {
@@ -4901,13 +4950,13 @@ namespace bpkg
   }
 
   version
-  extract_package_version (const char* s, bool fold_zero_revision)
+  extract_package_version (const char* s, version::flags fl)
   {
     using traits = string::traits_type;
 
     if (const char* p = traits::find (s, traits::length (s), '/'))
     {
-      version r (p + 1, fold_zero_revision);
+      version r (p + 1, fl);
 
       if (r.release && r.release->empty ())
         throw invalid_argument ("earliest version");

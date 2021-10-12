@@ -24,11 +24,12 @@ namespace bpkg
   using butl::nullopt;
 
   static bool
-  bad_version (const string& v)
+  bad_version (const string& v,
+               version::flags fl = version::fold_zero_revision)
   {
     try
     {
-      version bv (v);
+      version bv (v, fl);
       return false;
     }
     catch (const invalid_argument&)
@@ -137,6 +138,16 @@ namespace bpkg
       assert (bad_version (0, "", "", 1));     // Unexpected revision.
       assert (bad_version (0, "", "", 0));     // Same.
       assert (bad_version (0, "", "", 0, 1));  // Unexpected iteration.
+
+      assert (bad_version ("1.0.0#1")); // Iteration disallowed.
+
+      // Bad iteration.
+      //
+      assert (bad_version ("1.0.0#a", version::allow_iteration));
+      assert (bad_version ("1.0.0#1a", version::allow_iteration));
+      assert (bad_version ("1.0.0#", version::allow_iteration));
+      assert (bad_version ("1.0.0#5000000000", version::allow_iteration));
+      assert (bad_version ("1.0.0#+1", version::allow_iteration));
 
       {
         version v1;
@@ -258,7 +269,7 @@ namespace bpkg
         assert (test_constructor (v));
       }
       {
-        version v ("+10-B+0", false /* fold_zero_revision */);
+        version v ("+10-B+0", version::none);
         assert (v.string () == "+10-B+0");
         assert (v.canonical_upstream == "b");
         assert (test_constructor (v));
@@ -407,6 +418,9 @@ namespace bpkg
 
       assert (version (1, "2.0", nullopt, 3, 4).compare (
               version (1, "2.0", nullopt, 5, 6), true) == 0);
+
+      assert (version ("1.1.1-a.0.1+2#34", version::flags::allow_iteration) ==
+              version (1, "1.1.1", string ("a.0.1"), 2, 34));
     }
     catch (const exception& e)
     {

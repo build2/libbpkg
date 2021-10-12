@@ -68,13 +68,20 @@ namespace bpkg
     // std::invalid_argument if the passed string is not a valid version
     // representation.
     //
-    explicit
-    version (const std::string& v, bool fold_zero_revision = true)
-        : version (v.c_str (), fold_zero_revision) {}
+    enum flags
+    {
+      none               = 0,
+      fold_zero_revision = 0x01,
+      allow_iteration    = 0x02
+    };
 
     explicit
-    version (const char* v, bool fold_zero_revision = true)
-        : version (data_type (v, data_type::parse::full, fold_zero_revision))
+    version (const std::string& v, flags fl = fold_zero_revision)
+        : version (v.c_str (), fl) {}
+
+    explicit
+    version (const char* v, flags fl = fold_zero_revision)
+        : version (data_type (v, data_type::parse::full, fl))
     {
     }
 
@@ -169,7 +176,7 @@ namespace bpkg
     {
       enum class parse {full, upstream, release};
 
-      data_type (const char*, parse, bool fold_zero_revision);
+      data_type (const char*, parse, flags);
 
       // Note that there is no iteration component as it can't be present in
       // the string representation passed to the ctor.
@@ -178,6 +185,7 @@ namespace bpkg
       std::string upstream;
       butl::optional<std::string> release;
       butl::optional<std::uint16_t> revision;
+      std::uint32_t iteration;
       std::string canonical_upstream;
       std::string canonical_release;
     };
@@ -188,7 +196,7 @@ namespace bpkg
           upstream (std::move (d.upstream)),
           release (std::move (d.release)),
           revision (d.revision),
-          iteration (0),
+          iteration (d.iteration),
           canonical_upstream (std::move (d.canonical_upstream)),
           canonical_release (std::move (d.canonical_release)) {}
   };
@@ -197,6 +205,34 @@ namespace bpkg
   operator<< (std::ostream& os, const version& v)
   {
     return os << (v.empty () ? "<empty-version>" : v.string ());
+  }
+
+  inline version::flags
+  operator&= (version::flags& x, version::flags y)
+  {
+    return x = static_cast<version::flags> (
+      static_cast<std::uint16_t> (x) &
+      static_cast<std::uint16_t> (y));
+  }
+
+  inline version::flags
+  operator|= (version::flags& x, version::flags y)
+  {
+    return x = static_cast<version::flags> (
+      static_cast<std::uint16_t> (x) |
+      static_cast<std::uint16_t> (y));
+  }
+
+  inline version::flags
+  operator& (version::flags x, version::flags y)
+  {
+    return x &= y;
+  }
+
+  inline version::flags
+  operator| (version::flags x, version::flags y)
+  {
+    return x |= y;
   }
 
   // priority
@@ -1707,13 +1743,14 @@ namespace bpkg
   // Note: the package name is not verified.
   //
   LIBBPKG_EXPORT version
-  extract_package_version (const char*, bool fold_zero_revision = true);
+  extract_package_version (const char*,
+                           version::flags fl = version::fold_zero_revision);
 
   inline version
   extract_package_version (const std::string& s,
-                           bool fold_zero_revision = true)
+                           version::flags fl = version::fold_zero_revision)
   {
-    return extract_package_version (s.c_str (), fold_zero_revision);
+    return extract_package_version (s.c_str (), fl);
   }
 }
 
