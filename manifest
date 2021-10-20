@@ -1,6 +1,6 @@
 : 1
 name: libbpkg
-version: 0.14.0
+version: 0.15.0-a.0.z
 project: build2
 summary: build2 package dependency manager utility library
 license: MIT
@@ -16,4 +16,4 @@ builds: host
 requires: c++14
 depends: * build2 >= 0.14.0-
 depends: * bpkg >= 0.14.0-
-depends: libbutl ^0.14.0
+depends: libbutl [0.15.0-a.0.1 0.15.0-a.1)
