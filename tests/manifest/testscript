@@ -1100,7 +1100,7 @@
       summary: General C++ package repository
       description: This is the awesome C++ package repository full of exciting\
        stuff.
-      certificate: \
+      certificate:\
       -----BEGIN CERTIFICATE-----
       MIIFLzCCAxegAwIBAgIJAJ71rMp8mDy1MA0GCSqGSIb3DQEBCwUAMDMxFzAVBgNV
       BAoMDkNvZGUgU3ludGhlc2lzMRgwFgYDVQQDDA9uYW1lOmNwcGdldC5vcmcwHhcN
@@ -1347,7 +1347,7 @@
   $* -s <<EOF >>EOF
     : 1
     sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-    signature: \
+    signature:\
     geWdw7Gm+Rt+CLDMBby5Y796E8rxwImb0bmcZwGWar9D3vkFm9Kjh00Buuo1PuU7tP1dV6yvRbH8
     NzC0IryEoUJHx9909AJ449ET9Zb+C3ykEeBlKH2wonj7cAVK9ZEDpPEGAtp56XWZQEawl50mwq6t
     XkZAABxtOswXiicdh3HK7kaPHp38/9CBMc0rva6wDnkbTigUYA2ULqLtP5a5mLovVc48zI9A/hmb
