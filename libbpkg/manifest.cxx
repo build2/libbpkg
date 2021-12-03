@@ -1121,6 +1121,21 @@ namespace bpkg
     return r;
   }
 
+  // dependency_alternative
+  //
+  dependency_alternative::
+  dependency_alternative (const std::string& s)
+  {
+    push_back (dependency (s)); // @@ DEP
+  }
+
+  string dependency_alternative::
+  string () const
+  {
+    assert (size () == 1); // @@ DEP
+    return front ().string ();
+  }
+
   // dependency_alternatives
   //
   dependency_alternatives::
@@ -1153,39 +1168,24 @@ namespace bpkg
 
     list_parser lp (b, e, '|');
     for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-      push_back (dependency (move (lv)));
+      push_back (dependency_alternative (lv));
   }
 
   string dependency_alternatives::
   string () const
   {
-    using std::string;
-
-    string r;
-
-    if (conditional)
-      r += '?';
-
-    if (buildtime)
-      r += '*';
-
-    if (conditional || buildtime)
-      r += ' ';
+    std::string r (conditional
+                   ? (buildtime ? "?* " : "? ")
+                   : (buildtime ? "* " : ""));
 
     bool f (true);
-    for (const dependency& a: *this)
+    for (const dependency_alternative& da: *this)
     {
       r += (f ? (f = false, "") : " | ");
-      r += a.string ();
+      r += da.string ();
     }
 
-    if (!comment.empty ())
-    {
-      r += "; ";
-      r += comment;
-    }
-
-    return r;
+    return serializer::merge_comment (r, comment);
   }
 
   // requirement_alternatives
@@ -1220,7 +1220,7 @@ namespace bpkg
 
     list_parser lp (b, e, '|');
     for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-      push_back (lv);
+      push_back (move (lv));
 
     if (empty () && comment.empty ())
       throw invalid_argument ("empty package requirement specification");
@@ -2463,15 +2463,18 @@ namespace bpkg
       //
       try
       {
-        dependency_alternatives da (v);
+        dependency_alternatives das (v);
 
-        if (da.empty ())
+        if (das.empty ())
           bad_value ("empty package dependency specification");
 
-        for (dependency& d: da)
-          d = complete_constraint (move (d));
+        for (dependency_alternative& da: das)
+        {
+          for (dependency& d: da)
+            d = complete_constraint (move (d));
+        }
 
-        m.dependencies.push_back (move (da));
+        m.dependencies.push_back (move (das));
       }
       catch (const invalid_argument& e)
       {
@@ -2937,11 +2940,7 @@ namespace bpkg
                                            m.build_error_email->comment));
 
       for (const dependency_alternatives& d: m.dependencies)
-        s.next ("depends",
-                (d.conditional
-                 ? (d.buildtime ? "?* " : "? ")
-                 : (d.buildtime ? "* " : "")) +
-                serializer::merge_comment (concatenate (d, " | "), d.comment));
+        s.next ("depends", d.string ());
 
       for (const requirement_alternatives& r: m.requirements)
         s.next ("requires", r.string ());

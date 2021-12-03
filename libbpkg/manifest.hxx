@@ -455,7 +455,26 @@ namespace bpkg
 
   // depends
   //
-  class dependency_alternatives: public butl::small_vector<dependency, 1>
+  class dependency_alternative: public butl::small_vector<dependency, 1>
+  {
+  public:
+    butl::optional<std::string> enable;
+
+    dependency_alternative () = default;
+    dependency_alternative (butl::optional<std::string> e)
+        : enable (std::move (e)) {}
+
+    // Parse the dependency alternative string representation.
+    //
+    explicit LIBBPKG_EXPORT
+    dependency_alternative (const std::string&);
+
+    LIBBPKG_EXPORT std::string
+    string () const;
+  };
+
+  class dependency_alternatives:
+    public butl::small_vector<dependency_alternative, 1>
   {
   public:
     bool conditional;
@@ -468,7 +487,7 @@ namespace bpkg
 
     // Parse the dependency alternatives string representation in the
     // `[?][*] <dependency> [ '|' <dependency>]* [; <comment>]` form. Throw
-    // std::invalid_argument if the value is invalid.
+    // std::invalid_argument if the value is invalid. @@ DEP @@ TMP update.
     //
     explicit LIBBPKG_EXPORT
     dependency_alternatives (const std::string&);
