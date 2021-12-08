@@ -20,8 +20,8 @@ using namespace bpkg;
 
 // Usages:
 //
-// argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s)
-// argv[0] -p -c -i
+// argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s) [-l]
+// argv[0] -p [-c] [-i] [-l]
 // argv[0] -ec <version>
 // argv[0] -v
 //
@@ -45,6 +45,9 @@ using namespace bpkg;
 //
 // Note: the above options should go after -p on the command line.
 //
+// -l
+//    Don't break long lines while serializing a manifest.
+//
 // In the third form read and parse dependency constraints from stdin and
 // roundtrip them to stdout together with their effective constraints,
 // calculated using version passed as an argument.
@@ -65,8 +68,7 @@ main (int argc, char* argv[])
     return 0;
   }
 
-  manifest_parser     p (cin,  "stdin");
-  manifest_serializer s (cout, "stdout");
+  manifest_parser p (cin,  "stdin");
 
   try
   {
@@ -74,6 +76,7 @@ main (int argc, char* argv[])
     {
       bool complete_dependencies (false);
       bool ignore_unknown (false);
+      bool long_lines (false);
 
       for (int i (2); i != argc; ++i)
       {
@@ -83,9 +86,13 @@ main (int argc, char* argv[])
           complete_dependencies = true;
         else if (o == "-i")
           ignore_unknown = true;
+        else if (o == "-l")
+          long_lines = true;
         else
           assert (false);
       }
+
+      manifest_serializer s (cout, "stdout", long_lines);
 
       cin.exceptions (ios_base::failbit | ios_base::badbit);
 
@@ -130,7 +137,19 @@ main (int argc, char* argv[])
     }
     else
     {
-      assert (argc == 2);
+      bool long_lines (false);
+
+      for (int i (2); i != argc; ++i)
+      {
+        string o (argv[i]);
+
+        if (o == "-l")
+          long_lines = true;
+        else
+          assert (false);
+      }
+
+      manifest_serializer s (cout, "stdout", long_lines);
 
       cin.exceptions (ios_base::failbit | ios_base::badbit);
 

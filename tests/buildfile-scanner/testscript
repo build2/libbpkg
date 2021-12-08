@@ -1,0 +1,342 @@
+# file      : tests/buildfile-scanner/testscript
+# license   : MIT; see accompanying LICENSE file
+
+: eval
+:
+{
+  test.options += -e
+
+  : basic
+  :
+  $* <<:EOF >>:EOF
+    ($cxx.target.class == windows)
+    EOF
+
+  : single-quoted
+  :
+  $* <<:EOF >>:EOF
+    ($cxx.target.class == 'windows')
+    EOF
+
+  : unterminated
+  :
+  $* <<:EOI 2>>EOE != 0
+    ($cxx.target.class == 'windows'
+    EOI
+    stdin:1:32: error: unterminated evaluation context
+    EOE
+
+  : newline
+  :
+  $* <<:EOI 2>>EOE != 0
+    ($cxx.target.class == 'windows'
+
+    EOI
+    stdin:1:32: error: unterminated evaluation context
+    EOE
+
+  : single-quoted-newline
+  :
+  $* <<:EOF >>:EOF
+    ($foo == 'b
+    ar')
+    EOF
+
+  : unterminated-single-quoted
+  :
+  $* <<EOI 2>>EOE != 0
+    ($cxx.target.class == 'windows
+    EOI
+    stdin:2:1: error: unterminated single-quoted sequence
+    EOE
+
+  : double-quoted
+  :
+  $* <<:EOF >>:EOF
+    ($foo == "b'a\"\\)r")
+    EOF
+
+  : double-quoted-newline
+  :
+  $* <<:EOF >>:EOF
+    ($foo == "ba
+    r")
+    EOF
+
+  : unterminated-double-quoted
+  :
+  $* <<:EOI 2>>EOE != 0
+    ($cxx.target.class == "windows
+    EOI
+    stdin:1:31: error: unterminated double-quoted sequence
+    EOE
+
+  : unterminated-escape
+  :
+  $* <<:EOI 2>>EOE != 0
+    (foo == windows\
+    EOI
+    stdin:1:17: error: unterminated escape sequence
+    EOE
+
+  : comment
+  :
+  $* <<EOI 2>>EOE != 0
+    ($cxx.target.class == #'windows'
+    EOI
+    stdin:1:33: error: unterminated evaluation context
+    EOE
+
+  : multiline-comment
+  :
+  $* <<EOI 2>>EOE != 0
+    ($cxx.target.class == #\
+     'windows'
+    #\
+    EOI
+    stdin:3:3: error: unterminated evaluation context
+    EOE
+
+  : multiline-comment-unterminated
+  :
+  $* <<EOI 2>>EOE != 0
+    ($cxx.target.class == #\
+     'windows'
+    EOI
+    stdin:3:1: error: unterminated multi-line comment
+    EOE
+
+  : nested
+  :
+  $* <<:EOF >>:EOF
+    (foo != bar(baz)fox)
+    EOF
+
+  : nested-double-quoted
+  :
+  $* <<:EOF >>:EOF
+    (foo != "bar(b"a"z)fox")
+    EOF
+}
+
+: line
+:
+{
+  test.options += -l
+
+  : assignment
+  :
+  $* <<EOI >>:EOO
+    foo = bar
+    EOI
+    foo = bar
+    EOO
+
+  : no-newline
+  :
+  $* <<:EOF >>:EOF
+    foo = bar
+    EOF
+
+  : eol
+  :
+  $* '|' <<EOI >:'foo = bar '
+    foo = bar | baz
+    EOI
+
+  : single-quoted
+  :
+  $* <<:EOF >>:EOF
+    foo = 'bar'
+    EOF
+
+  : single-quoted-newline
+  :
+  $* <<EOI >>:EOO
+    foo = 'b
+    ar'
+    EOI
+    foo = 'b
+    ar'
+    EOO
+
+  : unterminated-single-quoted
+  :
+  $* <<EOI 2>>EOE != 0
+    foo = 'bar
+    EOI
+    stdin:2:1: error: unterminated single-quoted sequence
+    EOE
+
+ : double-quoted
+  :
+  $* <<:EOF >>:EOF
+    foo = "b'a\"\\)r"
+    EOF
+
+  : double-quoted-newline
+  :
+  $* <<EOI >>:EOO
+    foo == "ba
+    r"
+    EOI
+    foo == "ba
+    r"
+    EOO
+
+  : unterminated-double-quoted
+  :
+  $* <<:EOI 2>>EOE != 0
+    foo = "bar
+    EOI
+    stdin:1:11: error: unterminated double-quoted sequence
+    EOE
+
+  : unterminated-escape
+  :
+  $* <<:EOI 2>>EOE != 0
+    foo = bar\
+    EOI
+    stdin:1:11: error: unterminated escape sequence
+    EOE
+
+  : comment
+  :
+  $* <<EOI >>:EOO
+    foo = # bar
+    EOI
+    foo = # bar
+    EOO
+
+  : empty-comment
+  :
+  $* <<EOI >>:EOO
+    foo = #
+    EOI
+    foo = #
+    EOO
+
+  : multiline-comment
+  :
+  $* <<EOI >>:EOO
+    foo = #\
+     'windows'
+    #\
+    EOI
+    foo = #\
+     'windows'
+    #\
+    EOO
+
+  : multiline-comment-unterminated
+  :
+  $* <<EOI 2>>EOE != 0
+    foo = #\
+     bar
+    EOI
+    stdin:3:1: error: unterminated multi-line comment
+    EOE
+
+  : eval
+  :
+  $* <<:EOF >>:EOF
+    foo = bar(baz)fox
+    EOF
+
+  : eval-unterminated
+  :
+  $* <<EOI 2>>EOE != 0
+    foo = bar(baz
+    EOI
+    stdin:1:14: error: unterminated evaluation context
+    EOE
+
+  : eval-double-quoted
+  :
+  $* <<:EOF >>:EOF
+    foo = "bar($baz ? b"a"z : 'bar')fox"
+    EOF
+}
+
+: block
+:
+{
+  test.options += -b
+
+  : basic
+  :
+  $* <<EOF >>EOF
+    {
+      config.foo.bar = true
+      config.foo.baz = "baz"
+    }
+    EOF
+
+  : quoted
+  :
+  $* <<EOF >>EOF
+    {
+      config.foo.bar = true
+      config.foo.baz = "baz
+    }
+    bar
+    "
+    }
+    EOF
+
+  : nested
+  :
+  $* <<EOF >>EOF
+    {
+      config.foo.bar = true
+
+      if ($cxx.target.class == windows)
+      {
+        config.foo.win = true
+      }
+      else
+      {
+        config.foo.win = false
+      }
+    }
+    EOF
+
+  : comments
+  :
+  $* <<EOF >>EOF
+    {
+      config.foo.bar = true
+
+      if ($cxx.target.class == windows)
+      { # single line
+        config.foo.win = true
+      }
+      else
+      { #\
+        Multi
+        line
+        #\
+        config.foo.win = false
+      }
+    }
+    EOF
+
+  : non-spaces
+  :
+  $* <<EOI 2>>EOE != 0
+    {
+      config.foo.bar = true
+
+    box }
+    } box
+    }{
+    }}
+    "}"
+    '}'
+    \}
+    }\
+    (})
+    EOI
+    stdin:13:1: error: unterminated buildfile block
+    EOE
+}

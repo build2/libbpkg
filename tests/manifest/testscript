@@ -557,7 +557,7 @@
 
     : invalid-version-range
     :
-    $* -c <<EOI 2>'stdin:6:10: error: invalid package constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>"stdin:6:10: error: invalid package constraint '[\$ 1.0.0]': min version is greater than max version" != 0
       : 1
       name: foo
       version: 2.0.0
@@ -628,7 +628,7 @@
         license: LGPLv2
         depends: bar ~$
         EOI
-        stdin:6:10: error: invalid package constraint: dependent version is not standard
+        stdin:6:10: error: invalid package constraint '~$': dependent version is not standard
         EOE
 
       : latest-snapshot
@@ -661,6 +661,2269 @@
       license: LGPLv2
       depends: bar == $ | libbaz ~$ | libbox ^$ | libfox [1.0 $)
       EOF
+
+    : single-line
+    :
+    {
+      : curly-braces
+      :
+      {
+        : multiple-dependencies
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: {bar ^1.0.0 baz [1.0.0 1.3.0-) libfoo}
+          EOF
+
+        : common-version-constraint
+        :
+        {
+          : valid
+          :
+          $* <<EOI >>EOO
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            depends: {bar ^1.0.0 libfoo} >= 2.0.0
+            EOI
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            depends: {bar ^1.0.0 libfoo >= 2.0.0}
+            EOO
+
+          : bad-operation
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            depends: {bar ^1.0.0 libfoo} =+ 2.0.0
+            EOI
+            stdin:6:30: error: version constraint expected instead of '=+'
+            EOE
+
+          : bad-version
+          :
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            depends: {bar ^1.0.0 libfoo} == 2-0-0
+            EOI
+            stdin:6:30: error: invalid version constraint: invalid version: unexpected '-' character position
+            EOE
+        }
+
+        : unterminated
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: {bar ^1.0.0 libfoo
+          EOI
+          stdin:6:28: error: dependency or '}' expected
+          EOE
+
+        : missing
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ^1.0.0 libfoo
+          EOI
+          stdin:6:21: error: config.foo.* variable assignment expected instead of <buildfile fragment>
+          EOE
+      }
+
+      : no-curly-braces
+      :
+      {
+        : dependency
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 1.0.0
+          EOF
+
+        : invalid-constraint
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 1-0-0
+          EOI
+          stdin:6:10: error: invalid package constraint: invalid version: unexpected '-' character position
+          EOE
+      }
+
+      : enable-condition
+      :
+      {
+        : no-version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows')
+          EOF
+
+        : version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 1.0.0 ? ($cxx.target.class == 'windows')
+          EOF
+
+        : missed-dependency
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: ? ($cxx.target.class == 'windows')
+          EOI
+          stdin:6:10: error: dependency expected instead of '?'
+          EOE
+
+        : multiple-dependencies
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: {bar ^1.0.0 libfoo} ? ($cxx.target.class == 'windows')
+          EOF
+
+        : multiple-alternatives
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: {bar ^1.0.0 libfoo} ? ($cxx.target.class == 'windows') | baz
+          EOF
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ()
+          EOI
+          stdin:6:17: error: condition expected
+          EOE
+
+        : unterminated1
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows'
+          EOI
+          stdin:6:47: error: unterminated evaluation context
+          EOE
+
+        : unterminated2
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows' | baz
+          EOI
+          stdin:6:53: error: unterminated evaluation context
+          EOE
+      }
+
+      : reflect
+      :
+      {
+        : no-version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar config.foo.bar=true
+          EOF
+
+        : version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar == 1.0.0 config.foo.bar=true
+          EOF
+
+        : multiple-dependencies
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: {bar ^1.0.0 libfoo} config.foo.bar=true
+          EOF
+
+        : enable-condition
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows') config.foo.bar=true
+          EOF
+
+        : multiple-alternatives
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows') config.foo.bar=true | baz
+          EOF
+
+        : expected-config
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar baz config.foo.bar=true
+          EOI
+          stdin:6:14: error: config.foo.* variable assignment expected instead of <buildfile fragment>
+          EOE
+      }
+    }
+
+    : multi-line
+    :
+    {
+      : surrounding-newlines
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends:
+        \
+        *
+
+        bar
+
+        ; Comment.
+        \
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends: * bar; Comment.
+        EOO
+
+      : enable-clause
+      :
+      {
+        : single-line
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends: bar ? ($cxx.target.class == 'windows')
+          EOO
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:
+          \
+          bar
+          {
+            enable ()
+          }
+          \
+          EOI
+          stdin:10:11: error: condition expected
+          EOE
+
+        : inline-enable
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:
+          \
+          bar ? ($windows)
+          {
+            enable ($windows)
+          }
+          \
+          EOI
+          stdin:9:1: error: multi-line dependency form with inline enable clause
+          EOE
+
+        : unterminated
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows'
+          }
+          \
+          EOI
+          stdin:10:41: error: unterminated evaluation context
+          EOE
+      }
+
+      : prefer-clause
+      :
+      {
+        : accept-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOF
+
+        : no-accept-clause
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+            }
+          }
+          \
+          EOI
+          stdin:13:1: error: accept clause expected instead of '}'
+          EOE
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+
+            }
+          }
+          \
+          EOI
+          stdin:11:1: error: buildfile fragment expected
+          EOE
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOF
+
+        : wrong-order
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+
+            enable ($cxx.target.class == 'windows')
+          }
+          \
+          EOF
+          stdin:17:3: error: enable clause should precede prefer clause
+          EOE
+
+        : require-clause
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          stdin:17:3: error: require and prefer clauses are mutually exclusive
+          EOE
+      }
+
+      : require-clause
+      :
+      {
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+
+        : prefer-clause
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+          stdin:15:3: error: prefer and require clauses are mutually exclusive
+          EOE
+
+        : unescaped-semicolon
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              config.bar.baz=a;bc
+            }
+          }
+          \
+          EOF
+          stdin:11:21: error: unterminated buildfile block
+          EOE
+
+        : huge
+        :
+        $* -l <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              # @@ TMP Version tagging? See
+              #    upstream/qtbase/src/corelib/global/minimum-linux{.S,_p.h},
+              #    global/qversiontagging.cpp, and QtCore.version (linker version script) in
+              #    the upstream build.
+              #
+              #    Precompiled headers?
+
+              intf_libs = # Interface dependencies.
+              import impl_libs  = libicuuc%lib{icuuc}
+              import impl_libs += libicui18n%lib{icui18n}
+              import impl_libs += libpcre2%lib{pcre2-16}
+              import impl_libs += libtinycbor%lib{tinycbor}
+              import impl_libs += libz%lib{z}
+
+              import! [metadata] moc = Qt5Moc%exe{qt5moc}
+
+              windows = ($cxx.target.class  == 'windows')
+              unix    = ($cxx.target.class  != 'windows')
+              linux   = ($cxx.target.class  == 'linux')
+              freebsd = ($cxx.target.system == 'freebsd')
+              openbsd = ($cxx.target.system == 'openbsd')
+              netbsd  = ($cxx.target.system == 'netbsd')
+              bsd     = ($cxx.target.class  == 'bsd')
+              macos   = ($cxx.target.class  == 'macos')
+
+              x86 = ($cxx.target.cpu == 'x86_64' || $cxx.target.cpu == 'i686')
+
+              # True if the CPU and compiler support the F16C instructions. F16C has been
+              # supported since Intel's Ivy Bridge (2012) and AMD's Bulldozer (2011). Added
+              # to GCC 4.6.4 (2013) at the latest, so assume it's supported on all i686 and
+              # x86_64 compilers.
+              #
+              f16c = $x86
+
+              # Source files.
+              #
+              src = animation/qabstractanimation              \\
+                    animation/qvariantanimation               \\
+                    animation/qpropertyanimation              \\
+                    animation/qanimationgroup                 \\
+                    animation/qsequentialanimationgroup       \\
+                    animation/qparallelanimationgroup         \\
+                    animation/qpauseanimation                 \\
+                    codecs/qicucodec                          \\
+                    codecs/qisciicodec                        \\
+                    codecs/qlatincodec                        \\
+                    codecs/qsimplecodec                       \\
+                    codecs/qtextcodec                         \\
+                    codecs/qtsciicodec                        \\
+                    codecs/qutfcodec                          \\
+                    global/archdetect                         \\
+                    global/qendian                            \\
+                    global/qglobal                            \\
+                    global/qlibraryinfo                       \\
+                    global/qmalloc                            \\
+                    global/qnumeric                           \\
+                    global/qfloat16                           \\
+                    global/qoperatingsystemversion            \\
+                    global/qlogging                           \\
+                    global/qrandom                            \\
+                    global/qhooks                             \\
+                    io/qabstractfileengine                    \\
+                    io/qbuffer                                \\
+                    io/qdataurl                               \\
+                    io/qtldurl                                \\
+                    io/qdebug                                 \\
+                    io/qdir                                   \\
+                    io/qdiriterator                           \\
+                    io/qfile                                  \\
+                    io/qfiledevice                            \\
+                    io/qfileinfo                              \\
+                    io/qfilesystemwatcher                     \\
+                    io/qfilesystemwatcher_polling             \\
+                    io/qipaddress                             \\
+                    io/qiodevice                              \\
+                    io/qlockfile                              \\
+                    io/qnoncontiguousbytedevice               \\
+                    io/qprocess                               \\
+                    io/qsettings                              \\
+                    io/qstorageinfo                           \\
+                    io/qtemporarydir                          \\
+                    io/qtemporaryfile                         \\
+                    io/qresource                              \\
+                    io/qresource_iterator                     \\
+                    io/qsavefile                              \\
+                    io/qstandardpaths                         \\
+                    io/qurl                                   \\
+                    io/qurlidna                               \\
+                    io/qurlquery                              \\
+                    io/qurlrecode                             \\
+                    io/qfsfileengine                          \\
+                    io/qfsfileengine_iterator                 \\
+                    io/qfilesystementry                       \\
+                    io/qfilesystemengine                      \\
+                    io/qfileselector                          \\
+                    io/qloggingcategory                       \\
+                    io/qloggingregistry                       \\
+                    itemmodels/qabstractitemmodel             \\
+                    itemmodels/qabstractproxymodel            \\
+                    itemmodels/qconcatenatetablesproxymodel   \\
+                    itemmodels/qidentityproxymodel            \\
+                    itemmodels/qitemselectionmodel            \\
+                    itemmodels/qsortfilterproxymodel          \\
+                    itemmodels/qstringlistmodel               \\
+                    itemmodels/qtransposeproxymodel           \\
+                    kernel/qabstracteventdispatcher           \\
+                    kernel/qabstractnativeeventfilter         \\
+                    kernel/qbasictimer                        \\
+                    kernel/qcoreapplication                   \\
+                    kernel/qcoreevent                         \\
+                    kernel/qcoreglobaldata                    \\
+                    kernel/qdeadlinetimer                     \\
+                    kernel/qelapsedtimer                      \\
+                    kernel/qeventloop                         \\
+                    kernel/qmetaobject                        \\
+                    kernel/qmetaobjectbuilder                 \\
+                    kernel/qmetatype                          \\
+                    kernel/qmath                              \\
+                    kernel/qmimedata                          \\
+                    kernel/qobject                            \\
+                    kernel/qobjectcleanuphandler              \\
+                    kernel/qpointer                           \\
+                    kernel/qsharedmemory                      \\
+                    kernel/qsignalmapper                      \\
+                    kernel/qsocketnotifier                    \\
+                    kernel/qsystemerror                       \\
+                    kernel/qsystemsemaphore                   \\
+                    kernel/qtestsupport_core                  \\
+                    kernel/qtimer                             \\
+                    kernel/qtranslator                        \\
+                    kernel/qvariant                           \\
+                    mimetypes/qmimedatabase                   \\
+                    mimetypes/qmimetype                       \\
+                    mimetypes/qmimemagicrulematcher           \\
+                    mimetypes/qmimetypeparser                 \\
+                    mimetypes/qmimemagicrule                  \\
+                    mimetypes/qmimeglobpattern                \\
+                    mimetypes/qmimeprovider                   \\
+                    plugin/qelfparser_p                       \\
+                    plugin/qfactoryinterface                  \\
+                    plugin/qfactoryloader                     \\
+                    plugin/qlibrary                           \\
+                    plugin/qmachparser                        \\
+                    plugin/qpluginloader                      \\
+                    plugin/quuid                              \\
+                    serialization/qbinaryjson                 \\
+                    serialization/qbinaryjsonarray            \\
+                    serialization/qbinaryjsonobject           \\
+                    serialization/qbinaryjsonvalue            \\
+                    serialization/qcborcommon                 \\
+                    serialization/qcbordiagnostic             \\
+                    serialization/qcborstreamreader           \\
+                    serialization/qcborstreamwriter           \\
+                    serialization/qcborvalue                  \\
+                    serialization/qdatastream                 \\
+                    serialization/qjsoncbor                   \\
+                    serialization/qjsondocument               \\
+                    serialization/qjsonobject                 \\
+                    serialization/qjsonarray                  \\
+                    serialization/qjsonvalue                  \\
+                    serialization/qjsonwriter                 \\
+                    serialization/qjsonparser                 \\
+                    serialization/qtextstream                 \\
+                    serialization/qxmlstream                  \\
+                    serialization/qxmlutils                   \\
+                    statemachine/qstatemachine                \\
+                    statemachine/qabstractstate               \\
+                    statemachine/qeventtransition             \\
+                    statemachine/qstate                       \\
+                    statemachine/qfinalstate                  \\
+                    statemachine/qhistorystate                \\
+                    statemachine/qabstracttransition          \\
+                    statemachine/qsignaltransition            \\
+                    text/qbytearray                           \\
+                    text/qbytearraylist                       \\
+                    text/qbytearraymatcher                    \\
+                    text/qcollator                            \\
+                    text/qcollator_icu                        \\
+                    text/qharfbuzz                            \\
+                    text/qlocale                              \\
+                    text/qlocale_icu                          \\
+                    text/qlocale_tools                        \\
+                    text/qregexp                              \\
+                    text/qregularexpression                   \\
+                    text/qstring                              \\
+                    text/qstringbuilder                       \\
+                    text/qstringlist                          \\
+                    text/qstringview                          \\
+                    text/qtextboundaryfinder                  \\
+                    text/qunicodetools                        \\
+                    text/qvsnprintf                           \\
+                    thread/qatomic                            \\
+                    thread/qexception                         \\
+                    thread/qfutureinterface                   \\
+                    thread/qfuturewatcher                     \\
+                    thread/qmutex                             \\
+                    thread/qreadwritelock                     \\
+                    thread/qresultstore                       \\
+                    thread/qrunnable                          \\
+                    thread/qsemaphore                         \\
+                    thread/qthread                            \\
+                    thread/qthreadpool                        \\
+                    thread/qthreadstorage                     \\
+                    time/qdatetime                            \\
+                    time/qdatetimeparser                      \\
+                    time/qcalendar                            \\
+                    time/qgregoriancalendar                   \\
+                    time/qhijricalendar                       \\
+                    time/qislamiccivilcalendar                \\
+                    time/qjalalicalendar                      \\
+                    time/qjuliancalendar                      \\
+                    time/qmilankoviccalendar                  \\
+                    time/qromancalendar                       \\
+                    time/qtimezone                            \\
+                    time/qtimezoneprivate                     \\
+                    tools/qarraydata                          \\
+                    tools/qbitarray                           \\
+                    tools/qcommandlineoption                  \\
+                    tools/qcommandlineparser                  \\
+                    tools/qcryptographichash                  \\
+                    tools/qeasingcurve                        \\
+                    tools/qfreelist                           \\
+                    tools/qhash                               \\
+                    tools/qline                               \\
+                    tools/qlinkedlist                         \\
+                    tools/qlist                               \\
+                    tools/qpoint                              \\
+                    tools/qmap                                \\
+                    tools/qmargins                            \\
+                    tools/qmessageauthenticationcode          \\
+                    tools/qcontiguouscache                    \\
+                    tools/qrect                               \\
+                    tools/qrefcount                           \\
+                    tools/qringbuffer                         \\
+                    tools/qshareddata                         \\
+                    tools/qsharedpointer                      \\
+                    tools/qsimd                               \\
+                    tools/qsize                               \\
+                    tools/qtimeline                           \\
+                    tools/qversionnumber
+
+              # Headers to be moc'ed.
+              #
+              moc_hdr = qabstracteventdispatcher              \\
+                        qabstractanimation                    \\
+                        qabstractitemmodel                    \\
+                        qabstractproxymodel                   \\
+                        qabstractstate                        \\
+                        qabstracttransition                   \\
+                        qanimationgroup                       \\
+                        qbuffer                               \\
+                        qcalendar                             \\
+                        qcborcommon                           \\
+                        qcborstreamreader                     \\
+                        qcborvalue                            \\
+                        qconcatenatetablesproxymodel          \\
+                        qcoreapplication                      \\
+                        qcoreevent                            \\
+                        qcryptographichash                    \\
+                        qeasingcurve                          \\
+                        qeventloop                            \\
+                        qeventtransition                      \\
+                        qfile                                 \\
+                        qfiledevice                           \\
+                        qfileselector                         \\
+                        qfilesystemwatcher                    \\
+                        qfinalstate                           \\
+                        qfuturewatcher                        \\
+                        qhistorystate                         \\
+                        qidentityproxymodel                   \\
+                        qiodevice                             \\
+                        qitemselectionmodel                   \\
+                        qlocale                               \\
+                        qlibrary                              \\
+                        qmimedata                             \\
+                        qmimetype                             \\
+                        qnamespace                            \\
+                        qobject                               \\
+                        qobjectcleanuphandler                 \\
+                        qparallelanimationgroup               \\
+                        qpauseanimation                       \\
+                        qpluginloader                         \\
+                        qprocess                              \\
+                        qpropertyanimation                    \\
+                        qsavefile                             \\
+                        qsequentialanimationgroup             \\
+                        qsettings                             \\
+                        qsignalmapper                         \\
+                        qsignaltransition                     \\
+                        qsharedmemory                         \\
+                        qsocketnotifier                       \\
+                        qsortfilterproxymodel                 \\
+                        qstandardpaths                        \\
+                        qstate                                \\
+                        qstatemachine                         \\
+                        qstringlistmodel                      \\
+                        qtemporaryfile                        \\
+                        qthread                               \\
+                        qthreadpool                           \\
+                        qtimeline                             \\
+                        qtimer                                \\
+                        qtranslator                           \\
+                        qtransposeproxymodel                  \\
+                        qvariantanimation                     \\
+                        private/qabstractanimation_p          \\
+                        private/qeventdispatcher_cf_p         \\
+                        private/qeventdispatcher_unix_p       \\
+                        private/qeventdispatcher_win_p        \\
+                        private/qfactoryloader_p              \\
+                        private/qfilesystemwatcher_fsevents_p \\
+                        private/qfilesystemwatcher_inotify_p  \\
+                        private/qfilesystemwatcher_kqueue_p   \\
+                        private/qfilesystemwatcher_p          \\
+                        private/qfilesystemwatcher_polling_p  \\
+                        private/qfilesystemwatcher_win_p      \\
+                        private/qnoncontiguousbytedevice_p    \\
+                        private/qwindowspipereader_p          \\
+                        private/qwindowspipewriter_p          \\
+                        private/qtextstream_p
+
+              # Source files to be moc'ed.
+              #
+              moc_src = io/qfilesystemwatcher_win     \\
+                        kernel/qtimer                 \\
+                        statemachine/qhistorystate    \\
+                        statemachine/qstatemachine    \\
+                        thread/qthreadpool
+
+              moc_mm  = kernel/qeventdispatcher_cf
+
+              # UNIX source files.
+              #
+              unix_src = io/forkfd_qt                         \\
+                         io/qfsfileengine_unix                \\
+                         io/qfilesystemengine_unix            \\
+                         io/qlockfile_unix                    \\
+                         io/qfilesystemiterator_unix          \\
+                         io/qprocess_unix                     \\
+                         kernel/qcore_unix                    \\
+                         kernel/qeventdispatcher_unix         \\
+                         kernel/qsharedmemory_posix           \\
+                         kernel/qsharedmemory_systemv         \\
+                         kernel/qsharedmemory_unix            \\
+                         kernel/qsystemsemaphore_posix        \\
+                         kernel/qsystemsemaphore_systemv      \\
+                         kernel/qsystemsemaphore_unix         \\
+                         kernel/qtimerinfo_unix               \\
+                         plugin/qlibrary_unix                 \\
+                         thread/qthread_unix                  \\
+                         thread/qwaitcondition_unix
+
+              # Linux source files.
+              #
+              linux_src = io/qfilesystemwatcher_inotify
+
+              # Windows source files.
+              #
+              win_src = global/qoperatingsystemversion_win    \\
+                        io/qfilesystemwatcher_win             \\
+                        io/qprocess_win                       \\
+                        io/qsettings_win                      \\
+                        io/qfsfileengine_win                  \\
+                        io/qlockfile_win                      \\
+                        io/qfilesystemengine_win              \\
+                        io/qfilesystemiterator_win            \\
+                        io/qstandardpaths_win                 \\
+                        io/qstorageinfo_win                   \\
+                        io/qwindowspipereader                 \\
+                        io/qwindowspipewriter                 \\
+                        kernel/qcoreapplication_win           \\
+                        kernel/qelapsedtimer_win              \\
+                        kernel/qeventdispatcher_win           \\
+                        kernel/qsharedmemory_win              \\
+                        kernel/qsystemsemaphore_win           \\
+                        kernel/qwineventnotifier              \\
+                        kernel/qwinregistry                   \\
+                        plugin/qsystemlibrary                 \\
+                        plugin/qlibrary_win                   \\
+                        text/qlocale_win                      \\
+                        thread/qthread_win                    \\
+                        thread/qwaitcondition_win
+
+              # Mac OS source files.
+              #
+              macos_src = io/qsettings_mac            \\
+                          io/qstorageinfo_mac         \\
+                          kernel/qcfsocketnotifier    \\
+                          kernel/qcoreapplication_mac \\
+                          kernel/qelapsedtimer_mac
+
+              # Define the Objective-C++ source file type.
+              #
+              define mm: file
+              mm{*}: extension = mm
+
+              macos_mm = global/qoperatingsystemversion_darwin        \\
+                         io/qfilesystemengine_mac                     \\
+                         io/qfilesystemwatcher_fsevents               \\
+                         io/qprocess_darwin                           \\
+                         io/qstandardpaths_mac                        \\
+                         kernel/qcore_foundation                      \\
+                         kernel/qcore_mac                             \\
+                         kernel/qeventdispatcher_cf                   \\
+                         text/qlocale_mac                             \\
+                         time/qtimezoneprivate_mac
+
+              # C sources from the Harfbuzz library.
+              #
+              # @@ TMP Package this? (And double-conversion?)
+              #
+              harfbuzz_src = harfbuzz-buffer  \\
+                             harfbuzz-gdef    \\
+                             harfbuzz-gsub    \\
+                             harfbuzz-gpos    \\
+                             harfbuzz-impl    \\
+                             harfbuzz-open    \\
+                             harfbuzz-stream
+
+              # Generated headers.
+              #
+              gen_hdr = qconfig       private/qconfig_p       \\
+                        qtcore-config private/qtcore-config_p
+
+              # Force headers that are included by C source files to be C headers otherwise
+              # they are most likely to be detected as C++ headers due to being included
+              # most often from C++ source files, which could break build2's header
+              # dependency extraction.
+              #
+              c_hdr = qglobal qsystemdetection qprocessordetection qcompilerdetection \\
+                      $gen_hdr
+
+              # Headers, source files, and libraries.
+              #
+              lib{Qt5Core}: hxx{** -{$c_hdr} +Q*.} h{$c_hdr} cxx{$src}        \\
+                            3rdparty/harfbuzz/src/h{harfbuzz}                 \\
+                            3rdparty/harfbuzz/src/c{$harfbuzz_src}            \\
+                            3rdparty/harfbuzz/src/cxx{harfbuzz-shaper-all}    \\
+                            3rdparty/double-conversion/cxx{*.cc}              \\
+                            3rdparty/double-conversion/hxx{**}
+
+              # Ensure included source files are distributed.
+              #
+              # @@ TMP thread/qmutex_{linux,unix,mac,win}.cpp is included by
+              #        thread/qmutex.cpp, but thread/thread.pri adds it to SOURCES, meaning
+              #        the upstream build should compile it as well (which would lead to
+              #        multiple definition errors). This is confirmed by the fact that the
+              #        makefile generated by `qmake
+              #        upstream/qtbase/src/corelib/thread/thread.pri` has qmutex_linux.cpp
+              #        in SOURCES.
+              #
+              #        However, the upstream build, when run, doesn't actually compile it,
+              #        and its makefile doesn't have qmutex_linux.cpp in SOURCES either.
+              #
+              #        No idea what's going on but what we have here looks right and works
+              #        and matches what the upstream build actually ends up doing.
+              #
+              # @@ TMP mimetypes/qmimeprovider_database.cpp (note: ~2MB) is generated by
+              #    mimetypes/mime/generate.{pl,bat} from
+              #    mimetypes/mime/packages/freedesktop.org.xml which is from
+              #    http://www.freedesktop.org/wiki/Software/shared-mime-info/. This doesn't
+              #    seem like it should change often so perhaps it's not necessary for us to
+              #    generate it?
+              #
+              lib{Qt5Core}: cxx{** -{$src}}                                                   \\
+                            3rdparty/{h hxx c cxx}{** -harfbuzz/**}                           \\
+                            3rdparty/harfbuzz/{cxx c}{**                                      \\
+                                                      -harfbuzz-shaper-all -{$harfbuzz_src}}  \\
+                            3rdparty/harfbuzz/h{** -harfbuzz}                                 \\
+                            3rdparty/sha3/file{**.macros}                                     \\
+                            testlib/3rdparty/h{valgrind_p}:                                   \\
+                include = adhoc
+
+              # The "metadata library": its purpose is to make sure all the imported
+              # libraries are resolved for the ad hoc .mm compilation rules below.
+              #
+              # @@ TMP Using cxx{dummy} as link rule hint (added `using c` recently).
+              #
+              libul{Qt5CoreMeta}: mkspecs/features/data/cxx{dummy} $impl_libs $intf_libs
+
+              # Generated headers and source files.
+              #
+              lib{Qt5Core}: global/cxx{qconfig-install}: for_install = true
+              lib{Qt5Core}: global/cxx{qconfig-develop}: for_install = false
+
+              # Platform-specific source files.
+              #
+              lib{Qt5Core}: cxx{$unix_src}:  include = $unix
+              lib{Qt5Core}: cxx{$linux_src}: include = $linux
+              lib{Qt5Core}: cxx{$win_src}:   include = $windows
+              lib{Qt5Core}: cxx{$macos_src}: include = $macos
+              lib{Qt5Core}: cxx{io/qfilesystemwatcher_kqueue}: include = $bsd
+              lib{Qt5Core}: cxx{io/qstandardpaths_unix        \\
+                                io/qstorageinfo_unix          \\
+                                kernel/qelapsedtimer_unix     \\
+                                text/qlocale_unix             \\
+                                time/qtimezoneprivate_tz}:  include = ($unix && ! $macos)
+              lib{Qt5Core}: cxx{time/qtimezoneprivate_icu}: include = (! $macos)
+
+              # Declare the dependency of the library target on the Objective-C++ source
+              # files via the corresponding object files.
+              #
+              for n: $macos_mm
+              {
+                obja{$(n).a.o}: mm{$n}
+                objs{$(n).so.o}: mm{$n}
+              }
+
+              liba{Qt5Core}: obja{$regex.apply($macos_mm,'(.+)','\1.a.o')}: \\
+                include = $macos
+              libs{Qt5Core}: objs{$regex.apply($macos_mm,'(.+)','\1.so.o')}: \\
+                include = $macos
+
+              # Rules for compiling Objective-C++ source files into object files.
+              #
+              # Note: these rules are only used on Mac OS (so no -fPIC, etc).
+              # Note: exclude libua{Qt5CoreMeta} from update during match not to mess
+              #       up its for-install'ness.
+              #
+              obja{~'/(.*).a/'}: mm{~'/\1/'} libua{Qt5CoreMeta}
+              {{
+                dep_poptions = $cxx.lib_poptions(libua{Qt5CoreMeta}, obja)
+                depdb hash $dep_poptions
+                depdb dyndep "-I$out_root/QtCore" "-I$src_root/QtCore"                \\
+                             --what=header --default-type=h                           \\
+                             --update-exclude libua{Qt5CoreMeta}                      \\
+                             -- $cxx.path $cc.poptions $cxx.poptions $dep_poptions    \\
+                                $cc.coptions $cxx.coptions $cxx.mode -M -MG $path($<[0])
+                diag obj-c++ ($<[0])
+                $cxx.path $cc.poptions $cxx.poptions $dep_poptions    \\
+                          $cc.coptions $cxx.coptions $cxx.mode        \\
+                          -o $path($>) -c -x objective-c++ $path($<[0])
+              }}
+
+              objs{~'/(.*).so/'}: mm{~'/\1/'} libus{Qt5CoreMeta}
+              {{
+                dep_poptions = $cxx.lib_poptions(libus{Qt5CoreMeta}, objs)
+                depdb hash $dep_poptions
+                depdb dyndep "-I$out_root/QtCore" "-I$src_root/QtCore"                \\
+                             --what=header --default-type=h                           \\
+                             --update-exclude libus{Qt5CoreMeta}                      \\
+                             -- $cxx.path $cc.poptions $cxx.poptions $dep_poptions    \\
+                                $cc.coptions $cxx.coptions $cxx.mode -M -MG $path($<[0])
+                diag obj-c++ ($<[0])
+                $cxx.path $cc.poptions $cxx.poptions $dep_poptions    \\
+                          $cc.coptions $cxx.coptions $cxx.mode        \\
+                          -o $path($>) -c -x objective-c++ $path($<[0])
+              }}
+
+              # Rule to generate a header with C++ compiler's predefined macros. It is used
+              # to make them available to moc.
+              #
+              # This is necessary because moc's (built-in) preprocessor evaluates conditions
+              # and expands macros and thus the set of defined macros can affect its
+              # output. For example, signals and/or slots can be defined conditionally.
+              #
+              # Not all compilers have a mode that produces such a macro list. GCC, Clang,
+              # and the Intel compiler do, but MSVC (for one) does not.
+              #
+              # The upstream build does not generate this header unless the compiler
+              # supports such a mode (that is, moc gets no macro definitions at all). The
+              # only exception is MSVC in which case Qt5 uses qmake to produce the required
+              # output (by passing /Bx<path-to-qmake> to cl.exe, specifying an alternative
+              # preprocessor executable), and Qt6 (via CMake) does nothing except for adding
+              # the WIN32 macro to moc's definitions. We emulate the Qt6 behavior here for
+              # now.
+              #
+              # Note also that this approach is not limited to the Qt libraries themselves:
+              # applications may have preprocessor directives that affect the moc output and
+              # thus will either need to do something similar or supply the necessary macro
+              # definitions manually. As a result, it may make sense to provide a utility
+              # (probably as part of the moc package, maybe call it moc-predefs) that knows
+              # how to extract this list for various compilers (we could just pass to it the
+              # compiler id and maybe the target followed by the compiler command line and
+              # it can decide on the best method, potentially invoking the compiler,
+              # including for MSVC).
+              #
+              hxx{moc_predefs}: mkspecs/features/data/cxx{dummy}
+              %
+              if ($cxx.id != 'msvc')
+              {{
+                diag gen ($>[0])
+                $cxx.path $cc.poptions $cxx.poptions $cc.coptions $cxx.coptions $cxx.mode \\
+                          -o $path($>) -dM -E $path($<)
+              }}
+              else
+              {{
+                diag gen ($>[0])
+                cat <<EOI >$path($>)
+                #define _WIN32
+                #define WIN32
+                EOI
+              }}
+
+              # Dependencies involving source files generated by moc from headers.
+              #
+              # @@ Have to list hxx{moc_predefs} here to make dist work -- why?
+              #
+              #    @@ TMP Is this comment still relevant? moc_predefs is now only a
+              #       dependency in the ad hoc rule below.
+              #
+              for s: hxx{$moc_hdr}
+              {
+                n = $name($s)
+                lib{Qt5Core}: cxx{moc_$n}: include = adhoc
+                cxx{moc_$n}: $s
+              }
+
+              # Target type for source file generated by moc from a source file.
+              #
+              define moc: cxx
+              moc{*}: extension = moc
+
+              # Dependencies involving source files generated by moc from source files.
+              #
+              for s: cxx{$moc_src} mm{$moc_mm}
+              {
+                n = $name($s)
+                lib{Qt5Core}: moc{$n}: include = adhoc
+                moc{$n}: $s
+              }
+
+              # Rule to run moc on a header file.
+              #
+              # Use -f to override the path moc uses to #include the input file, which is
+              # relative to the output directory, with just the name of the input file.
+              #
+              # Explicitly list the generated headers as dependencies in case the
+              # moc-generated file includes any of them (if only indirectly). Note that,
+              # because moc's `--output-dep-file` mode (which produces a list of header
+              # dependencies for the input file) silently omits non-existent headers from
+              # its output, it does not support generated headers and thus there is no
+              # choice but to declare these dependencies manually.
+              #
+              # Note that hxx{moc_predefs} must always be in position 1.
+              #
+              cxx{~'/moc_(.*)/'}: hxx{~'/\1/'} hxx{moc_predefs} h{$gen_hdr} $moc
+              {{
+                o = $path($>[0])
+                t = $(o).t
+
+                depdb dyndep \\
+                  --byproduct --drop-cycles --what=header --default-type=h --file $t
+
+                diag moc ($<[0])
+
+                s = $path($<[0])
+
+                $moc --include $path($<[1]) $cc.poptions $cxx.poptions -f $leaf($s) \\
+                  --output-dep-file --dep-file-path $t -o $o $s
+              }}
+
+              # Rule to run moc on a source file.
+              #
+              # See the header-input moc rule regarding the header prerequisites.
+              #
+              moc{~'/(.*)/'}: cxx{~'/\1/'} hxx{moc_predefs} h{$gen_hdr} $moc
+              {{
+                o = $path($>[0])
+                t = $(o).t
+
+                depdb dyndep \\
+                  --byproduct --drop-cycles --what=header --default-type=h --file $t
+
+                diag moc ($<[0])
+
+                s = $path($<[0])
+
+                $moc --include $path($<[1]) $cc.poptions $cxx.poptions \\
+                  --output-dep-file --dep-file-path $t -o $o $s
+              }}
+
+              # Rule to run moc on an Objective-C++ source file.
+              #
+              # See the header-input moc rule regarding the header prerequisites.
+              #
+              moc{~'/(.*)/'}: mm{~'/\1/'} hxx{moc_predefs} h{$gen_hdr} $moc
+              {{
+                o = $path($>[0])
+                t = $(o).t
+
+                depdb dyndep \\
+                  --byproduct --drop-cycles --what=header --default-type=h --file $t
+
+                diag moc ($<[0])
+
+                s = $path($<[0])
+
+                $moc --include $path($<[1]) $cc.poptions $cxx.poptions \\
+                  --output-dep-file --dep-file-path $t -o $o $s
+              }}
+
+              # Ensure that a moc-generated target's moc-generated dependencies are updated
+              # before it itself is updated. This is necessary because a moc target's
+              # dependencies are extracted at the same time as it is updated.
+              #
+              # moc{foo} depends on cxx{moc_foo} because moc{foo} is generated from cxx{foo}
+              # which includes cxx{moc_foo}. (Note that other generated dependencies common
+              # to all moc-generated targets are declared above.)
+              #
+              moc{qeventdispatcher_cf}: cxx{moc_qeventdispatcher_cf_p}
+              moc{qhistorystate}:       cxx{moc_qhistorystate}
+              moc{qstatemachine}:       cxx{moc_qstatemachine}
+              moc{qthreadpool}:         cxx{moc_qthreadpool}
+              moc{qtimer}:              cxx{moc_qtimer}
+
+              # A small minority of moc-generated files need to be compiled (most are
+              # included). And that's not where the inconsistency ends:
+              # qfilesystemwatcher_win.cpp includes qfilesystemwatcher_win.moc but not
+              # moc_qfilesystemwatcher_win.cpp, so the latter has to be compiled.
+              #
+              lib{Qt5Core}: cxx{moc_qcalendar moc_qmimetype}
+
+              lib{Qt5Core}: cxx{moc_qeventdispatcher_win_p    \\
+                                moc_qfilesystemwatcher_win_p  \\
+                                moc_qwindowspipereader_p      \\
+                                moc_qwindowspipewriter_p}: include = $windows
+
+              lib{Qt5Core}: cxx{moc_qfilesystemwatcher_kqueue_p}:   include = $bsd
+              lib{Qt5Core}: cxx{moc_qfilesystemwatcher_fsevents_p}: include = $macos
+
+              lib{Qt5Core}: libul{Qt5CoreMeta}
+
+              # Generated headers.
+              #
+              # In the Qt source code the features (QT_FEATURE_foo macros) are checked using
+              # the QT_CONFIG(foo) macro (defined in qglobal.h) which will not compile
+              # unless the macro is defined and has a value of 1 or -1.
+              #
+              # @@ To find usage instances, grep under ../upstream/qtbase/ for
+              #    '(qtConfig|QT_CONFIG)\(<feature-name>\)'
+              #
+              # The files qtbase/configure.json and qtbase/src/corelib/configure.json are
+              # the sources used by qtbase/mkspecs/features/qt_configure.prf to generate
+              # qtconfig{,_p}.h and qtcore-config{,_p}.h, respectively. Entries in the
+              # `features` array in configure.json files correspond to .prf files under
+              # upstream/qtbase/mkspecs/features/. See https://wiki.qt.io/Qt5_Build_System.
+              #
+              # The configure.json files declare dependencies between features so be sure to
+              # consult them before disabling or enabling any features.
+              #
+
+              # General public configuration header. Included by other Qt libraries via
+              # QtCore/qglobal.h.
+              #
+              # See the .in files for more information.
+              #
+              h{qconfig}: in{qconfig}
+              {
+                QT_VERSION_STR="$version.major.$version.minor.$version.patch"
+                QT_VERSION_MAJOR="$version.major"
+                QT_VERSION_MINOR="$version.minor"
+                QT_VERSION_PATCH="$version.patch"
+
+                QT_FEATURE_framework = ($macos ? 1 : -1)
+
+                # Given that SSE4.2 support was added to GCC in version 4.3 (2008), and
+                # AVX512 support in version 4.9 (2014), assume all versions of SSE and all
+                # versions of AVX are supported on all i686 and x86_64 compilers. Disable
+                # SSE and AVX on all other targets.
+                #
+                compiler_supports_sse_avx = ($x86 ? 1 : -1)
+
+                QT_COMPILER_SUPPORTS_F16C = ($f16c ? 1 : -1)
+              }
+
+              # General private configuration header. Included by a few other Qt libraries
+              # via QtCore/qglobal_p.h.
+              #
+              # See the .in file for more information.
+              #
+              private/h{qconfig_p}: private/in{qconfig_p}
+              {
+                QT_FEATURE_dlopen          = ($unix ? 1 : -1)
+                QT_FEATURE_posix_fallocate = ($linux || $freebsd || $openbsd ? 1 : -1)
+              }
+
+              # Public QtCore library configuration (mostly high-level features). Included
+              # by other Qt libraries via QtCore/qglobal.h.
+              #
+              # See the .in file for more information.
+              #
+              h{qtcore-config}: in{qtcore-config}
+
+              # Private QtCore library configuration (lower-level features and
+              # settings). Included by a few other Qt libraries via QtCore/qglobal_p.h.
+              #
+              # See the .in file for more information.
+              #
+              private/h{qtcore-config_p}: private/in{qtcore-config_p}
+              {
+                QT_FEATURE_futimens   = ($windows ? -1 : 1)
+                QT_FEATURE_getauxval  = ($linux ? 1 : -1)
+                QT_FEATURE_glibc      = ($linux ? 1 : -1)
+                QT_FEATURE_inotify    = ($linux ? 1 : -1)
+                QT_FEATURE_linkat     = ($linux ? 1 : -1)
+                QT_FEATURE_syslog     = ($windows ? -1 : 1)
+
+                QT_FEATURE_poll_select = -1
+                QT_FEATURE_poll_ppoll  = ($linux || $freebsd || $openbsd ? 1 : -1)
+                QT_FEATURE_poll_poll   = ($macos ? 1 : -1)
+                QT_FEATURE_poll_pollts = ($netbsd ? 1 : -1)
+              }
+
+              # global/qconfig.cpp:
+              #
+              # This file provides information relating to installation paths. It is
+              # included by global/qlibraryinfo.cpp (so we don't compile it). In upstream it
+              # is generated during the configure step (qtbase/configure.pri).
+              #
+              # In order to support different installation paths for the installed and
+              # uninstalled cases in build2 we turn qconfig.cpp into a real file (that is,
+              # not generated) and turn its static variable and macro definitions into
+              # extern variable declarations. Then we generate two source files,
+              # qconfig-install.cpp and qconfig-develop.cpp, that define the variables to
+              # values appropriate for the installed and uninstalled cases, respectively,
+              # and we use (above) the `for_install` prerequisite-specific variable to
+              # control which of the two gets linked in each case.
+              #
+              # See also comments in qconfig.cpp.in.
+              #
+              lib{Qt5Core}: global/cxx{qconfig}: include = adhoc
+
+              # Installed case: Here the installation prefix is an absolute path and the
+              # other paths are all relative (to the prefix).
+              #
+              # Note that while this object file should only be linked when we are
+              # installing, it will be compiled even in the uninstalled case where we may
+              # have no install.root.
+              #
+              global/cxx{qconfig-install}:
+              {
+                i = ($install.root != [null])
+
+                # Values of the installation paths. Make the $install.* paths relative to
+                # $install.root.
+                #
+                prefix       = [dir_path] ($i ? $install.root : .)
+                doc          = [dir_path] ($i ? $leaf($install.resolve($install.doc), $prefix) : .)
+                incl         = [dir_path] ($i ? $leaf($install.resolve($install.include), $prefix) : .)
+                lib          = [dir_path] ($i ? $leaf($install.resolve($install.lib), $prefix) : .)
+                bin          = [dir_path] ($i ? $leaf($install.resolve($install.bin), $prefix) : .)
+                libexec      = [dir_path] ($i ? $leaf($install.resolve($windows ? $install.bin : $install.libexec), $prefix) : .)
+                plugins      = [dir_path] $lib
+                imports      = [dir_path] $lib
+                qml          = [dir_path] $lib
+                data         = [dir_path] ($i ? $leaf($install.resolve($install.data), $prefix) : .)
+                arch_data    = [dir_path] $data
+                translations = [dir_path] translations
+                examples     = [dir_path] examples
+                tests        = [dir_path] tests
+
+                # A path appended to the path of the directory containing the installed
+                # QtCore library to get to the prefix path.
+                #
+                # For example, if the prefix is /usr/local and the library is installed in
+                # /usr/local/lib, upstream would do "/usr/local/lib" + "/" + "../" to get
+                # "/usr/local".
+                #
+                lib_to_prefix = [dir_path] ($i ? $relative($prefix, $install.resolve($install.lib)) : .)
+              }
+
+              # Uninstalled case: Here the installation prefix is the filesystem root and
+              # the other directories are all absolute paths (because the source and output
+              # directories may not have a longer common prefix).
+              #
+              assert ($root_directory($out_root) == $root_directory($src_root)) \\
+                "out_root and src_root must have common filesystem root"
+
+              global/cxx{qconfig-develop}:
+              {
+                # Values of the installation paths.
+                #
+                prefix       = [dir_path] $root_directory($out_root)
+                doc          = [dir_path] $out_root/doc
+                incl         = [dir_path] $src_root
+                lib          = [dir_path] $out_root
+                libexec      = [dir_path] $out_root
+                bin          = [dir_path] $out_root
+                plugins      = [dir_path] $out_root/plugins
+                imports      = [dir_path] $out_root
+                qml          = [dir_path] $out_root
+                arch_data    = [dir_path] $src_root
+                data         = [dir_path] $src_root
+                translations = [dir_path] $out_root/translations
+                examples     = [dir_path] $src_root/examples
+                tests        = [dir_path] $src_root/tests
+
+                # See comment in the installed case above.
+                #
+                lib_to_prefix = [dir_path] $relative($prefix, $lib)
+              }
+
+              # Installed and uninstalled cases.
+              #
+              global/cxx{qconfig-install qconfig-develop}: global/in{qconfig}
+              {
+                # The directory path containing user application settings. Ignored on
+                # Windows where the registry is used instead.
+                #
+                settingspath = ($macos ? /Library/Preferences/Qt : etc/xdg)
+
+                # The offsets of the beginning of each substring within the
+                # qt_configure_strs string which contains the installation path values
+                # defined above.
+                #
+                o_doc            = [uint64] 0
+                o_incl           = $size($doc)
+                o_incl          += 1
+                o_incl          += $o_doc
+                o_lib            = $size($incl)
+                o_lib           += 1
+                o_lib           += $o_incl
+                o_libexec        = $size($lib)
+                o_libexec       += 1
+                o_libexec       += $o_lib
+                o_bin            = $size($libexec)
+                o_bin           += 1
+                o_bin           += $o_libexec
+                o_plugins        = $size($bin)
+                o_plugins       += 1
+                o_plugins       += $o_bin
+                o_imports        = $size($plugins)
+                o_imports       += 1
+                o_imports       += $o_plugins
+                o_qml            = $size($imports)
+                o_qml           += 1
+                o_qml           += $o_imports
+                o_arch_data      = $size($qml)
+                o_arch_data     += 1
+                o_arch_data     += $o_qml
+                o_data           = $size($arch_data)
+                o_data          += 1
+                o_data          += $o_arch_data
+                o_translations   = $size($data)
+                o_translations  += 1
+                o_translations  += $o_data
+                o_examples       = $size($translations)
+                o_examples      += 1
+                o_examples      += $o_translations
+                o_tests          = $size($examples)
+                o_tests         += 1
+                o_tests         += $o_examples
+
+                # Escape backslashes on Windows. Note: must be done after offset
+                # calculations.
+                #
+                prefix       = [dir_path] $regex.replace($prefix, '\\', '\\\\')
+                doc          = [dir_path] $regex.replace($doc, '\\', '\\\\')
+                incl         = [dir_path] $regex.replace($incl, '\\', '\\\\')
+                lib          = [dir_path] $regex.replace($lib, '\\', '\\\\')
+                libexec      = [dir_path] $regex.replace($libexec, '\\', '\\\\')
+                bin          = [dir_path] $regex.replace($bin, '\\', '\\\\')
+                plugins      = [dir_path] $regex.replace($plugins, '\\', '\\\\')
+                imports      = [dir_path] $regex.replace($imports, '\\', '\\\\')
+                qml          = [dir_path] $regex.replace($qml, '\\', '\\\\')
+                arch_data    = [dir_path] $regex.replace($arch_data, '\\', '\\\\')
+                data         = [dir_path] $regex.replace($data, '\\', '\\\\')
+                translations = [dir_path] $regex.replace($translations, '\\', '\\\\')
+                examples     = [dir_path] $regex.replace($examples, '\\', '\\\\')
+                tests        = [dir_path] $regex.replace($tests, '\\', '\\\\')
+
+                lib_to_prefix = [dir_path] $regex.replace($lib_to_prefix, '\\', '\\\\')
+              }
+
+              # Build options.
+              #
+              # Add QtCore/3rdparty/ for include of <double-conversion/fixed-dtoa.h> (in
+              # double-conversion/fixed-dtoa.cc)\; QtCore/3rdparty/double-conversion/include/
+              # for includes of <double-conversion/*>\; QtCore/3rdparty/harfbuzz/src/ for an
+              # include of <harfbuzz-shaper.h>\; and QtCore/3rdparty/forkfd/ for an include
+              # of <forkfd.h>.
+              #
+              cxx.poptions =+ "-I$out_root" "-I$src_root"                                     \\
+                              "-I$out_root/QtCore" "-I$src_root/QtCore"                       \\
+                              "-I$out_root/QtCore/private" "-I$src_root/QtCore/private"       \\
+                              "-I$src_root/QtCore/3rdparty"                                   \\
+                              "-I$src_root/QtCore/3rdparty/double-conversion/include"         \\
+                              "-I$src_root/QtCore/3rdparty/harfbuzz/src"                      \\
+                              "-I$src_root/QtCore/3rdparty/forkfd"
+
+              cxx.poptions += -DQT_BUILDING_QT -DQT_BUILD_CORE_LIB            \\
+                              -DQT_NO_LINKED_LIST                             \\
+                              -DQT_NO_JAVA_STYLE_ITERATORS                    \\
+                              -DQT_NO_USING_NAMESPACE                         \\
+                              -DQT_NO_FOREACH                                 \\
+                              -DQT_NO_NARROWING_CONVERSIONS_IN_CONNECT        \\
+                              -DQT_ASCII_CAST_WARNINGS                        \\
+                              -DQT_MOC_COMPAT                                 \\
+                              -DQT_USE_QSTRINGBUILDER                         \\
+                              -DQT_DEPRECATED_WARNINGS                        \\
+                              -D_REENTRANT                                    \\
+                              -DQT_DEPRECATED_WARNINGS_SINCE=0x060000         \\
+                              -DQT_NO_VERSION_TAGGING
+
+              # @@ TMP Are the hbmi* of any use?
+              #
+              {hbmia obja}{*}: cxx.poptions += -DQT_STATIC
+              {hbmis objs}{*}: cxx.poptions += -DQT_SHARED
+
+              # @@ TODO -DQT_NO_DEBUG (as one would expect, upstream defines it for release
+              #    builds).
+              #
+
+              # Add platform-specific header directories, libraries, compilation options,
+              # and macro definitions.
+              #
+              if $windows
+              {
+                cxx.poptions += -DQT_DISABLE_DEPRECATED_BEFORE=0x040800       \\
+                                -D_CRT_SECURE_NO_WARNINGS                     \\
+                                -D_USE_MATH_DEFINES                           \\
+                                -DUNICODE                                     \\
+                                -D_UNICODE                                    \\
+                                -DWIN32
+              }
+              else
+              {
+                cxx.poptions += -DQT_DISABLE_DEPRECATED_BEFORE=0x050000       \\
+                                -DQT_NO_CAST_TO_ASCII                         \\
+                                -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+                # @@ TODO Boost only adds -ldl if on Linux.
+                #
+                lib{Qt5Core}: cxx.libs += -ldl
+              }
+
+              # @@ TMP Not sure if/when this is necessary.
+              #
+              # cxx.libs += -latomic
+
+              # libexecinfo is required for backtrace(3) on BSD (see global/qlogging.cpp).
+              #
+              # @@ TMP When we did libboost-stacktrace we considered packaging libbacktrace:
+              #    build2-packaging/boost/downstream/libs/stacktrace/src/buildfile.
+              #
+              if $bsd
+                lib{Qt5Core}: cxx.libs += -lexecinfo
+
+              # If the compiler is always generating F16C code (no special options
+              # required), have global/qgloat16.cpp include global/qfloat16_f16c.c,
+              # otherwise compile it separately. Details including the Clang exception are
+              # explained in global/global.pri but see also the SSE/AVX comments in
+              # qconfig.h.in.
+              #
+              # @@ TMP Assuming the comments regarding special compiler options for
+              #    SSE/AVX/NEON in qconfig.h.in apply to F16C as well. global/global.pri
+              #    seems to make this connection as well (if only for GCC\; x86SimdAlways in
+              #    global.pri corresponds to QT_COMPILER_SUPPORTS_SIMD_ALWAYS in
+              #    qconfig.h.in).
+              #
+              # @@ TODO This logic is probably not correct at the moment. qfloat16_f16c.c
+              #    should be included if F16C code is generated without any special compiler
+              #    options, but the upstream Qt6 build chose to compile it on my machine (in
+              #    contradiction of the configure report) which contradicts the logic
+              #    currently used in this buildfile.
+              #
+              if ($f16c && ! $regex.match($cxx.id, 'clang.*'))
+              {
+                lib{Qt5Core}: global/c{qfloat16_f16c}: include = false
+                cxx.poptions += -DQFLOAT16_INCLUDE_FAST
+              }
+              else
+              {
+                lib{Qt5Core}: global/c{qfloat16_f16c}: include = true
+
+                obj{global/qfloat16_f16c}:
+                {
+                  c.poptions += $cxx.poptions
+                  c.coptions += -mf16c
+                }
+              }
+
+              # Every directory under mkspecs/ contains a unique `qplatformdefs.h`.
+              #
+              # Note that Mac OS with GCC is not supported by upstream (see README-DEV for
+              # details).
+              #
+              switch $cxx.target.class, $cxx.id, $cxx.target.system
+              {
+                case 'linux', 'gcc'
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/linux-g++"
+                case 'linux', 'clang'
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/linux-clang"
+                case 'macos', 'clang-apple'
+                {
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/macx-clang"
+                  lib{Qt5Core}: cxx.libs += -framework AppKit                 \\
+                                            -framework CoreServices           \\
+                                            -framework DiskArbitration        \\
+                                            -framework Foundation             \\
+                                            -framework IOKit                  \\
+                                            -framework Security
+                }
+                case 'bsd', 'clang', 'freebsd'
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/freebsd-clang"
+                case 'bsd', 'gcc', 'openbsd'
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/openbsd-g++"
+                case 'bsd', 'gcc', 'netbsd'
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/netbsd-g++"
+                case 'windows', 'msvc'
+                {
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/win32-msvc" \\
+                                  -D_ENABLE_EXTENDED_ALIGNED_STORAGE
+
+                  lib{Qt5Core}: cxx.libs += ole32.lib advapi32.lib shell32.lib        \\
+                                            mpr.lib netapi32.lib userenv.lib          \\
+                                            version.lib winmm.lib ws2_32.lib
+                }
+                case 'windows', 'msvc-clang' | 'clang'
+                {
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/win32-clang-msvc" \\
+                                  -D_ENABLE_EXTENDED_ALIGNED_STORAGE
+
+                  lib{Qt5Core}: cxx.libs += ole32.lib advapi32.lib shell32.lib        \\
+                                            mpr.lib netapi32.lib userenv.lib          \\
+                                            version.lib winmm.lib ws2_32.lib
+
+                  # @@ The upstream build says it's only clang-cl that needs special
+                  #    compiler options "for anything above SSE2" (see
+                  #    mkspecs/win32-clang-msvc/qmake.conf) but plain clang does need
+                  #    `-msse4.2` at least.
+                  #
+                  obj{tools/qhash}: cxx.coptions += -msse4.2
+                }
+                case 'windows', 'gcc', 'mingw32'
+                {
+                  cxx.poptions += "-I$src_root/QtCore/mkspecs/win32-g++" \\
+                                  -DMINGW_HAS_SECURE_API=1
+                  cxx.coptions += -fno-keep-inline-dllexport
+
+                  lib{Qt5Core}: cxx.libs += -lole32 -ladvapi32 -lshell32 -lmpr        \\
+                                            -lnetapi32 -luuid -luserenv -lversion     \\
+                                            -lwinmm -lws2_32
+                }
+              }
+
+              # Export options.
+              #
+              lib{Qt5Core}:
+              {
+                cxx.export.poptions = "-I$out_root" "-I$src_root"                     \\
+                                      "-I$out_root/QtCore" "-I$src_root/QtCore"       \\
+                                      -DQT_NO_VERSION_TAGGING
+                cxx.export.libs = $intf_libs
+              }
+
+              liba{Qt5Core}: cxx.export.poptions += -DQT_STATIC
+              libs{Qt5Core}: cxx.export.poptions += -DQT_SHARED
+
+              # For pre-releases use the complete version to make sure they cannot be used
+              # in place of another pre-release or the final version. See the version module
+              # for details on the version.* variable values.
+              #
+              if $version.pre_release
+                lib{Qt5Core}: bin.lib.version = "-$version.project_id"
+              else
+                lib{Qt5Core}: bin.lib.version = "-$version.major.$version.minor"
+
+              # Install public headers into the QtCore/ subdirectory of, say, /usr/include/.
+              #
+              private/{hxx h}{*}: install = false
+              {hxx h}{*}:
+              {
+                install = include/QtCore/
+              }
+            }
+          }
+          \
+          EOF
+      }
+
+      : reflect-clause
+      :
+      {
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            reflect
+            {
+              config.foo.bar=true
+              config.foo.baz=false
+            }
+          }
+          \
+          EOF
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            reflect
+            {
+              config.foo.bar=true
+              config.foo.baz=false
+            }
+          }
+          \
+          EOF
+
+        : inline-reflect
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:
+          \
+          bar config.foo.bar=true
+          {
+            reflect
+            {
+              config.foo.bar=true
+            }
+          }
+          \
+          EOI
+          stdin:9:1: error: multi-line dependency form with inline reflect clause
+          EOE
+      }
+    }
+
+    : multiple-alternatives
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends:\
+      baz |
+      bar
+      {
+        require
+        {
+          config.bar.frame=4016
+        }
+      }
+      |
+      box
+      \
+      EOF
+
+    : newlines
+    :
+    $* <<EOI >>EOO
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends:\
+
+      baz
+
+      |
+
+      bar
+
+      \
+      EOI
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: baz | bar
+      EOO
+
+    : missed-alternative
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends: baz |
+      EOI
+      stdin:6:15: error: dependency expected
+      EOE
+
+    : missed-dependencies
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends:
+      EOI
+      stdin:6:9: error: dependency alternatives expected
+      EOE
+
+    : missed-dependencies-newline
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      depends:\
+
+      \
+      EOI
+      stdin:7:1: error: dependency alternatives expected
+      EOE
+  }
+
+  : requires
+  :
+  {
+    : multiple-requirements
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires: {linux zlib >= 1.2.0}; Should already have it.
+      EOF
+
+    : enable-condition
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires: zlib >= 1.2.0 ? ($cxx.target.class == 'linux')
+      EOF
+
+    : multiple-alternatives
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires: * linux ? ($linux) | windows ? ($windows)
+      EOF
+
+    : enable-condition-reflect
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires: zlib >= 1.2.0 ? ($cxx.target.class == 'linux') config.foo.zlib=true
+      EOF
+
+    : enable-reflect-clauses
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires:\
+      zlib >= 1.2.0
+      {
+        enable ($cxx.target.class == 'linux')
+
+        reflect
+        {
+          config.foo.zlib=true
+        }
+      }
+      \
+      EOF
+
+    : require-clause
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      requires:\
+      libbar >= 1.2.0
+      {
+        require
+        {
+          config.libbar.frame=4016
+        }
+      }
+      \
+      EOI
+      stdin:9:3: error: require clause is not permitted for requirements
+      EOE
+
+    : simple
+    :
+    {
+      : comment
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ; X11 libs.
+        EOF
+
+      : no-comment
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires:
+        EOI
+        stdin:6:10: error: requirement or comment expected
+        EOE
+
+      : comment-multiline
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires:\
+
+        ; X11 libs.
+        \
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ; X11 libs.
+        EOO
+
+      : condition
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? ($windows); Only 64-bit.
+        EOF
+
+      : condition-no-comment
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? ($windows)
+        EOI
+        stdin:6:11: error: no comment specified for simple requirement
+        EOE
+
+      : no-condition
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? ; VC 15 or later if targeting Windows.
+        EOF
+
+      : no-condition-no-comment
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ?
+        EOI
+        stdin:6:11: error: no comment specified for simple requirement
+        EOE
+
+      : no-condition-multiple
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? | foo ; VC 15 or later if targeting Windows.
+        EOI
+        stdin:6:13: error: end of simple requirement expected
+        EOE
+
+      : reflect
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? config.foo.bar=true
+        EOI
+        stdin:6:13: error: end of simple requirement expected
+        EOE
+
+      : with-id
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: x86_64 ? ; Only if on Windows.
+        EOF
+
+      : with-id-no-comment
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: x86_64 ?
+        EOI
+        stdin:6:11: error: no comment specified for simple requirement
+        EOE
+
+      : with-id-multiple
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: x86_64 ? | foo ; Only if on Windows.
+        EOI
+        stdin:6:20: error: end of simple requirement expected
+        EOE
+
+      : with-id-junk
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: x86_64 ? foo=bar | foo ; Only if on Windows.
+        EOI
+        stdin:6:20: error: end of simple requirement expected
+        EOE
+
+      : buildtime-no-condition
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: * ? ; VC 15 or later if targeting Windows.
+        EOF
+    }
   }
 
   : tests
@@ -679,7 +2942,7 @@
 
     : invalid-version-range-incomplete
     :
-    $* -c <<EOI 2>'stdin:6:8: error: invalid package constraint: min version is greater than max version' != 0
+    $* -c <<EOI 2>"stdin:6:8: error: invalid package constraint '[\$ 1.0.0]': min version is greater than max version" != 0
       : 1
       name: foo
       version: 2.0.0
@@ -765,7 +3028,7 @@
         license: LGPLv2
         tests: bar ~$
         EOI
-        stdin:6:8: error: invalid package constraint: dependent version is not standard
+        stdin:6:8: error: invalid package constraint '~$': dependent version is not standard
         EOE
     }
 
@@ -820,9 +3083,9 @@
       build-warning-email: libfoo-issues@example.org; Email for libfoo issues.
       depends: libz ~1.0.0 | libz ^2.0.0
       depends: libgnutls <= 1.2.3 | libopenssl >= 2.3.4
-      depends: ? libboost-regex >= 1.52.0; Only if C++ compiler does not support\
-       C++11 <regex>.
-      depends: ? libqtcore >= 5.0.0; Only if GUI is enabled.
+      depends: libboost-regex >= 1.52.0 ? (!$cxx_regex); Only if C++ compiler does\
+       not support C++11 <regex>.
+      depends: libqtcore >= 5.0.0 ? ($config.libfoo.gui); Only if GUI is enabled.
       requires: linux | windows | macosx; symbian is coming.
       requires: c++11
       requires: ? ; VC++ 12.0 or later if targeting Windows.
@@ -871,7 +3134,7 @@
     {
       : incomplete
       :
-      $* <<EOI 2>'stdin:8:10: error: invalid package constraint: $ not allowed' != 0
+      $* <<EOI 2>"stdin:8:10: error: invalid package constraint '== \$': \$ not allowed" != 0
         : 1
         sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         :

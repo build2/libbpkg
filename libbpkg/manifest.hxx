@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
-#include <cstdint>    // uint16_t
+#include <cstdint>    // uint*_t
 #include <ostream>
 #include <utility>    // move()
 #include <stdexcept>  // logic_error
@@ -455,45 +455,175 @@ namespace bpkg
 
   // depends
   //
+  // The dependency alternative can be represented in one of the following
+  // forms.
+  //
+  // Single-line form:
+  //
+  //   <dependencies> ['?' <enable-condition>] [<reflect-config>]
+  //
+  //   <dependencies> = <dependency> |
+  //                    ({ <dependency> [ <dependency>]* } [<version-constraint>])
+  //
+  //   <enable-condition> - buildfile evaluation context
+  //   <reflect-config>   - dependent package configuration variable assignment
+  //
+  //   If the version constraint is specified after the dependency group, it
+  //   only applies to dependencies without a version constraint.
+  //
+  // Multi-line forms:
+  //
+  //   <dependencies>
+  //   {
+  //     enable <enable-condition>
+  //
+  //     prefer
+  //     {
+  //       <prefer-config>
+  //     }
+  //
+  //     accept <accept-condition>
+  //
+  //     reflect
+  //     {
+  //       <reflect-config>
+  //     }
+  //   }
+  //   |
+  //   <dependencies>
+  //   {
+  //     enable <enable-condition>
+  //
+  //     require
+  //     {
+  //       <require-config>
+  //     }
+  //
+  //     reflect
+  //     {
+  //       <reflect-config>
+  //     }
+  //   }
+  //
+  //   <prefer-config>    - buildfile fragment containing dependency packages
+  //                        configuration variables assignments
+  //
+  //   <accept-condition> - buildfile evaluation context
+  //
+  //   <require-config>   - buildfile fragment containing dependency packages
+  //                        configuration variables assignments
+  //
+  //   <reflect-config>   - buildfile fragment containing dependent package
+  //                        configuration variables assignments
+  //
+  // The dependency alternative is only considered by bpkg if the enable
+  // condition evaluates to true. If the enable clause is not specified, then
+  // it is always considered.
+  //
+  // The prefer clause specifies the preferred dependency package
+  // configuration that may potentially differ from the resulting
+  // configuration after the preferred/required configurations from all the
+  // selected dependency alternatives of all the dependent packages are
+  // "negotiated" by bpkg. The accept clause is used to verify that the
+  // resulting configuration is still acceptable for the dependent
+  // package. The accept clause must always be specified if the prefer clause
+  // is specified.
+  //
+  // The require clause specifies the only acceptable dependency packages
+  // configuration. It is a shortcut for specifying the prefer/accept clauses,
+  // where the accept condition verifies all the variable values assigned in
+  // the prefer clause. The require clause and the prefer/accept clause pair
+  // are optional and are mutually exclusive.
+  //
+  // The reflect clause specifies the dependent package configuration that
+  // should be used if the alternative is selected.
+  //
+  // All clauses are optional but at least one of them must be specified.
+  //
   class dependency_alternative: public butl::small_vector<dependency, 1>
   {
   public:
     butl::optional<std::string> enable;
+    butl::optional<std::string> reflect;
+    butl::optional<std::string> prefer;
+    butl::optional<std::string> accept;
+    butl::optional<std::string> require;
 
     dependency_alternative () = default;
-    dependency_alternative (butl::optional<std::string> e)
-        : enable (std::move (e)) {}
+    dependency_alternative (butl::optional<std::string> e,
+                            butl::optional<std::string> r,
+                            butl::optional<std::string> p,
+                            butl::optional<std::string> a,
+                            butl::optional<std::string> q)
+        : enable (std::move (e)),
+          reflect (std::move (r)),
+          prefer (std::move (p)),
+          accept (std::move (a)),
+          require (std::move (q)) {}
 
-    // Parse the dependency alternative string representation.
+    // Return the single-line representation if possible (the prefer and
+    // require clauses are absent and the reflect clause either absent or
+    // contains no newlines).
     //
-    explicit LIBBPKG_EXPORT
-    dependency_alternative (const std::string&);
-
     LIBBPKG_EXPORT std::string
     string () const;
+
+    // Return true if the string() function would return the single-line
+    // representation.
+    //
+    LIBBPKG_EXPORT bool
+    single_line () const;
   };
 
   class dependency_alternatives:
     public butl::small_vector<dependency_alternative, 1>
   {
   public:
-    bool conditional;
     bool buildtime;
     std::string comment;
 
     dependency_alternatives () = default;
-    dependency_alternatives (bool d, bool b, std::string c)
-        : conditional (d), buildtime (b), comment (std::move (c)) {}
+    dependency_alternatives (bool b, std::string c)
+        : buildtime (b), comment (std::move (c)) {}
 
-    // Parse the dependency alternatives string representation in the
-    // `[?][*] <dependency> [ '|' <dependency>]* [; <comment>]` form. Throw
-    // std::invalid_argument if the value is invalid. @@ DEP @@ TMP update.
+    // Parse the dependency alternatives string representation in the form:
+    //
+    // [*] <alternative> [ '|' <alternative>]* [; <comment>]
+    //
+    // Where <alternative> can be single or multi-line (see above). Note also
+    // that leading `*` and trailing comment can be on separate lines. Throw
+    // manifest_parsing if the value is invalid.
+    //
+    // Use the dependent package name to verify that the reflect clauses in
+    // the dependency alternative representations refer to the dependent
+    // package configuration variable.
+    //
+    // Optionally, specify the stream name to use when creating the
+    // manifest_parsing exception. The start line and column arguments can be
+    // used to align the exception information with a containing stream. This
+    // is useful when the alternatives representation is a part of some larger
+    // text (manifest, etc).
+    //
+    // Note that semicolons inside alternatives must be escaped with the
+    // backslash (not to be treated as the start of a comment). Backslashes at
+    // the end of buildfile fragment lines need to also be escaped, if
+    // dependency alternatives representation comes from the manifest file
+    // (since trailing backslashes in manifest lines has special semantics).
     //
     explicit LIBBPKG_EXPORT
-    dependency_alternatives (const std::string&);
+    dependency_alternatives (const std::string&,
+                             const package_name& dependent,
+                             const std::string& name = std::string (),
+                             std::uint64_t line = 1,
+                             std::uint64_t column = 1);
 
     LIBBPKG_EXPORT std::string
     string () const;
+
+    // Return true if there is a conditional alternative in the list.
+    //
+    LIBBPKG_EXPORT bool
+    conditional () const;
   };
 
   inline std::ostream&
@@ -504,45 +634,109 @@ namespace bpkg
 
   // requires
   //
+  // The requirement alternative string representation is similar to that of
+  // the dependency alternative with the following differences:
+  //
+  // - The requirement id (with or without version) can mean anything (but
+  //   must still be a valid package name).
+  //
+  // - Only the enable and reflect clauses are permitted (reflect is allowed
+  //   for potential future support of recognized requirement alternatives,
+  //   for example, C++ standard).
+  //
+  // - The simplified representation syntax, where the comment carries the
+  //   main information and thus is mandatory, is also supported (see
+  //   requirement_alternatives for details). For example:
+  //
+  //   requires: ; X11 libs.
+  //   requires: ? ($windows) ; Only 64-bit.
+  //   requires: ? ; Only 64-bit if on Windows.
+  //   requires: x86_64 ? ; Only if on Windows.
+  //
   class requirement_alternative: public butl::small_vector<std::string, 1>
   {
   public:
     butl::optional<std::string> enable;
+    butl::optional<std::string> reflect;
 
     requirement_alternative () = default;
-    requirement_alternative (butl::optional<std::string> e)
-        : enable (std::move (e)) {}
+    requirement_alternative (butl::optional<std::string> e,
+                             butl::optional<std::string> r)
+        : enable (std::move (e)), reflect (std::move (r)) {}
 
-    // Parse the requirement alternative string representation.
+    // Return the single-line representation if possible (the reflect clause
+    // either absent or contains no newlines).
     //
-    explicit LIBBPKG_EXPORT
-    requirement_alternative (const std::string&);
-
     LIBBPKG_EXPORT std::string
     string () const;
+
+    // Return true if the string() function would return the single-line
+    // representation.
+    //
+    LIBBPKG_EXPORT bool
+    single_line () const;
+
+    // Return true if this is a single requirement with an empty id or an
+    // empty enable condition.
+    //
+    bool
+    simple () const
+    {
+      return size () == 1 && (back ().empty () || (enable && enable->empty ()));
+    }
   };
 
   class requirement_alternatives:
     public butl::small_vector<requirement_alternative, 1>
   {
   public:
-    bool conditional;
     bool buildtime;
     std::string comment;
 
     requirement_alternatives () = default;
-    requirement_alternatives (bool d, bool b, std::string c)
-        : conditional (d), buildtime (b), comment (std::move (c)) {}
+    requirement_alternatives (bool b, std::string c)
+        : buildtime (b), comment (std::move (c)) {}
 
     // Parse the requirement alternatives string representation in the
-    // `[?] [<requirement> [ '|' <requirement>]*] [; <comment>]` form. Throw
-    // std::invalid_argument if the value is invalid. @@ DEP @@ TMP update.
+    // following forms:
+    //
+    // [*] <alternative> [ '|' <alternative>]* [; <comment>]
+    // [*] [<requirement-id>] [? [<enable-condition>]] ; <comment>
+    //
+    // Parsing the second form ends up with a single alternative with a single
+    // potentially empty requirement id, potentially with an enable condition
+    // with potentially empty value (see examples above).
+    //
+    // Throw manifest_parsing if the value is invalid.
+    //
+    // Optionally, specify the stream name to use when creating the
+    // manifest_parsing exception. The start line and column arguments can be
+    // used to align the exception information with a containing stream. This
+    // is useful when the alternatives representation is a part of some larger
+    // text (manifest, etc).
     //
     explicit LIBBPKG_EXPORT
-    requirement_alternatives (const std::string&);
+    requirement_alternatives (const std::string&,
+                              const package_name& dependent,
+                              const std::string& name = std::string (),
+                              std::uint64_t line = 1,
+                              std::uint64_t column = 1);
 
     LIBBPKG_EXPORT std::string
     string () const;
+
+    // Return true if there is a conditional alternative in the list.
+    //
+    LIBBPKG_EXPORT bool
+    conditional () const;
+
+    // Return true if this is a single simple requirement alternative.
+    //
+    bool
+    simple () const
+    {
+      return size () == 1 && back ().simple ();
+    }
   };
 
   inline std::ostream&

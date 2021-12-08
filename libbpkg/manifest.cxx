@@ -18,14 +18,18 @@
 
 #include <libbutl/url.hxx>
 #include <libbutl/path.hxx>
+#include <libbutl/utf8.hxx>
 #include <libbutl/base64.hxx>
 #include <libbutl/utility.hxx>             // icasecmp(), lcase(), alnum(),
                                            // digit(), xdigit(), next_word()
 #include <libbutl/filesystem.hxx>          // dir_exist()
 #include <libbutl/small-vector.hxx>
+#include <libbutl/char-scanner.hxx>
 #include <libbutl/manifest-parser.hxx>
 #include <libbutl/manifest-serializer.hxx>
 #include <libbutl/standard-version.hxx>
+
+#include <libbpkg/buildfile-scanner.hxx>
 
 using namespace std;
 using namespace butl;
@@ -1123,139 +1127,1432 @@ namespace bpkg
 
   // dependency_alternative
   //
-  dependency_alternative::
-  dependency_alternative (const std::string& s)
-  {
-    push_back (dependency (s)); // @@ DEP
-  }
-
   string dependency_alternative::
   string () const
   {
-    assert (size () == 1); // @@ DEP
-    return front ().string ();
+    std::string r (size () > 1 ? "{" : "");
+
+    bool first (true);
+    for (const dependency& d: *this)
+    {
+      if (!first)
+        r += ' ';
+      else
+        first = false;
+
+      r += d.string ();
+    }
+
+    if (size () > 1)
+      r += '}';
+
+    if (single_line ())
+    {
+      if (enable)
+      {
+        r += " ? (";
+        r += *enable;
+        r += ')';
+      }
+
+      if (reflect)
+      {
+        r += ' ';
+        r += *reflect;
+      }
+    }
+    else
+    {
+      // Add an extra newline between the clauses.
+      //
+      bool first (true);
+
+      r += "\n{";
+
+      if (enable)
+      {
+        first = false;
+
+        r += "\n  enable (";
+        r += *enable;
+        r += ')';
+      }
+
+      if (prefer)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  prefer\n  {\n";
+        r += *prefer;
+        r += "  }";
+
+        assert (accept);
+
+        r += "\n\n  accept (";
+        r += *accept;
+        r += ')';
+      }
+      else if (require)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  require\n  {\n";
+        r += *require;
+        r += "  }";
+      }
+
+      if (reflect)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  reflect\n  {\n";
+        r += *reflect;
+        r += "  }";
+      }
+
+      r += "\n}";
+    }
+
+    return r;
+  }
+
+  bool dependency_alternative::
+  single_line () const
+  {
+    return !prefer  &&
+           !require &&
+           (!reflect || reflect->find ('\n') == string::npos);
   }
 
   // dependency_alternatives
   //
+  class dependency_alternatives_lexer: public char_scanner<utf8_validator>
+  {
+  public:
+    enum class token_type
+    {
+      eos,
+      newline,
+      word,
+      buildfile,
+
+      question,        // ?
+
+      lcbrace,         // {
+      rcbrace,         // }
+
+      lparen,          // (
+      rparen,          // )
+
+      lsbrace,         // [
+      rsbrace,         // ]
+
+      equal,           // ==
+      not_equal,       // !=
+      less,            // <
+      greater,         // >
+      less_equal,      // <=
+      greater_equal,   // >=
+
+      tilde,           // ~
+      caret,           // ^
+
+      bit_or           // |
+    };
+
+    struct token
+    {
+      token_type type;
+      std::string value;
+
+      uint64_t line;
+      uint64_t column;
+
+      std::string
+      string (bool diag = true) const;
+    };
+
+  public:
+    // Note that name is stored by shallow reference.
+    //
+    dependency_alternatives_lexer (istream& is,
+                                   const string& name,
+                                   uint64_t line,
+                                   uint64_t column)
+        : char_scanner (is,
+                        utf8_validator (codepoint_types::graphic, U"\n\r\t"),
+                        true /* crlf */,
+                        line,
+                        column),
+          name_ (name),
+          buildfile_scan_ (*this, name_) {}
+
+    // The following functions throw manifest_parsing on invalid UTF-8
+    // sequence.
+    //
+
+    // Peek the next non-whitespace character.
+    //
+    xchar
+    peek_char ();
+
+    // Extract next token (other than of the buildfile type) from the stream.
+    //
+    // Note that it is ok to call next() again after getting eos.
+    //
+    token
+    next ();
+
+    // The next_*() functions extract the buildfile token from the stream.
+    // Throw manifest_parsing on error (invalid buildfile fragment, etc).
+    //
+    // Note that they are just thin wrappers around the scan_*() functions
+    // (see buildfile-scanner.hxx for details).
+    //
+    token
+    next_eval ();
+
+    token
+    next_line (char stop);
+
+    token
+    next_block ();
+
+  private:
+    using base = char_scanner<utf8_validator>;
+
+    xchar
+    get ()
+    {
+      xchar c (base::get (ebuf_));
+
+      if (invalid (c))
+        throw parsing (name_, c.line, c.column, ebuf_);
+
+      return c;
+    }
+
+    void
+    get (const xchar& peeked)
+    {
+      base::get (peeked);
+    }
+
+    xchar
+    peek ()
+    {
+      xchar c (base::peek (ebuf_));
+
+      if (invalid (c))
+        throw parsing (name_, c.line, c.column, ebuf_);
+
+      return c;
+    }
+
+    void
+    skip_spaces ();
+
+  private:
+    const string& name_;
+
+    // Buffer for a get()/peek() potential error.
+    //
+    string ebuf_;
+
+    buildfile_scanner<utf8_validator, 1> buildfile_scan_;
+  };
+
+  dependency_alternatives_lexer::token dependency_alternatives_lexer::
+  next ()
+  {
+    using type = token_type;
+
+    skip_spaces ();
+
+    uint64_t ln (line);
+    uint64_t cl (column);
+
+    xchar c (get ());
+
+    auto make_token = [ln, cl] (type t, string v = string ())
+    {
+      return token {t, move (v), ln, cl};
+    };
+
+    if (eos (c))
+      return make_token (type::eos);
+
+    // NOTE: don't forget to also update the below separators list if changing
+    // anything here.
+    //
+    switch (c)
+    {
+    case '\n': return make_token (type::newline);
+    case '?':  return make_token (type::question);
+    case '(':  return make_token (type::lparen);
+    case ')':  return make_token (type::rparen);
+    case '{':  return make_token (type::lcbrace);
+    case '}':  return make_token (type::rcbrace);
+    case '[':  return make_token (type::lsbrace);
+    case ']':  return make_token (type::rsbrace);
+
+    case '=':
+    case '!':
+      {
+        if ((peek ()) == '=')
+        {
+          get ();
+          return make_token (c == '=' ? type::equal : type::not_equal);
+        }
+        break;
+      }
+
+    case '<':
+      {
+        if ((c = peek ()) == '=')
+        {
+          get (c);
+          return make_token (type::less_equal);
+        }
+        else
+          return make_token (type::less);
+      }
+
+    case '>':
+      {
+        if ((c = peek ()) == '=')
+        {
+          get (c);
+          return make_token (type::greater_equal);
+        }
+        else
+          return make_token (type::greater);
+      }
+
+    case '~':  return make_token (type::tilde);
+    case '^':  return make_token (type::caret);
+
+    case '|': return make_token (type::bit_or);
+    }
+
+    // Otherwise it is a word.
+    //
+    // Starts with a non-whitespace character which has not been recognized as
+    // a part of some other token.
+    //
+    string r (1, c);
+
+    // Add subsequent characters until eos or separator is encountered.
+    //
+    const char* s (" \n\t?(){}[]=!<>~^|");
+    for (c = peek (); !eos (c) && strchr (s, c) == nullptr; c = peek ())
+    {
+      r += c;
+      get (c);
+    }
+
+    return make_token (type::word, move (r));
+  }
+
+  dependency_alternatives_lexer::token dependency_alternatives_lexer::
+  next_eval ()
+  {
+    skip_spaces ();
+
+    uint64_t ln (line);
+    uint64_t cl (column);
+
+    try
+    {
+      // Strip the trailing whitespaces.
+      //
+      return token {token_type::buildfile,
+                    trim (buildfile_scan_.scan_eval ()),
+                    ln,
+                    cl};
+    }
+    catch (const buildfile_scanning& e)
+    {
+      throw parsing (e.name, e.line, e.column, e.description);
+    }
+  }
+
+  dependency_alternatives_lexer::token dependency_alternatives_lexer::
+  next_line (char stop)
+  {
+    skip_spaces ();
+
+    uint64_t ln (line);
+    uint64_t cl (column);
+
+    try
+    {
+      // Strip the trailing whitespaces.
+      //
+      return token {token_type::buildfile,
+                    trim (buildfile_scan_.scan_line (stop)),
+                    ln,
+                    cl};
+    }
+    catch (const buildfile_scanning& e)
+    {
+      throw parsing (e.name, e.line, e.column, e.description);
+    }
+  }
+
+  dependency_alternatives_lexer::token dependency_alternatives_lexer::
+  next_block ()
+  {
+    uint64_t ln (line);
+    uint64_t cl (column);
+
+    try
+    {
+      // Don't trim the token value not to strip the potential block indenting
+      // on the first line.
+      //
+      return token {token_type::buildfile,
+                    buildfile_scan_.scan_block (),
+                    ln,
+                    cl};
+    }
+    catch (const buildfile_scanning& e)
+    {
+      throw parsing (e.name, e.line, e.column, e.description);
+    }
+  }
+
+  dependency_alternatives_lexer::xchar dependency_alternatives_lexer::
+  peek_char ()
+  {
+    skip_spaces ();
+    return peek ();
+  }
+
+  void dependency_alternatives_lexer::
+  skip_spaces ()
+  {
+    xchar c (peek ());
+    bool start (c.column == 1);
+
+    for (; !eos (c); c = peek ())
+    {
+      switch (c)
+      {
+      case ' ':
+      case '\t': break;
+
+      case '\n':
+        {
+          // Skip empty lines.
+          //
+          if (start)
+            break;
+        }
+        // Fall through.
+      default: return;
+      }
+
+      get (c);
+    }
+  }
+
+  std::string dependency_alternatives_lexer::token::
+  string (bool diag) const
+  {
+    std::string q (diag ? "'" : "");
+
+    switch (type)
+    {
+    case token_type::eos:           return diag ? "<end of stream>" : "";
+    case token_type::newline:       return diag ? "<newline>" : "\n";
+    case token_type::word:          return q + value + q;
+    case token_type::buildfile:     return (diag
+                                            ? "<buildfile fragment>"
+                                            : value);
+    case token_type::question:      return q + "?" + q;
+    case token_type::lparen:        return q + "(" + q;
+    case token_type::rparen:        return q + ")" + q;
+    case token_type::lcbrace:       return q + "{" + q;
+    case token_type::rcbrace:       return q + "}" + q;
+    case token_type::lsbrace:       return q + "[" + q;
+    case token_type::rsbrace:       return q + "]" + q;
+    case token_type::equal:         return q + "==" + q;
+    case token_type::not_equal:     return q + "!=" + q;
+    case token_type::less:          return q + "<" + q;
+    case token_type::greater:       return q + ">" + q;
+    case token_type::less_equal:    return q + "<=" + q;
+    case token_type::greater_equal: return q + ">=" + q;
+    case token_type::tilde:         return q + "~" + q;
+    case token_type::caret:         return q + "^" + q;
+    case token_type::bit_or:        return q + "|" + q;
+    }
+
+    assert (false); // Can't be here.
+    return "";
+  }
+
+  class dependency_alternatives_parser
+  {
+  public:
+
+    // If the requirements flavor is specified, then only enable and reflect
+    // clauses are allowed in the multi-line representation.
+    //
+    explicit
+    dependency_alternatives_parser (bool requirements = false)
+        : requirements_ (requirements) {}
+
+    // Throw manifest_parsing if representation is invalid.
+    //
+    void
+    parse (const package_name& dependent,
+           istream&,
+           const string& name,
+           uint64_t line,
+           uint64_t column,
+           dependency_alternatives&);
+
+  private:
+    using lexer      = dependency_alternatives_lexer;
+    using token      = lexer::token;
+    using token_type = lexer::token_type;
+
+    token_type
+    next (token&, token_type&);
+
+    token_type
+    next_eval (token&, token_type&);
+
+    token_type
+    next_line (token&, token_type&);
+
+    token_type
+    next_block (token&, token_type&);
+
+    // Receive the token/type from which it should start consuming and in
+    // return the token/type contains the first token that has not been
+    // consumed (normally eos, newline, or '|').
+    //
+    dependency_alternative
+    parse_alternative (token&, token_type&, bool first);
+
+    // Helpers.
+    //
+    // Throw manifest_parsing with the `<what> expected instead of <token>`
+    // description.
+    //
+    [[noreturn]] void
+    unexpected_token (const token&, string&& what);
+
+    bool requirements_;
+
+    const package_name* dependent_;
+    const string* name_;
+    lexer* lexer_;
+    dependency_alternatives* result_;
+  };
+
+  [[noreturn]] void dependency_alternatives_parser::
+  unexpected_token (const token& t, string&& w)
+  {
+    w += " expected";
+
+    // Don't add the `instead of...` part, if the unexpected token is eos or
+    // an empty word/buildfile.
+    //
+    if (t.type != token_type::eos &&
+        ((t.type != token_type::word && t.type != token_type::buildfile) ||
+         !t.value.empty ()))
+    {
+      w += " instead of ";
+      w += t.string ();
+    }
+
+    throw parsing (*name_, t.line, t.column, w);
+  }
+
+  void dependency_alternatives_parser::
+  parse (const package_name& dependent,
+         istream& is,
+         const string& name,
+         uint64_t line,
+         uint64_t column,
+         dependency_alternatives& result)
+  {
+    lexer lexer (is, name, line, column);
+
+    dependent_ = &dependent;
+    name_ = &name;
+    lexer_ = &lexer;
+    result_ = &result;
+
+    string what (requirements_ ? "requirement" : "dependency");
+
+    token t;
+    token_type tt;
+    next (t, tt);
+
+    // Make sure the representation is not empty, unless we are in the
+    // requirements mode. In the latter case fallback to creating a simple
+    // unconditional requirement. Note that it's the caller's responsibility
+    // to verify that a non-empty comment is specified in this case.
+    //
+    if (tt == token_type::eos)
+    {
+      if (!requirements_)
+        unexpected_token (t, what + " alternatives");
+
+      dependency_alternative da;
+      da.push_back (dependency ());
+
+      result_->push_back (move (da));
+      return;
+    }
+
+    for (bool first (true); tt != token_type::eos; )
+    {
+      dependency_alternative da (parse_alternative (t, tt, first));
+
+      // Skip newline after the dependency alternative, if present.
+      //
+      if (tt == token_type::newline)
+        next (t, tt);
+
+      // Make sure that the simple requirement has the only alternative in the
+      // representation.
+      //
+      if (requirements_   &&
+          da.size () == 1 &&
+          (da[0].name.empty () || (da.enable && da.enable->empty ())))
+      {
+        assert (first);
+
+        if (tt != token_type::eos)
+          throw parsing (*name_,
+                         t.line,
+                         t.column,
+                         "end of simple requirement expected");
+      }
+      else
+      {
+        if (tt != token_type::eos && tt != token_type::bit_or)
+          unexpected_token (t, "end of " + what + " alternatives or '|'");
+      }
+
+      if (tt == token_type::bit_or)
+      {
+        next (t, tt);
+
+        // Skip newline after '|', if present.
+        //
+        if (tt == token_type::newline)
+          next (t, tt);
+
+        // Make sure '|' is not followed by eos.
+        //
+        if (tt == token_type::eos)
+          unexpected_token (t, move (what));
+      }
+
+      result_->push_back (move (da));
+
+      first = false;
+    }
+  }
+
+  dependency_alternative dependency_alternatives_parser::
+  parse_alternative (token& t, token_type& tt, bool first)
+  {
+    using type  = token_type;
+
+    dependency_alternative r;
+
+    string what (requirements_ ? "requirement" : "dependency");
+    string config ("config." + dependent_->variable () + ".");
+
+    auto bad_token = [&t, this] (string&& what)
+    {
+      unexpected_token (t, move (what));
+    };
+
+    // Check that the current token type matches the expected one. Throw
+    // manifest_parsing if that's not the case. Use the expected token type
+    // name for the error description or the custom name, if specified. For
+    // the word and buildfile token types the custom name must be specified.
+    //
+    // Only move from the custom name argument if throwing exception.
+    //
+    auto expect_token = [&tt, &bad_token] (type et,
+                                           string&& what = string ())
+    {
+      assert ((et != type::word && et != type::buildfile) || !what.empty ());
+
+      if (tt != et)
+      {
+        if (what.empty ())
+        {
+          token e {et, "", 0, 0};
+          bad_token (e.string ());
+        }
+        else
+          bad_token (move (what));
+      }
+    };
+
+    // Parse dependencies.
+    //
+    // If the current token starts the version constraint, then read its
+    // tokens, rejoin them, and return the constraint string representation.
+    // Otherwise return nullopt.
+    //
+    // Note that normally the caller reads the dependency package name, reads
+    // the version constraint and, if present, appends it to the dependency,
+    // and then creates the dependency object with a single constructor call.
+    //
+    // Note: doesn't read token that follows the constraint.
+    //
+    auto try_scan_version_constraint =
+      [&t, &tt, &bad_token, &expect_token, this] () -> optional<string>
+    {
+      switch (t.type)
+      {
+      case type::lparen:
+      case type::lsbrace:
+        {
+          string r (t.string (false /* diag */));
+
+          next (t, tt);
+
+          expect_token (type::word, "version");
+
+          r += t.string (false /* diag */);
+          r += ' ';
+
+          next (t, tt);
+
+          expect_token (type::word, "version");
+
+          r += t.string (false /* diag */);
+
+          next (t, tt);
+
+          if (tt != type::rparen && tt != type::rsbrace)
+            bad_token ("')' or ']'");
+
+          r += t.string (false /* diag */);
+
+          return optional<string> (move (r));
+        }
+
+      case type::equal:
+      case type::not_equal:
+      case type::less:
+      case type::greater:
+      case type::less_equal:
+      case type::greater_equal:
+      case type::tilde:
+      case type::caret:
+        {
+          string r (t.string (false /* diag */));
+
+          next (t, tt);
+
+          expect_token (type::word, "version");
+
+          r += t.string (false /* diag */);
+
+          return optional<string> (move (r));
+        }
+
+      default: return nullopt;
+      }
+    };
+
+    // Parse the evaluation context including the left and right parenthesis
+    // and return the enclosed buildfile fragment.
+    //
+    // Note: no token is read after terminating ')'.
+    //
+    auto parse_eval = [&t, &tt, &expect_token, &bad_token, this] ()
+    {
+      next (t, tt);
+      expect_token (type::lparen);
+
+      next_eval (t, tt);
+
+      if (t.value.empty ())
+        bad_token ("condition");
+
+      string r (move (t.value));
+
+      next (t, tt);
+      expect_token (type::rparen);
+
+      return r;
+    };
+
+    const char* vccs ("([<>=!~^");
+
+    bool group (tt == type::lcbrace); // Dependency group.
+
+    if (group)
+    {
+      next (t, tt);
+
+      if (tt == type::rcbrace)
+        bad_token (move (what));
+
+      while (tt != type::rcbrace)
+      {
+        expect_token (type::word, what + " or '}'");
+
+        string   d  (move (t.value));
+        uint64_t dl (t.line);
+        uint64_t dc (t.column);
+
+        next (t, tt);
+
+        optional<string> vc (try_scan_version_constraint ());
+
+        if (vc)
+        {
+          d += *vc;
+
+          next (t, tt);
+        }
+
+        try
+        {
+          r.emplace_back (d);
+        }
+        catch (const invalid_argument& e)
+        {
+          throw parsing (*name_, dl, dc, e.what ());
+        }
+      }
+
+      // See if a common version constraint follows the dependency group and
+      // parse it if that's the case.
+      //
+      // Note that we need to be accurate not to consume what may end up to be
+      // a part of the reflect config.
+      //
+      lexer::xchar c (lexer_->peek_char ());
+
+      if (!lexer::eos (c) && strchr (vccs, c) != nullptr)
+      {
+        next (t, tt);
+
+        uint64_t vcl (t.line);
+        uint64_t vcc (t.column);
+
+        optional<string> vc (try_scan_version_constraint ());
+
+        if (!vc)
+          bad_token ("version constraint");
+
+        try
+        {
+          version_constraint c (*vc);
+
+          for (dependency& d: r)
+          {
+            if (!d.constraint)
+              d.constraint = c;
+          }
+        }
+        catch (const invalid_argument& e)
+        {
+          throw parsing (*name_,
+                         vcl,
+                         vcc,
+                         string ("invalid version constraint: ") + e.what ());
+        }
+      }
+    }
+    else        // Single dependency.
+    {
+      // If we see the question mark instead of a word in the requirements
+      // mode, then this is a simple requirement. In this case parse the
+      // evaluation context, if present, and bail out.
+      //
+      if (requirements_ && first && tt == type::question)
+      {
+        r.emplace_back (dependency ());
+        r.enable = lexer_->peek_char () == '(' ? parse_eval () : string ();
+
+        next (t, tt);
+        return r;
+      }
+
+      expect_token (type::word, move (what));
+
+      string   d  (move (t.value));
+      uint64_t dl (t.line);
+      uint64_t dc (t.column);
+
+      // See if a version constraint follows the dependency package name and
+      // parse it if that's the case.
+      //
+      lexer::xchar c (lexer_->peek_char ());
+
+      if (!lexer::eos (c) && strchr (vccs, c) != nullptr)
+      {
+        next (t, tt);
+
+        optional<string> vc (try_scan_version_constraint ());
+
+        if (!vc)
+          bad_token ("version constraint");
+
+        d += *vc;
+      }
+
+      try
+      {
+        r.emplace_back (d);
+      }
+      catch (const invalid_argument& e)
+      {
+        throw parsing (*name_, dl, dc, e.what ());
+      }
+    }
+
+    // See if there is an enable condition and parse it if that's the case.
+    //
+    {
+      lexer::xchar c (lexer_->peek_char ());
+
+      if (c == '?')
+      {
+        next (t, tt);
+        expect_token (type::question);
+
+        // If we don't see the opening parenthesis in the requirements mode,
+        // then this is a simple requirement. In this case set the enable
+        // condition to an empty string and bail out.
+        //
+        c = lexer_->peek_char ();
+
+        if (requirements_ && first && !group && c != '(')
+        {
+          r.enable = "";
+
+          next (t, tt);
+          return r;
+        }
+
+        r.enable = parse_eval ();
+      }
+    }
+
+    // See if there is a reflect config and parse it if that's the case.
+    //
+    {
+      lexer::xchar c (lexer_->peek_char ());
+
+      if (!lexer::eos (c) && strchr ("|\n", c) == nullptr)
+      {
+        next_line (t, tt);
+
+        string& l (t.value);
+        if (l.compare (0, config.size (), config) != 0)
+          bad_token (config + "* variable assignment");
+
+        r.reflect = move (l);
+      }
+    }
+
+    // If the dependencies are terminated with the newline, then check if the
+    // next token is '{'. If that's the case, then this is a multi-line
+    // representation.
+    //
+    next (t, tt);
+
+    if (tt == type::newline)
+    {
+      next (t, tt);
+
+      if (tt == type::lcbrace)
+      {
+        if (r.enable)
+          throw parsing (
+            *name_,
+            t.line,
+            t.column,
+            "multi-line " + what + " form with inline enable clause");
+
+        if (r.reflect)
+          throw parsing (
+            *name_,
+            t.line,
+            t.column,
+            "multi-line " + what + " form with inline reflect clause");
+
+        next (t, tt);
+        expect_token (type::newline);
+
+        // Parse the clauses.
+        //
+        for (next (t, tt); tt == type::word; next (t, tt))
+        {
+          auto fail_dup = [&t, this] ()
+          {
+            throw parsing (*name_, t.line, t.column, "duplicate clause");
+          };
+
+          auto fail_precede = [&t, this] (const char* what)
+          {
+            throw parsing (
+              *name_,
+              t.line,
+              t.column,
+              t.value + " clause should precede " + what + " clause");
+          };
+
+          auto fail_conflict = [&t, this] (const char* what)
+          {
+            throw parsing (
+              *name_,
+              t.line,
+              t.column,
+              t.value + " and " + what + " clauses are mutually exclusive");
+          };
+
+          auto fail_requirements = [&t, this] ()
+          {
+            throw parsing (
+              *name_,
+              t.line,
+              t.column,
+              t.value + " clause is not permitted for requirements");
+          };
+
+          // Parse the buildfile fragment block including the left and right
+          // curly braces (expected to be on the separate lines) and return
+          // the enclosed fragment.
+          //
+          auto parse_block = [&t, &tt, &expect_token, &bad_token, this] ()
+          {
+            next (t, tt);
+            expect_token (type::newline);
+
+            next (t, tt);
+            expect_token (type::lcbrace);
+
+            next (t, tt);
+            expect_token (type::newline);
+
+            next_block (t, tt);
+
+            string r (move (t.value));
+
+            // Fail if the buildfile fragment is empty.
+            //
+            if (r.find_first_not_of (" \t\n") == string::npos)
+              bad_token ("buildfile fragment");
+
+            return r;
+          };
+
+          const string& v (t.value);
+
+          if (v == "enable")
+          {
+            if (r.enable)
+              fail_dup ();
+
+            if (r.prefer)
+              fail_precede ("prefer");
+
+            if (r.require)
+              fail_precede ("require");
+
+            if (r.reflect)
+              fail_precede ("reflect");
+
+            r.enable = parse_eval ();
+
+            next (t, tt);
+            expect_token (type::newline);
+          }
+          else if (v == "prefer")
+          {
+            if (requirements_)
+              fail_requirements ();
+
+            if (r.prefer)
+              fail_dup ();
+
+            if (r.require)
+              fail_conflict ("require");
+
+            if (r.reflect)
+              fail_precede ("reflect");
+
+            r.prefer = parse_block ();
+
+            // The accept clause must follow, so parse it.
+            //
+            next (t, tt);
+
+            if (tt != type::word || t.value != "accept")
+              bad_token ("accept clause");
+
+            r.accept = parse_eval ();
+
+            next (t, tt);
+            expect_token (type::newline);
+          }
+          else if (v == "require")
+          {
+            if (requirements_)
+              fail_requirements ();
+
+            if (r.require)
+              fail_dup ();
+
+            if (r.prefer)
+              fail_conflict ("prefer");
+
+            if (r.reflect)
+              fail_precede ("reflect");
+
+            r.require = parse_block ();
+          }
+          else if (v == "reflect")
+          {
+            if (r.reflect)
+              fail_dup ();
+
+            r.reflect = parse_block ();
+          }
+          else if (v == "accept")
+          {
+            if (requirements_)
+              fail_requirements ();
+
+            throw parsing (*name_,
+                           t.line,
+                           t.column,
+                           "accept clause should follow prefer clause");
+          }
+          else
+            bad_token (what + " alternative clause");
+        }
+
+        expect_token (type::rcbrace);
+        next (t, tt);
+      }
+    }
+
+    return r;
+  }
+
+  dependency_alternatives_parser::token_type dependency_alternatives_parser::
+  next (token& t, token_type& tt)
+  {
+    t = lexer_->next ();
+    tt = t.type;
+    return tt;
+  }
+
+  dependency_alternatives_parser::token_type dependency_alternatives_parser::
+  next_eval (token& t, token_type& tt)
+  {
+    t = lexer_->next_eval ();
+    tt = t.type;
+    return tt;
+  }
+
+  dependency_alternatives_parser::token_type dependency_alternatives_parser::
+  next_line (token& t, token_type& tt)
+  {
+    t = lexer_->next_line ('|');
+    tt = t.type;
+    return tt;
+  }
+
+  dependency_alternatives_parser::token_type dependency_alternatives_parser::
+  next_block (token& t, token_type& tt)
+  {
+    t = lexer_->next_block ();
+    tt = t.type;
+    return tt;
+  }
+
   dependency_alternatives::
-  dependency_alternatives (const std::string& s)
+  dependency_alternatives (const std::string& s,
+                           const package_name& dependent,
+                           const std::string& name,
+                           uint64_t line,
+                           uint64_t column)
   {
     using std::string;
 
-    // Allow specifying ?* in any order.
-    //
-    size_t n (s.size ());
-    size_t cond ((n > 0 && s[0] == '?') || (n > 1 && s[1] == '?') ? 1 : 0);
-    size_t btim ((n > 0 && s[0] == '*') || (n > 1 && s[1] == '*') ? 1 : 0);
-
     auto vc (parser::split_comment (s));
 
-    conditional = (cond != 0);
-    buildtime   = (btim != 0);
-    comment     = move (vc.second);
+    comment = move (vc.second);
 
-    const string& vl (vc.first);
+    const string& v (vc.first);
+    buildtime = (v[0] == '*');
 
-    string::const_iterator b (vl.begin ());
-    string::const_iterator e (vl.end ());
+    string::const_iterator b (v.begin ());
+    string::const_iterator e (v.end ());
 
-    if (conditional || buildtime)
+    if (buildtime)
     {
-      string::size_type p (vl.find_first_not_of (spaces, cond + btim));
+      string::size_type p (v.find_first_not_of (spaces, 1));
       b = p == string::npos ? e : b + p;
     }
 
-    list_parser lp (b, e, '|');
-    for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-      push_back (dependency_alternative (lv));
+    dependency_alternatives_parser p;
+    istringstream is (b == v.begin () ? v : string (b, e));
+    p.parse (dependent, is, name, line, column, *this);
   }
 
   string dependency_alternatives::
   string () const
   {
-    std::string r (conditional
-                   ? (buildtime ? "?* " : "? ")
-                   : (buildtime ? "* " : ""));
+    std::string r (buildtime ? "* " : "");
 
-    bool f (true);
+    const dependency_alternative* prev (nullptr);
     for (const dependency_alternative& da: *this)
     {
-      r += (f ? (f = false, "") : " | ");
+      if (prev != nullptr)
+      {
+        r += prev->single_line () ? " |" : "\n|";
+        r += !da.single_line () || !prev->single_line () ? '\n' : ' ';
+      }
+
       r += da.string ();
+      prev = &da;
     }
 
     return serializer::merge_comment (r, comment);
   }
 
-  // requirement_alternative
-  //
-  requirement_alternative::
-  requirement_alternative (const std::string& s)
+  bool dependency_alternatives::
+  conditional () const
   {
-    push_back (s); // @@ DEP
+    for (const dependency_alternative& da: *this)
+    {
+      if (da.enable)
+        return true;
+    }
+
+    return false;
   }
 
+  // requirement_alternative
+  //
   string requirement_alternative::
   string () const
   {
-    assert (size () == 1); // @@ DEP
-    return front ();
+    using std::string;
+
+    string r (size () > 1 ? "{" : "");
+
+    bool first (true);
+    for (const string& rq: *this)
+    {
+      if (!first)
+        r += ' ';
+      else
+        first = false;
+
+      r += rq;
+    }
+
+    if (size () > 1)
+      r += '}';
+
+    if (single_line ())
+    {
+      if (enable)
+      {
+        if (!simple ())
+        {
+          r += " ? (";
+          r += *enable;
+          r += ')';
+        }
+        else
+        {
+          // Note that the (single) requirement id may or may not be empty.
+          //
+          if (!r.empty ())
+            r += ' ';
+
+          r += '?';
+
+          if (!enable->empty ())
+          {
+            r += " (";
+            r += *enable;
+            r += ')';
+          }
+        }
+      }
+
+      if (reflect)
+      {
+        r += ' ';
+        r += *reflect;
+      }
+    }
+    else
+    {
+      r += "\n{";
+
+      if (enable)
+      {
+        r += "\n  enable (";
+        r += *enable;
+        r += ')';
+      }
+
+      if (reflect)
+      {
+        if (enable)
+          r += '\n';
+
+        r += "\n  reflect\n  {\n";
+        r += *reflect;
+        r += "  }";
+      }
+
+      r += "\n}";
+    }
+
+    return r;
+  }
+
+  bool requirement_alternative::
+  single_line () const
+  {
+    return !reflect || reflect->find ('\n') == string::npos;
   }
 
   // requirement_alternatives
   //
   requirement_alternatives::
-  requirement_alternatives (const std::string& v)
+  requirement_alternatives (const std::string& s,
+                            const package_name& dependent,
+                            const std::string& name,
+                            uint64_t line,
+                            uint64_t column)
   {
     using std::string;
 
-    // Allow specifying ?* in any order.
-    //
-    size_t n (v.size ());
-    size_t cond ((n > 0 && v[0] == '?') || (n > 1 && v[1] == '?') ? 1 : 0);
-    size_t btim ((n > 0 && v[0] == '*') || (n > 1 && v[1] == '*') ? 1 : 0);
+    auto vc (parser::split_comment (s));
 
-    auto vc (parser::split_comment (v));
+    comment = move (vc.second);
 
-    conditional = (cond != 0);
-    buildtime   = (btim != 0);
-    comment     = move (vc.second);
+    const string& v (vc.first);
+    buildtime = (v[0] == '*');
 
-    const string& vl (vc.first);
+    string::const_iterator b (v.begin ());
+    string::const_iterator e (v.end ());
 
-    string::const_iterator b (vl.begin ());
-    string::const_iterator e (vl.end ());
-
-    if (conditional || buildtime)
+    if (buildtime)
     {
-      string::size_type p (vl.find_first_not_of (spaces, cond + btim));
+      string::size_type p (v.find_first_not_of (spaces, 1));
       b = p == string::npos ? e : b + p;
     }
 
-    list_parser lp (b, e, '|');
-    for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-      push_back (requirement_alternative (lv));
+    // We will use the dependency alternatives parser to parse the
+    // representation into a temporary dependency alternatives in the
+    // requirements mode. Then we will move the dependency alternatives into
+    // the requirement alternatives using the string representation of the
+    // dependencies.
+    //
+    dependency_alternatives_parser p (true /* requirements */);
+    istringstream is (b == v.begin () ? v : string (b, e));
 
-    if (empty () && comment.empty ())
-      throw invalid_argument ("empty package requirement specification");
+    dependency_alternatives das;
+    p.parse (dependent, is, name, line, column, das);
+
+    for (dependency_alternative& da: das)
+    {
+      requirement_alternative ra (move (da.enable), move (da.reflect));
+
+      // Also handle the simple requirement.
+      //
+      for (dependency& d: da)
+        ra.push_back (!d.name.empty () ? d.string () : string ());
+
+      push_back (move (ra));
+    }
+
+    // Make sure that the simple requirement is accompanied with a non-empty
+    // comment.
+    //
+    if (simple () && comment.empty ())
+    {
+      // Let's describe the following error cases differently:
+      //
+      // requires: ?
+      // requires:
+      //
+      throw parsing (name,
+                     line,
+                     column,
+                     (back ().enable
+                      ? "no comment specified for simple requirement"
+                      : "requirement or comment expected"));
+    }
   }
 
   std::string requirement_alternatives::
   string () const
   {
-    std::string r (conditional
-                   ? (buildtime ? "?* " : "? ")
-                   : (buildtime ? "* " : ""));
+    using std::string;
 
-    bool f (true);
+    string r (buildtime ? "* " : "");
+
+    const requirement_alternative* prev (nullptr);
     for (const requirement_alternative& ra: *this)
     {
-      r += (f ? (f = false, "") : " | ");
+      if (prev != nullptr)
+      {
+        r += prev->single_line () ? " |" : "\n|";
+        r += !ra.single_line () || !prev->single_line () ? '\n' : ' ';
+      }
+
       r += ra.string ();
+      prev = &ra;
     }
 
+    // For better readability separate the comment from the question mark for
+    // the simple requirement with an empty condition.
+    //
+    if (simple () && conditional () && back ().enable->empty ())
+      r += ' ';
+
     return serializer::merge_comment (r, comment);
+  }
+
+  bool requirement_alternatives::
+  conditional () const
+  {
+    for (const requirement_alternative& ra: *this)
+    {
+      if (ra.enable)
+        return true;
+    }
+
+    return false;
   }
 
   // build_class_term
@@ -1966,9 +3263,11 @@ namespace bpkg
 
     // We will cache the depends and the test dependency manifest values to
     // parse and, if requested, complete the version constraints later, after
-    // the version value is parsed.
+    // the version value is parsed. We will also cache the requires values to
+    // parse them later, after the package name is parsed.
     //
     vector<name_value> dependencies;
+    vector<name_value> requirements;
     small_vector<name_value, 1> tests;
 
     // We will cache the description and its type values to validate them
@@ -2254,16 +3553,13 @@ namespace bpkg
 
         m.license_alternatives.push_back (move (l));
       }
+      else if (n == "depends")
+      {
+        dependencies.push_back (move (nv));
+      }
       else if (n == "requires")
       {
-        try
-        {
-          m.requirements.push_back (requirement_alternatives (v));
-        }
-        catch (const invalid_argument& e)
-        {
-          bad_value (e.what ());
-        }
+        requirements.push_back (move (nv));
       }
       else if (n == "builds")
       {
@@ -2279,10 +3575,6 @@ namespace bpkg
       {
         m.build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
-      }
-      else if (n == "depends")
-      {
-        dependencies.push_back (move (nv));
       }
       // @@ TMP time to drop *-0.14.0?
       //
@@ -2467,8 +3759,8 @@ namespace bpkg
       }
       catch (const invalid_argument& e)
       {
-        throw invalid_argument (string ("invalid package constraint: ") +
-                                e.what ());
+        throw invalid_argument ("invalid package constraint '" +
+                                dep.constraint->string () + "': " + e.what ());
       }
 
       return move (dep);
@@ -2480,16 +3772,15 @@ namespace bpkg
     {
       nv = move (d); // Restore as bad_value() uses its line/column.
 
-      const string& v (nv.value);
-
       // Parse dependency alternatives.
       //
       try
       {
-        dependency_alternatives das (v);
-
-        if (das.empty ())
-          bad_value ("empty package dependency specification");
+        dependency_alternatives das (nv.value,
+                                     m.name,
+                                     name,
+                                     nv.value_line,
+                                     nv.value_column);
 
         for (dependency_alternative& da: das)
         {
@@ -2503,6 +3794,18 @@ namespace bpkg
       {
         bad_value (e.what ());
       }
+    }
+
+    // Parse the requirements.
+    //
+    for (const name_value& r: requirements)
+    {
+      m.requirements.push_back (
+        requirement_alternatives (r.value,
+                                  m.name,
+                                  name,
+                                  r.value_line,
+                                  r.value_column));
     }
 
     // Parse the test dependencies.
