@@ -1188,6 +1188,21 @@ namespace bpkg
     return serializer::merge_comment (r, comment);
   }
 
+  // requirement_alternative
+  //
+  requirement_alternative::
+  requirement_alternative (const std::string& s)
+  {
+    push_back (s); // @@ DEP
+  }
+
+  string requirement_alternative::
+  string () const
+  {
+    assert (size () == 1); // @@ DEP
+    return front ();
+  }
+
   // requirement_alternatives
   //
   requirement_alternatives::
@@ -1220,7 +1235,7 @@ namespace bpkg
 
     list_parser lp (b, e, '|');
     for (string lv (lp.next ()); !lv.empty (); lv = lp.next ())
-      push_back (move (lv));
+      push_back (requirement_alternative (lv));
 
     if (empty () && comment.empty ())
       throw invalid_argument ("empty package requirement specification");
@@ -1229,10 +1244,18 @@ namespace bpkg
   std::string requirement_alternatives::
   string () const
   {
-    return (conditional
-            ? (buildtime ? "?* " : "? ")
-            : (buildtime ? "* " : "")) +
-           serializer::merge_comment (concatenate (*this, " | "), comment);
+    std::string r (conditional
+                   ? (buildtime ? "?* " : "? ")
+                   : (buildtime ? "* " : ""));
+
+    bool f (true);
+    for (const requirement_alternative& ra: *this)
+    {
+      r += (f ? (f = false, "") : " | ");
+      r += ra.string ();
+    }
+
+    return serializer::merge_comment (r, comment);
   }
 
   // build_class_term

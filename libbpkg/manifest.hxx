@@ -504,7 +504,26 @@ namespace bpkg
 
   // requires
   //
-  class requirement_alternatives: public butl::small_vector<std::string, 1>
+  class requirement_alternative: public butl::small_vector<std::string, 1>
+  {
+  public:
+    butl::optional<std::string> enable;
+
+    requirement_alternative () = default;
+    requirement_alternative (butl::optional<std::string> e)
+        : enable (std::move (e)) {}
+
+    // Parse the requirement alternative string representation.
+    //
+    explicit LIBBPKG_EXPORT
+    requirement_alternative (const std::string&);
+
+    LIBBPKG_EXPORT std::string
+    string () const;
+  };
+
+  class requirement_alternatives:
+    public butl::small_vector<requirement_alternative, 1>
   {
   public:
     bool conditional;
@@ -517,7 +536,7 @@ namespace bpkg
 
     // Parse the requirement alternatives string representation in the
     // `[?] [<requirement> [ '|' <requirement>]*] [; <comment>]` form. Throw
-    // std::invalid_argument if the value is invalid.
+    // std::invalid_argument if the value is invalid. @@ DEP @@ TMP update.
     //
     explicit LIBBPKG_EXPORT
     requirement_alternatives (const std::string&);
