@@ -847,12 +847,7 @@ namespace bpkg
     butl::optional<priority_type> priority;
     std::string summary;
 
-    // @@ Replace with small_vector<licenses, 1>. Note that currently it is
-    //    unsupported by the odb::nested_*() functions that are
-    //    std::vector-specific.
-    //
-    std::vector<licenses> license_alternatives;
-
+    butl::small_vector<licenses, 1> license_alternatives;
     butl::small_vector<std::string, 5> topics;
     butl::small_vector<std::string, 5> keywords;
     butl::optional<text_file> description;
