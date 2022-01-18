@@ -1989,9 +1989,26 @@ namespace bpkg
       if (requirements_ && first && tt == type::question)
       {
         r.emplace_back (dependency ());
-        r.enable = lexer_->peek_char () == '(' ? parse_eval () : string ();
+
+        bool eval (lexer_->peek_char () == '(');
+        r.enable = eval ? parse_eval () : string ();
 
         next (t, tt);
+
+        // @@ TMP Treat requirements similar to `? cli` as `cli ?` until
+        //    toolchain 0.15.0 and libodb-mssql 2.5.0-b.22 are both released.
+        //
+        //    NOTE: don't forget to drop the temporary test in
+        //    tests/manifest/testscript when dropping this workaround.
+        //
+        if (!eval && tt == type::word)
+        try
+        {
+          r.back ().name = package_name (move (t.value));
+          next (t, tt);
+        }
+        catch (const invalid_argument&) {}
+
         return r;
       }
 

@@ -2850,6 +2850,29 @@
         stdin:6:13: error: end of simple requirement expected
         EOE
 
+      # @@ TMP Drop this test and uncomment the next one when toolchain 0.15.0
+      #    is released (see dependency_alternatives_parser::parse_alternative()
+      #    for details).
+      #
+      : old-fashioned
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: ? vc15; VC 15 or later if targeting Windows.
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        requires: vc15 ? ; VC 15 or later if targeting Windows.
+        EOO
+
+      #\
       : reflect
       :
       $* <<EOI 2>>EOE != 0
@@ -2862,6 +2885,7 @@
         EOI
         stdin:6:13: error: end of simple requirement expected
         EOE
+      #\
 
       : with-id
       :
