@@ -3607,6 +3607,20 @@ namespace bpkg
 
         tests.push_back (move (nv));
       }
+      else if (n == "bootstrap-build")
+      {
+        if (m.bootstrap_build)
+          bad_name ("package bootstrap-build redefinition");
+
+        m.bootstrap_build = move (v);
+      }
+      else if (n == "root-build")
+      {
+        if (m.root_build)
+          bad_name ("package root-build redefinition");
+
+        m.root_build = move (v);
+      }
       else if (n == "location")
       {
         if (flag (package_manifest_flags::forbid_location))
@@ -3844,16 +3858,36 @@ namespace bpkg
       }
     }
 
-    if (m.description       &&
-        !m.description_type &&
-        flag (package_manifest_flags::require_description_type))
-      bad_name ("no package description type specified");
-
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
 
     if (!m.sha256sum && flag (package_manifest_flags::require_sha256sum))
       bad_name ("no package sha256sum specified");
+
+    if (m.description       &&
+        !m.description_type &&
+        flag (package_manifest_flags::require_description_type))
+      bad_name ("no package description type specified");
+
+    if (!m.bootstrap_build &&
+        flag (package_manifest_flags::require_bootstrap_build))
+    {
+      // @@ TMP To support older repositories allow absent bootstrap build
+      //        until toolchain 0.15.0 is released.
+      //
+      //        Note that for such repositories the packages may not have any
+      //        need for the bootstrap buildfile (may not have any dependency
+      //        clauses, etc). Thus, we can safely set the bootstrap build
+      //        value to an empty string if it is absent, so that the caller
+      //        can always be sure that this value is always present for
+      //        package manifest lists.
+      //
+      //        Note: don't forget to uncomment no-bootstrap test in
+      //        tests/manifest/testscript when removing this workaround.
+      //
+      // bad_name ("no package bootstrap build specified");
+      m.bootstrap_build = "";
+    }
   }
 
   static void
@@ -3895,11 +3929,12 @@ namespace bpkg
       move (nv),
       iu,
       false /* complete_depends */,
-      package_manifest_flags::forbid_file              |
-      package_manifest_flags::require_description_type |
-      package_manifest_flags::require_location         |
-      package_manifest_flags::forbid_fragment          |
-      package_manifest_flags::forbid_incomplete_dependencies);
+      package_manifest_flags::forbid_file                    |
+      package_manifest_flags::forbid_fragment                |
+      package_manifest_flags::forbid_incomplete_dependencies |
+      package_manifest_flags::require_location               |
+      package_manifest_flags::require_description_type       |
+      package_manifest_flags::require_bootstrap_build);
   }
 
   // package_manifest
@@ -4316,6 +4351,12 @@ namespace bpkg
                                            ? c.config
                                            : c.config + "/" + *c.target,
                                            c.comment));
+
+      if (m.bootstrap_build)
+        s.next ("bootstrap-build", *m.bootstrap_build);
+
+      if (m.root_build)
+        s.next ("root-build", *m.root_build);
 
       if (m.location)
         s.next ("location", m.location->posix_string ());

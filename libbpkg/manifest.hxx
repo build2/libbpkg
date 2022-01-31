@@ -783,17 +783,18 @@ namespace bpkg
   //
   enum class package_manifest_flags: std::uint16_t
   {
-    none                           = 0x00,
+    none                           = 0x000,
 
-    forbid_file                    = 0x01, // Forbid *-file manifest values.
-    forbid_location                = 0x02,
-    forbid_sha256sum               = 0x04,
-    forbid_fragment                = 0x08,
-    forbid_incomplete_dependencies = 0x10,
+    forbid_file                    = 0x001, // Forbid *-file manifest values.
+    forbid_location                = 0x002,
+    forbid_sha256sum               = 0x004,
+    forbid_fragment                = 0x008,
+    forbid_incomplete_dependencies = 0x010,
 
-    require_location               = 0x20,
-    require_sha256sum              = 0x40,
-    require_description_type       = 0x80
+    require_location               = 0x020,
+    require_sha256sum              = 0x040,
+    require_description_type       = 0x080,
+    require_bootstrap_build        = 0x100
   };
 
   inline package_manifest_flags
@@ -1062,6 +1063,9 @@ namespace bpkg
 
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
+
+    butl::optional<std::string> bootstrap_build;
+    butl::optional<std::string> root_build;
 
     // The following values are only valid in the manifest list (and only for
     // certain repository types).

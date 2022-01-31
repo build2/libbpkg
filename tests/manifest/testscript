@@ -3123,6 +3123,16 @@
       build-include: linux*
       build-include: freebsd*
       build-exclude: *; Only supports Linux and FreeBSD.
+      bootstrap-build:\
+      project = libfoo
+
+      \
+      root-build:\
+      cxx.std = latest
+
+      using cxx
+
+      \
       location: libfoo-1.2.3+2.tar.bz2
       sha256sum: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       :
@@ -3138,6 +3148,10 @@
       builds: default legacy; Default and legacy.
       builds: -windows; Not on Windows.
       build-exclude: *-msvc_14*/i?86-*; Linker crash.
+      bootstrap-build:\
+      project = libbar
+
+      \
       location: bar/libbar-3.4A.5+6.tbz
       sha256sum: d4b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       :
@@ -3149,6 +3163,10 @@
       email: libbaz-users@example.org
       build-error-email: libbaz-issues@example.org; Email for libbaz issues.
       builds: default experimental
+      bootstrap-build:\
+      project = libbaz
+
+      \
       location: libbaz/libbaz-+2-3.4A.5+3.tar.gz
       sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       EOF
@@ -3168,6 +3186,28 @@
         license: LGPLv2
         depends: bar == $
         EOI
+    }
+
+    : buildfiles
+    :
+    {
+      # @@ TMP Uncomment when the missing bootstrap-build value related
+      #    workaround is removed (see manifest.cxx for details).
+      #\
+      : no-bootstrap
+      :
+      $* <<EOI 2>"stdin:10:1: error: no package bootstrap build specified" != 0
+        : 1
+        sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        :
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        location: foo/foo-2.0.0.tar.gz
+        sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        EOI
+      #\
     }
   }
 
