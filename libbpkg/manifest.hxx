@@ -561,6 +561,22 @@ namespace bpkg
           accept (std::move (a)),
           require (std::move (q)) {}
 
+    // Can be used to copy a dependency alternative object, while omitting
+    // some clauses which are no longer needed.
+    //
+    dependency_alternative (butl::optional<std::string> e,
+                            butl::optional<std::string> r,
+                            butl::optional<std::string> p,
+                            butl::optional<std::string> a,
+                            butl::optional<std::string> q,
+                            butl::small_vector<dependency, 1> ds)
+        : small_vector<dependency, 1> (move (ds)),
+          enable (std::move (e)),
+          reflect (std::move (r)),
+          prefer (std::move (p)),
+          accept (std::move (a)),
+          require (std::move (q)) {}
+
     // Return the single-line representation if possible (the prefer and
     // require clauses are absent and the reflect clause either absent or
     // contains no newlines).
