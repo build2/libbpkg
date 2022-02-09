@@ -1257,7 +1257,6 @@ namespace bpkg
       rsbrace,         // ]
 
       equal,           // ==
-      not_equal,       // !=
       less,            // <
       greater,         // >
       less_equal,      // <=
@@ -1406,12 +1405,11 @@ namespace bpkg
     case ']':  return make_token (type::rsbrace);
 
     case '=':
-    case '!':
       {
-        if ((peek ()) == '=')
+        if (peek () == '=')
         {
           get ();
-          return make_token (c == '=' ? type::equal : type::not_equal);
+          return make_token (type::equal);
         }
         break;
       }
@@ -1453,7 +1451,7 @@ namespace bpkg
 
     // Add subsequent characters until eos or separator is encountered.
     //
-    const char* s (" \n\t?(){}[]=!<>~^|");
+    const char* s (" \n\t?(){}[]=<>~^|");
     for (c = peek (); !eos (c) && strchr (s, c) == nullptr; c = peek ())
     {
       r += c;
@@ -1587,7 +1585,6 @@ namespace bpkg
     case token_type::lsbrace:       return q + "[" + q;
     case token_type::rsbrace:       return q + "]" + q;
     case token_type::equal:         return q + "==" + q;
-    case token_type::not_equal:     return q + "!=" + q;
     case token_type::less:          return q + "<" + q;
     case token_type::greater:       return q + ">" + q;
     case token_type::less_equal:    return q + "<=" + q;
@@ -1855,7 +1852,6 @@ namespace bpkg
         }
 
       case type::equal:
-      case type::not_equal:
       case type::less:
       case type::greater:
       case type::less_equal:
