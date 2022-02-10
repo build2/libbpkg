@@ -3063,14 +3063,117 @@ namespace bpkg
   {
     using std::string;
 
+    // We will use the dependency alternatives parser to parse the
+    // `<name> [<version-constraint>] [<reflect-config>]` representation into
+    // a temporary dependency alternatives object. Then we will verify that
+    // the result has no multiple alternatives/dependency packages and
+    // unexpected clauses and will move the required information (dependency,
+    // reflection, etc) into the being created test dependency object.
+
+    // Verify that there is no newline characters to forbid the multi-line
+    // dependency alternatives representation.
+    //
+    if (v.find ('\n') != string::npos)
+      throw invalid_argument ("unexpected <newline>");
+
     buildtime = (v[0] == '*');
+
     size_t p (v.find_first_not_of (spaces, buildtime ? 1 : 0));
 
     if (p == string::npos)
       throw invalid_argument ("no package name specified");
 
-    static_cast<dependency&> (*this) =
-      dependency (p == 0 ? move (v) : string (v, p));
+    string::const_iterator b (v.begin () + p);
+    string::const_iterator e (v.end ());
+
+    // Extract the dependency package name in advance, to pass it to the
+    // parser which will use it to verify the reflection variable name.
+    //
+    // Note that multiple packages can only be specified in {} to be accepted
+    // by the parser. In our case such '{' would be interpreted as a part of
+    // the package name and so would fail complaining about an invalid
+    // character. Let's handle this case manually to avoid the potentially
+    // confusing error description.
+    //
+    assert (b != e); // We would fail earlier otherwise.
+
+    if (*b == '{')
+      throw invalid_argument ("only single package allowed");
+
+    package_name dn;
+
+    try
+    {
+      p = v.find_first_of (" \t=<>[(~^", p); // End of the package name.
+      dn = package_name (string (b, p == string::npos ? e : v.begin () + p));
+    }
+    catch (const invalid_argument& e)
+    {
+      throw invalid_argument (string ("invalid package name: ") + e.what ());
+    }
+
+    // Parse the value into the temporary dependency alternatives object.
+    //
+    dependency_alternatives das;
+
+    try
+    {
+      dependency_alternatives_parser p;
+      istringstream is (b == v.begin () ? v : string (b, e));
+      p.parse (dn, is, "" /* name */, 1, 1, das);
+    }
+    catch (const manifest_parsing& e)
+    {
+      throw invalid_argument (e.description);
+    }
+
+    // Verify that there are no multiple dependency alternatives.
+    //
+    assert (!das.empty ()); // Enforced by the parser.
+
+    if (das.size () != 1)
+      throw invalid_argument ("unexpected '|'");
+
+    dependency_alternative& da (das[0]);
+
+    // Verify that there are no multiple dependencies in the alternative.
+    //
+    // The parser can never end up with no dependencies in an alternative and
+    // we already verified that there can't be multiple of them (see above).
+    //
+    assert (da.size () == 1);
+
+    // Verify that there are no unexpected clauses.
+    //
+    // Note that the require, prefer, and accept clauses can only be present
+    // in the multi-line representation and we have already verified that this
+    // is not the case.
+    //
+    if (da.enable)
+      throw invalid_argument ("unexpected enable clause");
+
+    // Move the dependency and the reflect clause into the being created test
+    // dependency object.
+    //
+    static_cast<dependency&> (*this) = move (da[0]);
+
+    reflect = move (da.reflect);
+  }
+
+  string test_dependency::
+  string () const
+  {
+    std::string r (buildtime
+                   ? "* " + dependency::string ()
+                   :        dependency::string ());
+
+    if (reflect)
+    {
+      r += ' ';
+      r += *reflect;
+    }
+
+    return r;
   }
 
   // pkg_package_manifest

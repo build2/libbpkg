@@ -3066,6 +3066,113 @@
       license: LGPLv2
       tests: bar == $
       EOF
+
+    : reflect
+    :
+    {
+      : after-version-constraint
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar == 1.0.0 config.bar.test = foo
+        EOF
+
+      : no-version-constraint
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar config.bar.test = foo
+        EOF
+
+      : invalid-variable
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar config.foo.test = bar
+        EOI
+        stdin:6:8: error: config.bar.* variable assignment expected instead of <buildfile fragment>
+        EOE
+    }
+
+    : newline
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests:\
+      *
+      bar
+      \
+      EOI
+      stdin:7:1: error: unexpected <newline>
+      EOE
+
+    : no-package
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: *
+      EOI
+      stdin:6:8: error: no package name specified
+      EOE
+
+    : multiple-alternatives
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar | baz
+      EOI
+      stdin:6:8: error: unexpected '|'
+      EOE
+
+    : multiple-dependencies
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: {bar baz}
+      EOI
+      stdin:6:8: error: only single package allowed
+      EOE
+
+    : enable
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      tests: bar ? (windows)
+      EOI
+      stdin:6:8: error: unexpected enable clause
+      EOE
   }
 }
 

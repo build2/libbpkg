@@ -1021,27 +1021,31 @@ namespace bpkg
   {
     test_dependency_type type;
     bool buildtime;
+    butl::optional<std::string> reflect;
 
     test_dependency () = default;
     test_dependency (package_name n,
                      test_dependency_type t,
                      bool b,
-                     butl::optional<version_constraint> c)
-        : dependency {std::move (n), std::move (c)}, type (t), buildtime (b) {}
+                     butl::optional<version_constraint> c,
+                     butl::optional<std::string> r)
+        : dependency {std::move (n), std::move (c)},
+          type (t),
+          buildtime (b),
+          reflect (std::move (r)) {}
 
     // Parse the test dependency string representation in the
-    // `[*] <name> [<version-constraint>]` form. Throw std::invalid_argument
-    // if the value is invalid.
+    // `[*] <name> [<version-constraint>] [<reflect-config>]` form. Throw
+    // std::invalid_argument if the value is invalid.
+    //
+    // Verify that the reflect clause, if present, refers to the test
+    // dependency package configuration variable. Note that such variable
+    // value normally signals the dependent package being tested.
     //
     test_dependency (std::string, test_dependency_type);
 
-    inline std::string
-    string () const
-    {
-      return buildtime
-             ? "* " + dependency::string ()
-             :        dependency::string ();
-    }
+    std::string
+    string () const;
   };
 
   class LIBBPKG_EXPORT package_manifest
