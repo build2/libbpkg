@@ -591,6 +591,12 @@ namespace bpkg
     single_line () const;
   };
 
+  inline std::ostream&
+  operator<< (std::ostream& os, const dependency_alternative& da)
+  {
+    return os << da.string ();
+  }
+
   class dependency_alternatives:
     public butl::small_vector<dependency_alternative, 1>
   {
@@ -643,9 +649,9 @@ namespace bpkg
   };
 
   inline std::ostream&
-  operator<< (std::ostream& os, const dependency_alternatives& da)
+  operator<< (std::ostream& os, const dependency_alternatives& das)
   {
-    return os << da.string ();
+    return os << das.string ();
   }
 
   // requires
