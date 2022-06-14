@@ -2155,7 +2155,9 @@ namespace bpkg
           // curly braces (expected to be on the separate lines) and return
           // the enclosed fragment.
           //
-          auto parse_block = [&t, &tt, &expect_token, &bad_token, this] ()
+          // Note that an empty buildfile fragment is allowed.
+          //
+          auto parse_block = [&t, &tt, &expect_token, this] ()
           {
             next (t, tt);
             expect_token (type::newline);
@@ -2168,14 +2170,7 @@ namespace bpkg
 
             next_block (t, tt);
 
-            string r (move (t.value));
-
-            // Fail if the buildfile fragment is empty.
-            //
-            if (r.find_first_not_of (" \t\n") == string::npos)
-              bad_token ("buildfile fragment");
-
-            return r;
+            return move (t.value);
           };
 
           const string& v (t.value);

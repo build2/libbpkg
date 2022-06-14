@@ -1093,6 +1093,27 @@
           \
           EOF
 
+
+        : empty
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+            }
+
+            accept (true)
+          }
+          \
+          EOF
+
         : no-accept-clause
         :
         $* <<EOI 2>>EOE != 0
@@ -1112,27 +1133,6 @@
           \
           EOI
           stdin:13:1: error: accept clause expected instead of '}'
-          EOE
-
-        : empty
-        :
-        $* <<EOI 2>>EOE != 0
-          : 1
-          name: foo
-          version: 2.0.0
-          summary: Modern C++ parser
-          license: LGPLv2
-          depends:\
-          bar
-          {
-            prefer
-            {
-
-            }
-          }
-          \
-          EOI
-          stdin:11:1: error: buildfile fragment expected
           EOE
 
         : enable-clause
