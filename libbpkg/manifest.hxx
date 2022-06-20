@@ -1054,6 +1054,29 @@ namespace bpkg
     string () const;
   };
 
+  // Package's buildfile path and content.
+  //
+  struct buildfile
+  {
+    // The path is relative to the package's build/ subdirectory with the
+    // extension stripped.
+    //
+    // For example, for the build/config/common.build file the path will be
+    // config/common.
+    //
+    // Note that the actual file path depends on the project's buildfile
+    // naming scheme and for the config/common example above the actual path
+    // can also be build2/config/common.build2.
+    //
+    butl::path path;
+    std::string content;
+
+    buildfile () = default;
+    buildfile (butl::path p, std::string c)
+        : path (std::move (p)),
+          content (std::move (c)) {}
+  };
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -1090,8 +1113,18 @@ namespace bpkg
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
 
+    // If true, then this package use the alternative buildfile naming scheme
+    // (build2/, .build2). In the manifest serialization this is encoded as
+    // either *-build or *-build2 value names.
+    //
+    butl::optional<bool> alt_naming;
+
     butl::optional<std::string> bootstrap_build;
     butl::optional<std::string> root_build;
+
+    // Additional buildfiles which are potentially included by root.build.
+    //
+    std::vector<buildfile> buildfiles;
 
     // The following values are only valid in the manifest list (and only for
     // certain repository types).

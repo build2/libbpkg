@@ -3367,6 +3367,20 @@ namespace bpkg
       return (fl & f) != package_manifest_flags::none;
     };
 
+    // Based on the `*-build[2]` value name set the manifest's alt_naming flag
+    // if absent and verify that it doesn't change otherwise.
+    //
+    auto alt_naming = [&m, &bad_name] (const string& n)
+    {
+      bool v (n.size () > 7 && n.compare (n.size () - 7, 7, "-build2") == 0);
+
+      if (!m.alt_naming)
+        m.alt_naming = v;
+      else if (*m.alt_naming != v)
+        bad_name (string (*m.alt_naming ? "alternative" : "standard") +
+                  " buildfile naming scheme is already used");
+    };
+
     // Cache the upstream version manifest value and validate whether it's
     // allowed later, after the version value is parsed.
     //
@@ -3701,19 +3715,76 @@ namespace bpkg
 
         tests.push_back (move (nv));
       }
-      else if (n == "bootstrap-build")
+      else if (n == "bootstrap-build" || n == "bootstrap-build2")
       {
+        alt_naming (n);
+
         if (m.bootstrap_build)
-          bad_name ("package bootstrap-build redefinition");
+          bad_name ("package " + n + " redefinition");
 
         m.bootstrap_build = move (v);
       }
-      else if (n == "root-build")
+      else if (n == "root-build" || n == "root-build2")
       {
+        alt_naming (n);
+
         if (m.root_build)
-          bad_name ("package root-build redefinition");
+          bad_name ("package " + n + " redefinition");
 
         m.root_build = move (v);
+      }
+      else if ((n.size () > 6 && n.compare (n.size () - 6, 6, "-build") == 0) ||
+               (n.size () > 7 && n.compare (n.size () - 7, 7, "-build2") == 0))
+      {
+        alt_naming (n);
+
+        // Verify that the path doesn't contain backslashes which would be
+        // interpreted differently on Windows and POSIX.
+        //
+        if (n.find ('\\') != string::npos)
+          bad_name ("backslash in package buildfile path");
+
+        // Strip the '-build' suffix.
+        //
+        n.resize (n.size () - (*m.alt_naming ? 7 : 6));
+
+        try
+        {
+          path f (move (n)); // Note: not empty.
+
+          // Fail if the value name is something like `config/-build`.
+          //
+          if (f.to_directory ())
+            bad_name ("empty package buildfile name");
+
+          if (f.absolute ())
+            bad_name ("absolute package buildfile path");
+
+          // Verify that the path refers inside the package's build/
+          // subdirectory.
+          //
+          f.normalize (); // Note: can't throw since the path is relative.
+
+          if (dir_path::traits_type::parent (*f.begin ()))
+            bad_name ("package buildfile path refers outside build/ "
+                      "subdirectory");
+
+          // Check for duplicates.
+          //
+          vector<buildfile>& bs (m.buildfiles);
+          if (find_if (bs.begin (), bs.end (),
+                       [&f] (const auto& v) {return v.path == f;}) !=
+              bs.end ())
+          {
+            bad_name ("package buildfile redefinition");
+          }
+
+          bs.push_back (buildfile (move (f), move (v)));
+        }
+        catch (const invalid_path&)
+        {
+          bad_name ("invalid package buildfile path");
+        }
       }
       else if (n == "location")
       {
@@ -4446,11 +4517,18 @@ namespace bpkg
                                            : c.config + "/" + *c.target,
                                            c.comment));
 
+      bool an (m.alt_naming && *m.alt_naming);
+
       if (m.bootstrap_build)
-        s.next ("bootstrap-build", *m.bootstrap_build);
+        s.next (an ? "bootstrap-build2" : "bootstrap-build",
+                *m.bootstrap_build);
 
       if (m.root_build)
-        s.next ("root-build", *m.root_build);
+        s.next (an ? "root-build2" : "root-build", *m.root_build);
+
+      for (const auto& bf: m.buildfiles)
+        s.next (bf.path.posix_string () + (an ? "-build2" : "-build"),
+                bf.content);
 
       if (m.location)
         s.next ("location", m.location->posix_string ());
