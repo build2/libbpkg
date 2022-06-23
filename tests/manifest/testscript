@@ -995,7 +995,8 @@
 
         bar
 
-        ; Comment.
+        ;
+        Comment.
         \
         EOI
         : 1
@@ -1325,7 +1326,8 @@
           {
             require
             {
-              config.bar.baz=a;bc
+              config.bar.baz=a
+          ;
             }
           }
           \
@@ -2313,9 +2315,9 @@
               # Build options.
               #
               # Add QtCore/3rdparty/ for include of <double-conversion/fixed-dtoa.h> (in
-              # double-conversion/fixed-dtoa.cc)\; QtCore/3rdparty/double-conversion/include/
-              # for includes of <double-conversion/*>\; QtCore/3rdparty/harfbuzz/src/ for an
-              # include of <harfbuzz-shaper.h>\; and QtCore/3rdparty/forkfd/ for an include
+              # double-conversion/fixed-dtoa.cc); QtCore/3rdparty/double-conversion/include/
+              # for includes of <double-conversion/*>; QtCore/3rdparty/harfbuzz/src/ for an
+              # include of <harfbuzz-shaper.h>; and QtCore/3rdparty/forkfd/ for an include
               # of <forkfd.h>.
               #
               cxx.poptions =+ "-I$out_root" "-I$src_root"                                     \\
@@ -2391,7 +2393,7 @@
               #
               # @@ TMP Assuming the comments regarding special compiler options for
               #    SSE/AVX/NEON in qconfig.h.in apply to F16C as well. global/global.pri
-              #    seems to make this connection as well (if only for GCC\; x86SimdAlways in
+              #    seems to make this connection as well (if only for GCC; x86SimdAlways in
               #    global.pri corresponds to QT_COMPILER_SUPPORTS_SIMD_ALWAYS in
               #    qconfig.h.in).
               #
@@ -2962,7 +2964,8 @@
         license: LGPLv2
         requires:\
 
-        ; X11 libs.
+        ;
+        X11 libs.
         \
         EOI
         : 1
