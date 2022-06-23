@@ -1280,6 +1280,11 @@ namespace bpkg
       string (bool diag = true) const;
     };
 
+    // If true, then comments are allowed and are treated as whitespace
+    // characters.
+    //
+    bool comments = false;
+
   public:
     // Note that name is stored by shallow reference.
     //
@@ -1548,6 +1553,60 @@ namespace bpkg
       {
       case ' ':
       case '\t': break;
+
+      case '#':
+        {
+          if (!comments)
+            return;
+
+          get (c);
+
+          // See if this is a multi-line comment in the form:
+          //
+          /*
+            #\
+            ...
+            #\
+          */
+          auto ml = [&c, this] () -> bool
+          {
+            if ((c = peek ()) == '\\')
+            {
+              get (c);
+              if ((c = peek ()) == '\n' || eos (c))
+                return true;
+            }
+
+            return false;
+          };
+
+          if (ml ())
+          {
+            // Scan until we see the closing one.
+            //
+            for (;;)
+            {
+              if (c == '#' && ml ())
+                break;
+
+              if (eos (c = peek ()))
+                throw parsing (name_,
+                               c.line, c.column,
+                               "unterminated multi-line comment");
+
+              get (c);
+            }
+          }
+          else
+          {
+            // Read until newline or eos.
+            //
+            for (; !eos (c) && c != '\n'; c = peek ())
+              get (c);
+          }
+
+          continue;
+        }
 
       case '\n':
         {
@@ -2112,6 +2171,10 @@ namespace bpkg
             t.column,
             "multi-line " + what + " form with inline reflect clause");
 
+        // Allow comments.
+        //
+        lexer_->comments = true;
+
         next (t, tt);
         expect_token (type::newline);
 
@@ -2260,6 +2323,11 @@ namespace bpkg
         }
 
         expect_token (type::rcbrace);
+
+        // Disallow comments.
+        //
+        lexer_->comments = false;
+
         next (t, tt);
       }
     }

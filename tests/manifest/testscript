@@ -953,6 +953,29 @@
           stdin:6:14: error: config.foo.* variable assignment expected instead of <buildfile fragment>
           EOE
       }
+
+      : comments
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        depends:\
+        bar
+        {
+          require
+          {
+            config.bar.frame=4016
+            config.bar.timeout=10
+          }
+        } |
+        {bar # Error.
+        \
+        EOI
+        stdin:15:6: error: invalid package name: length is less than two characters
+        EOE
     }
 
     : multi-line
@@ -2558,6 +2581,167 @@
           \
           EOI
           stdin:9:1: error: multi-line dependency form with inline reflect clause
+          EOE
+      }
+
+      : comments
+      :
+      {
+        : single-line-separate
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOO
+
+        : single-line-trailing
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require # Configure bar.
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOO
+
+        : multi-line
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            #\\
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+            #\\
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOO
+
+        : multi-line-unterm
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          depends:\
+          bar
+          {
+            #\\
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOI
+          stdin:25:2: error: unterminated multi-line comment
           EOE
       }
     }

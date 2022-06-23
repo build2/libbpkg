@@ -516,6 +516,12 @@ namespace bpkg
   //   <reflect-config>   - buildfile fragment containing dependent package
   //                        configuration variables assignments
   //
+  //   In the multi-line form the block may contain comments besides the
+  //   clauses. The '#' character starts a single-line comment which spans
+  //   until the end of the line. Unless it is followed with '\' followed by
+  //   the newline in which case this is a multi-line comment which spans
+  //   until the closing '#\' is encountered.
+  //
   // The dependency alternative is only considered by bpkg if the enable
   // condition evaluates to true. If the enable clause is not specified, then
   // it is always considered.
