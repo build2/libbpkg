@@ -4106,20 +4106,21 @@ namespace bpkg
         flag (package_manifest_flags::require_bootstrap_build))
     {
       // @@ TMP To support older repositories allow absent bootstrap build
-      //        until toolchain 0.15.0 is released.
+      //        and alt_naming until toolchain 0.15.0 is released.
       //
       //        Note that for such repositories the packages may not have any
       //        need for the bootstrap buildfile (may not have any dependency
-      //        clauses, etc). Thus, we can safely set the bootstrap build
-      //        value to an empty string if it is absent, so that the caller
-      //        can always be sure that this value is always present for
-      //        package manifest lists.
+      //        clauses, etc). Thus, we can safely set the bootstrap build and
+      //        alt_naming values to an empty string and false, respectively,
+      //        if they are absent, so that the caller can always be sure that
+      //        these values are always present for package manifest lists.
       //
       //        Note: don't forget to uncomment no-bootstrap test in
       //        tests/manifest/testscript when removing this workaround.
       //
       // bad_name ("no package bootstrap build specified");
       m.bootstrap_build = "";
+      m.alt_naming = false;
     }
   }
 
