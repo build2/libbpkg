@@ -4119,7 +4119,7 @@ namespace bpkg
       //        tests/manifest/testscript when removing this workaround.
       //
       // bad_name ("no package bootstrap build specified");
-      m.bootstrap_build = "";
+      m.bootstrap_build = "project = " + m.name.string () + '\n';
       m.alt_naming = false;
     }
   }
