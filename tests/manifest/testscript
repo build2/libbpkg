@@ -3414,7 +3414,7 @@
       using install
       \
       root-build2:\
-      include config/common.build
+      include config/common.build2
 
       cxx.std = latest
 
@@ -3565,6 +3565,156 @@
       \
       EOI
       stdin:11:1: error: package buildfile redefinition
+      EOE
+  }
+
+  : buildfile-path
+  :
+  {
+    : standard-naming
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      bootstrap-build:\
+      project = libfoo
+
+      using version
+      using config
+      using dist
+      using test
+      using install
+      \
+      root-build:\
+      include config/common.build
+      include config/extra.build
+
+      cxx.std = latest
+
+      using cxx
+      \
+      config/common-build:\
+      {
+        config [bool] config.libfoo.extras ?= false
+      }
+      \
+      build-file: config/extra.build
+      EOF
+
+    : alt-naming
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      bootstrap-build2:\
+      project = libfoo
+
+      using version
+      using config
+      using dist
+      using test
+      using install
+      \
+      root-build2:\
+      include config/common.build2
+
+      cxx.std = latest
+
+      using cxx
+      \
+      build-file: config/common.build2
+      EOF
+
+    : mixed-naming
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-file: config/common.build
+      build-file: config/extra.build2
+      \
+      EOI
+      stdin:7:13: error: standard buildfile naming scheme is already used
+      EOE
+
+    : empty-path
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-file:
+      EOI
+      stdin:6:12: error: path with build or build2 extension expected
+      EOE
+
+    : invalid-extension
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-file: common.buildfile
+      EOI
+      stdin:6:13: error: path with build or build2 extension expected
+      EOE
+
+    : redefinition1
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      common-build:\
+      {
+        config [bool] config.libfoo.extras ?= false
+      }
+      \
+      build-file: common.build
+      EOI
+      stdin:11:13: error: package buildfile redefinition
+      EOE
+
+    : redefinition2
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-file: config/common.build
+      build-file: config/common.build
+      EOI
+      stdin:7:13: error: package buildfile redefinition
+      EOE
+
+    : bootstrap-build
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-file: bootstrap.build
+      EOI
+      stdin:6:13: error: bootstrap not allowed
       EOE
   }
 }

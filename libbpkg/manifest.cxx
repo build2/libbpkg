@@ -3435,19 +3435,112 @@ namespace bpkg
       return (fl & f) != package_manifest_flags::none;
     };
 
-    // Based on the `*-build[2]` value name set the manifest's alt_naming flag
-    // if absent and verify that it doesn't change otherwise.
+    // Based on the buildfile path specified via the `*-build[2]` value name
+    // or the `build-file` value set the manifest's alt_naming flag if absent
+    // and verify that it doesn't change otherwise. If it does, then return
+    // the error description and nullopt otherwise.
     //
-    auto alt_naming = [&m, &bad_name] (const string& n)
+    auto alt_naming = [&m] (const string& p) -> optional<string>
     {
-      bool v (n.size () > 7 && n.compare (n.size () - 7, 7, "-build2") == 0);
+      assert (!p.empty ());
+
+      bool an (p.back () == '2');
 
       if (!m.alt_naming)
-        m.alt_naming = v;
-      else if (*m.alt_naming != v)
-        bad_name (string (*m.alt_naming ? "alternative" : "standard") +
-                  " buildfile naming scheme is already used");
+        m.alt_naming = an;
+      else if (*m.alt_naming != an)
+        return string (*m.alt_naming ? "alternative" : "standard") +
+               " buildfile naming scheme is already used";
+
+      return nullopt;
     };
+
+    // Try to parse and verify the buildfile path specified via the
+    // `*-build[2]` value name or the `build-file` value and set the
+    // manifest's alt_naming flag. On success return the normalized path with
+    // the suffix stripped and nullopt and the error description
+    // otherwise. Expects that the prefix is not empty.
+    //
+    // Specifically, verify that the path doesn't contain backslashes, is
+    // relative, doesn't refer outside the packages's build subdirectory, and
+    // was not specified yet. Also verify that the file name is not empty.
+    //
+    auto parse_buildfile_path =
+      [&m, &alt_naming] (string&& p, string& err) -> optional<path>
+      {
+        if (optional<string> e = alt_naming (p))
+        {
+          err = move (*e);
+          return nullopt;
+        }
+
+        // Verify that the path doesn't contain backslashes which would be
+        // interpreted differently on Windows and POSIX.
+        //
+        if (p.find ('\\') != string::npos)
+        {
+          err = "backslash in package buildfile path";
+          return nullopt;
+        }
+
+        // Strip the '(-|.)build' suffix.
+        //
+        size_t n (*m.alt_naming ? 7 : 6);
+        assert (p.size () > n);
+
+        p.resize (p.size () - n);
+
+        try
+        {
+          path f (move (p));
+
+          // Fail if the value name is something like `config/-build`.
+          //
+          if (f.to_directory ())
+          {
+            err = "empty package buildfile name";
+            return nullopt;
+          }
+
+          if (f.absolute ())
+          {
+            err = "absolute package buildfile path";
+            return nullopt;
+          }
+
+          // Verify that the path refers inside the package's build/
+          // subdirectory.
+          //
+          f.normalize (); // Note: can't throw since the path is relative.
+
+          if (dir_path::traits_type::parent (*f.begin ()))
+          {
+            err = "package buildfile path refers outside build/ subdirectory";
+            return nullopt;
+          }
+
+          // Check for duplicates.
+          //
+          const vector<buildfile>& bs (m.buildfiles);
+          const vector<path>& bps (m.buildfile_paths);
+
+          if (find_if (bs.begin (), bs.end (),
+                       [&f] (const auto& v) {return v.path == f;})
+              != bs.end () ||
+              find (bps.begin (), bps.end (), f) != bps.end ())
+          {
+            err = "package buildfile redefinition";
+            return nullopt;
+          }
+
+          return f;
+        }
+        catch (const invalid_path&)
+        {
+          err = "invalid package buildfile path";
+          return nullopt;
+        }
+      };
 
     // Cache the upstream version manifest value and validate whether it's
     // allowed later, after the version value is parsed.
@@ -3785,7 +3878,8 @@ namespace bpkg
       }
       else if (n == "bootstrap-build" || n == "bootstrap-build2")
       {
-        alt_naming (n);
+        if (optional<string> e = alt_naming (n))
+          bad_name (*e);
 
         if (m.bootstrap_build)
           bad_name ("package " + n + " redefinition");
@@ -3794,7 +3888,8 @@ namespace bpkg
       }
       else if (n == "root-build" || n == "root-build2")
       {
-        alt_naming (n);
+        if (optional<string> e = alt_naming (n))
+          bad_name (*e);
 
         if (m.root_build)
           bad_name ("package " + n + " redefinition");
@@ -3804,55 +3899,39 @@ namespace bpkg
       else if ((n.size () > 6 && n.compare (n.size () - 6, 6, "-build") == 0) ||
                (n.size () > 7 && n.compare (n.size () - 7, 7, "-build2") == 0))
       {
-        alt_naming (n);
+        string err;
+        if (optional<path> p = parse_buildfile_path (move (n), err))
+          m.buildfiles.push_back (buildfile (move (*p), move (v)));
+        else
+          bad_name (err);
+      }
+      else if (n == "build-file")
+      {
+        if (flag (package_manifest_flags::forbid_file))
+          bad_name ("package build-file not allowed");
 
-        // Verify that the path doesn't contain backslashes which would be
-        // interpreted differently on Windows and POSIX.
+        // Verify that the buildfile extension is either build or build2.
         //
-        if (n.find ('\\') != string::npos)
-          bad_name ("backslash in package buildfile path");
-
-        // Strip the '-build' suffix.
-        //
-        n.resize (n.size () - (*m.alt_naming ? 7 : 6));
-
-        try
+        if ((v.size () > 6 && v.compare (v.size () - 6, 6, ".build") == 0) ||
+            (v.size () > 7 && v.compare (v.size () - 7, 7, ".build2") == 0))
         {
-          path f (move (n)); // Note: not empty.
-
-          // Fail if the value name is something like `config/-build`.
-          //
-          if (f.to_directory ())
-            bad_name ("empty package buildfile name");
-
-          if (f.absolute ())
-            bad_name ("absolute package buildfile path");
-
-          // Verify that the path refers inside the package's build/
-          // subdirectory.
-          //
-          f.normalize (); // Note: can't throw since the path is relative.
-
-          if (dir_path::traits_type::parent (*f.begin ()))
-            bad_name ("package buildfile path refers outside build/ "
-                      "subdirectory");
-
-          // Check for duplicates.
-          //
-          vector<buildfile>& bs (m.buildfiles);
-          if (find_if (bs.begin (), bs.end (),
-                       [&f] (const auto& v) {return v.path == f;}) !=
-              bs.end ())
+          string err;
+          if (optional<path> p = parse_buildfile_path (move (v), err))
           {
-            bad_name ("package buildfile redefinition");
-          }
+            // Verify that the resulting path differs from bootstrap and root.
+            //
+            const string& s (p->string ());
+            if (s == "bootstrap" || s == "root")
+              bad_value (s + " not allowed");
 
-          bs.push_back (buildfile (move (f), move (v)));
+            m.buildfile_paths.push_back (move (*p));
+          }
+          else
+            bad_value (err);
         }
-        catch (const invalid_path&)
-        {
-          bad_name ("invalid package buildfile path");
-        }
+        else
+          bad_value ("path with build or build2 extension expected");
+
       }
       else if (n == "location")
       {
@@ -4378,15 +4457,19 @@ namespace bpkg
 
   static const string description_file ("description-file");
   static const string changes_file     ("changes-file");
+  static const string build_file       ("build-file");
 
   void package_manifest::
   load_files (const function<load_function>& loader, bool iu)
   {
+    // Load a file and verify that its content is not empty, if the loader
+    // returns the content.
+    //
     auto load = [&loader] (const string& n, const path& p)
     {
-      string r (loader (n, p));
+      optional<string> r (loader (n, p));
 
-      if (r.empty ())
+      if (r && r->empty ())
         throw parsing ("package " + n + " references empty file");
 
       return r;
@@ -4417,7 +4500,8 @@ namespace bpkg
           description_type = "text/unknown; extension=" +
                              description->path.extension ();
 
-        description = text_file (load (description_file, description->path));
+        if (optional<string> fc = load (description_file, description->path))
+          description = text_file (move (*fc));
       }
     }
 
@@ -4426,7 +4510,36 @@ namespace bpkg
     for (text_file& c: changes)
     {
       if (c.file)
-        c = text_file (load (changes_file, c.path));
+      {
+        if (optional<string> fc = load (changes_file, c.path))
+          c = text_file (move (*fc));
+      }
+    }
+
+    // Load the build-file manifest values.
+    //
+    if (!buildfile_paths.empty ())
+    {
+      // Must already be set if the build-file value is parsed.
+      //
+      assert (alt_naming);
+
+      dir_path d (*alt_naming ? "build2" : "build");
+
+      for (auto i (buildfile_paths.begin ()); i != buildfile_paths.end (); )
+      {
+        path& p (*i);
+        path f (d / p);
+        f += *alt_naming ? ".build2" : ".build";
+
+        if (optional<string> fc = loader (build_file, f))
+        {
+          buildfiles.emplace_back (move (p), move (*fc));
+          i = buildfile_paths.erase (i); // Moved to buildfiles.
+        }
+        else
+          ++i;
+      }
     }
   }
 
@@ -4598,6 +4711,9 @@ namespace bpkg
       for (const auto& bf: m.buildfiles)
         s.next (bf.path.posix_string () + (an ? "-build2" : "-build"),
                 bf.content);
+
+      for (const path& f: m.buildfile_paths)
+        s.next ("build-file", f.posix_string () + (an ? ".build2" : ".build"));
 
       if (m.location)
         s.next ("location", m.location->posix_string ());
@@ -4860,8 +4976,13 @@ namespace bpkg
       }
 
       for (const auto& c: p.changes)
+      {
         if (c.file)
           bad_value ("forbidden changes-file");
+      }
+
+      if (!p.buildfile_paths.empty ())
+        bad_value ("forbidden build-file");
 
       if (!p.location)
         bad_value ("no valid location");
