@@ -3542,6 +3542,27 @@ namespace bpkg
         }
       };
 
+    // Return the package build configuration with the specified name, if
+    // already exists, or the newly created configuration otherwise.
+    //
+    auto build_conf = [&m] (string&& nm) -> build_package_config&
+    {
+      vector<build_package_config>& cs (m.build_configs);
+
+      auto i (find_if (cs.begin (), cs.end (),
+                       [&nm] (const build_package_config& c)
+                       {return c.name == nm;}));
+
+      if (i != cs.end ())
+        return *i;
+
+      // Add the new build configuration (arguments, builds, etc will come
+      // later).
+      //
+      cs.emplace_back (move (nm));
+      return cs.back ();
+    };
+
     // Cache the upstream version manifest value and validate whether it's
     // allowed later, after the version value is parsed.
     //
@@ -3860,6 +3881,50 @@ namespace bpkg
       else if (n == "build-exclude")
       {
         m.build_constraints.push_back (
+          parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if ((n.size () > 13 &&
+                n.compare (n.size () - 13, 13, "-build-config") == 0))
+      {
+        auto vc (parser::split_comment (v));
+
+        n.resize (n.size () - 13);
+
+        build_package_config& bc (build_conf (move (n)));
+
+        if (!bc.arguments.empty () || !bc.comment.empty ())
+          bad_name ("build configuration redefinition");
+
+        bc.arguments = move (vc.first);
+        bc.comment = move (vc.second);
+      }
+      else if ((n.size () > 7 && n.compare (n.size () - 7, 7, "-builds") == 0))
+      {
+        n.resize (n.size () - 7);
+
+        build_package_config& bc (build_conf (move (n)));
+
+        bc.builds.push_back (
+          parse_build_class_expr (nv, bc.builds.empty (), name));
+      }
+      else if ((n.size () > 14 &&
+                n.compare (n.size () - 14, 14, "-build-include") == 0))
+      {
+        n.resize (n.size () - 14);
+
+        build_package_config& bc (build_conf (move (n)));
+
+        bc.constraints.push_back (
+          parse_build_constraint (nv, false /* exclusion */, name));
+      }
+      else if ((n.size () > 14 &&
+                n.compare (n.size () - 14, 14, "-build-exclude") == 0))
+      {
+        n.resize (n.size () - 14);
+
+        build_package_config& bc (build_conf (move (n)));
+
+        bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
       // @@ TMP time to drop *-0.14.0?
@@ -4698,6 +4763,33 @@ namespace bpkg
                                            ? c.config
                                            : c.config + '/' + *c.target,
                                            c.comment));
+
+      for (const build_package_config& bc: m.build_configs)
+      {
+        if (!bc.arguments.empty () || !bc.comment.empty ())
+          s.next (bc.name + "-build-config",
+                  serializer::merge_comment (bc.arguments, bc.comment));
+
+        if (!bc.builds.empty ())
+        {
+          string n (bc.name + "-builds");
+          for (const build_class_expr& e: bc.builds)
+            s.next (n, serializer::merge_comment (e.string (), e.comment));
+        }
+
+        if (!bc.constraints.empty ())
+        {
+          string in (bc.name + "-build-include");
+          string en (bc.name + "-build-exclude");
+
+          for (const build_constraint& c: bc.constraints)
+            s.next (c.exclusion ? en : in,
+                    serializer::merge_comment (!c.target
+                                               ? c.config
+                                               : c.config + '/' + *c.target,
+                                               c.comment));
+        }
+      }
 
       bool an (m.alt_naming && *m.alt_naming);
 

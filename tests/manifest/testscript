@@ -541,6 +541,71 @@
       EOI
   }
 
+  : build-config
+  :
+  {
+    : multiple
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        bar-build-config: config.foo.bar = true; Bar.
+        bar-builds: all
+        baz-build-config: config.foo.baz = true; Baz.
+        EOF
+    }
+
+    : empty
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      network-build-config: ; None.
+      EOF
+
+    : undefined
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        bar-builds: default
+        baz-build-config: config.foo.bar = true
+        EOF
+    }
+
+    : redefinition
+    :
+    {
+      $* <<EOI 2>"stdin:3:1: error: build configuration redefinition" != 0
+        : 1
+        bar-build-config: config.foo.bar = true
+        bar-build-config: config.foo.bar = true
+        EOI
+    }
+
+    : unexpected-underlying-class-set
+    :
+    {
+      $* <<EOI 2>"stdin:4:13: error: invalid package builds: unexpected underlying class set" != 0
+        : 1
+        bar-build-config: config.foo.bar = true
+        bar-builds: all
+        bar-builds: all
+        EOI
+    }
+  }
+
   : depends
   :
   {
@@ -3773,6 +3838,10 @@
       build-include: linux*
       build-include: freebsd*
       build-exclude: *; Only supports Linux and FreeBSD.
+      network-build-config: config.libfoo.network=true; Enable networking API.
+      network-builds: default
+      network-build-include: linux*
+      network-build-exclude: *; Only supports Linux.
       bootstrap-build:\
       project = libfoo
 

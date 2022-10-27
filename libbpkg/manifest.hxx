@@ -776,7 +776,7 @@ namespace bpkg
   class build_constraint
   {
   public:
-    // If true, then the package should not be built for matching
+    // If true, then the package should not be built for matching target
     // configurations by automated build bots.
     //
     bool exclusion;
@@ -853,7 +853,7 @@ namespace bpkg
     return x |= y;
   }
 
-  // Build configuration class term.
+  // Target build configuration class term.
   //
   class LIBBPKG_EXPORT build_class_term
   {
@@ -903,8 +903,8 @@ namespace bpkg
   //
   using build_class_inheritance_map = std::map<std::string, std::string>;
 
-  // Build configuration class expression. Includes comment and optional
-  // underlying set.
+  // Target build configuration class expression. Includes comment and
+  // optional underlying set.
   //
   class LIBBPKG_EXPORT build_class_expr
   {
@@ -953,10 +953,10 @@ namespace bpkg
     std::string
     string () const;
 
-    // Match a build configuration that belongs to the specified list of
-    // classes (and recursively to their bases) against the expression. Either
-    // return or update the result (the latter allows to sequentially matching
-    // against a list of expressions).
+    // Match a target build configuration that belongs to the specified list
+    // of classes (and recursively to their bases) against the expression.
+    // Either return or update the result (the latter allows to sequentially
+    // matching against a list of expressions).
     //
     // Notes:
     //
@@ -964,7 +964,8 @@ namespace bpkg
     //   inheritance cycles, etc.).
     //
     // - The underlying class set doesn't affect the match in any way (it
-    //   should have been used to pre-filter the set of build configurations).
+    //   should have been used to pre-filter the set of target build
+    //   configurations).
     //
     void
     match (const strings&,
@@ -985,6 +986,52 @@ namespace bpkg
   {
     return os << bce.string ();
   }
+
+  // Package build configuration. Includes comment and optional target build
+  // configuration class expressions/constraints overrides.
+  //
+  class build_package_config
+  {
+  public:
+    std::string name;
+
+    // Whitespace separated list of potentially double/single-quoted package
+    // configuration arguments for bpkg-pkg-build command executed by
+    // automated build bots.
+    //
+    std::string arguments;
+
+    std::string comment;
+
+    butl::small_vector<build_class_expr, 1> builds;
+    std::vector<build_constraint> constraints;
+
+    build_package_config () = default;
+
+    // Built incrementally.
+    //
+    explicit
+    build_package_config (std::string n): name (move (n)) {}
+
+    // Return the configuration's build class expressions/constraints if they
+    // override the specified common expressions/constraints and return the
+    // latter otherwise (see package_manifest::override() for the override
+    // semantics details).
+    //
+    const butl::small_vector<build_class_expr, 1>&
+    effective_builds (const butl::small_vector<build_class_expr, 1>& common)
+      const noexcept
+    {
+      return !builds.empty () ? builds : common;
+    }
+
+    const std::vector<build_constraint>&
+    effective_constraints (const std::vector<build_constraint>& common) const
+      noexcept
+    {
+      return !builds.empty () || !constraints.empty () ? constraints : common;
+    }
+  };
 
   enum class text_type
   {
@@ -1116,8 +1163,13 @@ namespace bpkg
     std::vector<requirement_alternatives> requirements;
     butl::small_vector<test_dependency, 1> tests;
 
+    // Common build classes/constraints that apply to all configurations
+    // unless overridden.
+    //
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
+
+    std::vector<build_package_config> build_configs;
 
     // If true, then this package use the alternative buildfile naming scheme
     // (build2/, .build2). In the manifest serialization this is encoded as
