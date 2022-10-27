@@ -1636,21 +1636,21 @@ namespace bpkg
     case token_type::buildfile:     return (diag
                                             ? "<buildfile fragment>"
                                             : value);
-    case token_type::question:      return q + "?" + q;
-    case token_type::lparen:        return q + "(" + q;
-    case token_type::rparen:        return q + ")" + q;
-    case token_type::lcbrace:       return q + "{" + q;
-    case token_type::rcbrace:       return q + "}" + q;
-    case token_type::lsbrace:       return q + "[" + q;
-    case token_type::rsbrace:       return q + "]" + q;
+    case token_type::question:      return q + '?' + q;
+    case token_type::lparen:        return q + '(' + q;
+    case token_type::rparen:        return q + ')' + q;
+    case token_type::lcbrace:       return q + '{' + q;
+    case token_type::rcbrace:       return q + '}' + q;
+    case token_type::lsbrace:       return q + '[' + q;
+    case token_type::rsbrace:       return q + ']' + q;
     case token_type::equal:         return q + "==" + q;
-    case token_type::less:          return q + "<" + q;
-    case token_type::greater:       return q + ">" + q;
+    case token_type::less:          return q + '<' + q;
+    case token_type::greater:       return q + '>' + q;
     case token_type::less_equal:    return q + "<=" + q;
     case token_type::greater_equal: return q + ">=" + q;
-    case token_type::tilde:         return q + "~" + q;
-    case token_type::caret:         return q + "^" + q;
-    case token_type::bit_or:        return q + "|" + q;
+    case token_type::tilde:         return q + '~' + q;
+    case token_type::caret:         return q + '^' + q;
+    case token_type::bit_or:        return q + '|' + q;
     }
 
     assert (false); // Can't be here.
@@ -1834,7 +1834,7 @@ namespace bpkg
     dependency_alternative r;
 
     string what (requirements_ ? "requirement" : "dependency");
-    string config ("config." + dependent_->variable () + ".");
+    string config ("config." + dependent_->variable () + '.');
 
     auto bad_token = [&t, this] (string&& what)
     {
@@ -2699,13 +2699,13 @@ namespace bpkg
 
     if (!(alnum (c) || c == '_'))
       throw invalid_argument (
-        "class name '" + s + "' starts with '" + c + "'");
+        "class name '" + s + "' starts with '" + c + '\'');
 
     for (; i != s.size (); ++i)
     {
       if (!(alnum (c = s[i]) || c == '+' || c == '-' || c == '_' || c == '.'))
         throw invalid_argument (
-          "class name '" + s + "' contains '" + c + "'");
+          "class name '" + s + "' contains '" + c + '\'');
     }
 
     return s[0] == '_';
@@ -3114,7 +3114,7 @@ namespace bpkg
          if (t == "tests")      return test_dependency_type::tests;
     else if (t == "examples")   return test_dependency_type::examples;
     else if (t == "benchmarks") return test_dependency_type::benchmarks;
-    else throw invalid_argument ("invalid test dependency type '" + t + "'");
+    else throw invalid_argument ("invalid test dependency type '" + t + '\'');
   }
 
 
@@ -3293,7 +3293,7 @@ namespace bpkg
     {
       throw !source_name.empty ()
             ? parsing (source_name, nv.value_line, nv.value_column, d)
-            : parsing (d + " in '" + v + "'");
+            : parsing (d + " in '" + v + '\'');
     };
 
     size_t p (v.find ('/'));
@@ -4696,7 +4696,7 @@ namespace bpkg
         s.next (c.exclusion ? "build-exclude" : "build-include",
                 serializer::merge_comment (!c.target
                                            ? c.config
-                                           : c.config + "/" + *c.target,
+                                           : c.config + '/' + *c.target,
                                            c.comment));
 
       bool an (m.alt_naming && *m.alt_naming);
@@ -4963,7 +4963,7 @@ namespace bpkg
       {
         throw serialization (
           s.name (),
-          d + " for " + p.name.string () + "-" + p.version.string ());
+          d + " for " + p.name.string () + '-' + p.version.string ());
       };
 
       if (p.description)
@@ -5336,7 +5336,7 @@ namespace bpkg
     if (optional<repository_type> r = parse_repository_type (t))
       return *r;
 
-    throw invalid_argument ("invalid repository type '" + t + "'");
+    throw invalid_argument ("invalid repository type '" + t + '\'');
   }
 
   repository_type

@@ -902,10 +902,10 @@ namespace bpkg
       assert (git_ref_filter (n) == git_ref_filter (n, nullopt, false));
       assert (git_ref_filter ('+' + n) == git_ref_filter (n, nullopt, false));
       assert (git_ref_filter ('-' + n) == git_ref_filter (n, nullopt, true));
-      assert (git_ref_filter (c + "@") == git_ref_filter (c, nullopt, false));
+      assert (git_ref_filter (c + '@') == git_ref_filter (c, nullopt, false));
       assert (git_ref_filter (c) == git_ref_filter (nullopt, c, false));
-      assert (git_ref_filter ("@" + c) == git_ref_filter (nullopt, c, false));
-      assert (git_ref_filter (n + "@" + c) == git_ref_filter (n, c, false));
+      assert (git_ref_filter ('@' + c) == git_ref_filter (nullopt, c, false));
+      assert (git_ref_filter (n + '@' + c) == git_ref_filter (n, c, false));
 
       assert (parse_git_ref_filters (nullopt) ==
               git_ref_filters {git_ref_filter ()});
