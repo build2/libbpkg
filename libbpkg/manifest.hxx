@@ -1169,7 +1169,11 @@ namespace bpkg
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
 
-    std::vector<build_package_config> build_configs;
+    // Note that the parsing constructor adds the implied (empty) default
+    // configuration at the beginning of the list. Also note that serialize()
+    // writes no values for such a configuration.
+    //
+    butl::small_vector<build_package_config, 1> build_configs; // 1 for default.
 
     // If true, then this package use the alternative buildfile naming scheme
     // (build2/, .build2). In the manifest serialization this is encoded as
@@ -1283,24 +1287,42 @@ namespace bpkg
     //
     // The specified values override the whole groups they belong to,
     // resetting all the group values prior to being applied. Currently, only
-    // the following value groups can be overridden: {build-*email} and
-    // {builds, build-{include,exclude}}.
+    // the following value groups can be overridden:
     //
-    // Note that the build constraints group values are overridden
-    // hierarchically so that the build-{include,exclude} overrides don't
-    // affect the builds values.
+    //   {build-*email}
+    //   {builds, build-{include,exclude}}
+    //   {*-builds, *-build-{include,exclude}}
+    //
+    // Note that the build constraints group values (both common and build
+    // config-specific) are overridden hierarchically so that the
+    // [*-]build-{include,exclude} overrides don't affect the respective
+    // [*-]builds values.
+    //
+    // Also note that the common and build config-specific build constraints
+    // group value overrides are mutually exclusive. If the common build
+    // constraints are overridden, then all the build config-specific
+    // constraints are removed. Otherwise, if some build config-specific
+    // constraints are overridden, then for the remaining configs the build
+    // constraints are reset to `builds: none`.
     //
     // If a non-empty source name is specified, then the specified values are
     // assumed to also include the line/column information and the possibly
-    // thrown manifest_parsing exception will contain the invalid value
+    // thrown manifest_parsing exception will contain the invalid value's
     // location information. Otherwise, the exception description will refer
-    // to the invalid value name instead.
+    // to the invalid value instead.
     //
     void
     override (const std::vector<butl::manifest_name_value>&,
               const std::string& source_name);
 
     // Validate the overrides without applying them to any manifest.
+    //
+    // Specifically, validate that the override values can be parsed according
+    // to their name semantics and that the value sequence makes sense (no
+    // mutually exclusive values, etc). Note, however, that the subsequent
+    // applying of the successfully validated overrides to a specific package
+    // manifest may still fail (no build config exists for specified *-builds,
+    // etc).
     //
     static void
     validate_overrides (const std::vector<butl::manifest_name_value>&,

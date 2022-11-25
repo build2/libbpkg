@@ -3547,7 +3547,7 @@ namespace bpkg
     //
     auto build_conf = [&m] (string&& nm) -> build_package_config&
     {
-      vector<build_package_config>& cs (m.build_configs);
+      small_vector<build_package_config, 1>& cs (m.build_configs);
 
       auto i (find_if (cs.begin (), cs.end (),
                        [&nm] (const build_package_config& c)
@@ -3582,6 +3582,8 @@ namespace bpkg
     //
     optional<name_value> description;
     optional<name_value> description_type;
+
+    m.build_configs.emplace_back ("default");
 
     for (nv = next (); !nv.empty (); nv = next ())
     {
@@ -4421,95 +4423,293 @@ namespace bpkg
     return r;
   }
 
-  void package_manifest::
-  override (const vector<manifest_name_value>& nvs, const string& name)
+  // If validate_only is true, then the package manifest is assumed to be
+  // default constructed and is used as a storage for convenience of the
+  // validation implementation.
+  //
+  static void
+  override (const vector<manifest_name_value>& nvs,
+            const string& name,
+            package_manifest& m,
+            bool validate_only)
   {
-    // Reset the build constraints value sub-group on the first call.
+    // The first {builds, build-{include,exclude}} override value.
     //
-    bool rbc (true);
-    auto reset_build_constraints = [&rbc, this] ()
-    {
-      if (rbc)
-      {
-        build_constraints.clear ();
-        rbc = false;
-      }
-    };
+    const manifest_name_value* cbc (nullptr);
 
-    // Reset the builds value group on the first call.
+    // The first builds override value.
     //
-    bool rb (true);
-    auto reset_builds = [&rb, &reset_build_constraints, this] ()
-    {
-      if (rb)
-      {
-        builds.clear ();
-        reset_build_constraints ();
-        rb = false;
-      }
-    };
+    const manifest_name_value* cb (nullptr);
 
-    // Reset the build emails value group on the first call.
+    // The first {*-builds, *-build-{include,exclude}} override value.
     //
-    bool rbe (true);
-    auto reset_build_emails = [&rbe, this] ()
-    {
-      if (rbe)
-      {
-        build_email = nullopt;
-        build_warning_email = nullopt;
-        build_error_email = nullopt;
-        rbe = false;
-      }
-    };
+    const manifest_name_value* pbc  (nullptr);
 
+    // The first {build-*email} override value.
+    //
+    const manifest_name_value* be (nullptr);
+
+    // List of indexes of the overridden build configurations together with
+    // flags which indicate if the *-builds override value was encountered for
+    // this configuration.
+    //
+    vector<pair<size_t, bool>> obcs;
+
+    // Apply overrides.
+    //
     for (const manifest_name_value& nv: nvs)
     {
+      auto bad_name = [&name, &nv] (const string& d)
+      {
+        throw !name.empty ()
+              ? parsing (name, nv.name_line, nv.name_column, d)
+              : parsing (d);
+      };
+
+      // Reset the build-{include,exclude} value sub-group on the first call
+      // but throw if any of the {*-builds, *-build-{include,exclude}}
+      // override values are already encountered.
+      //
+      auto reset_build_constraints = [&cbc, &pbc, &nv, &bad_name, &m] ()
+      {
+        if (cbc == nullptr)
+        {
+          if (pbc != nullptr)
+            bad_name ('\'' + nv.name + "' override specified together with '" +
+                      pbc->name + "' override");
+
+          m.build_constraints.clear ();
+          cbc = &nv;
+        }
+      };
+
+      // Reset the {builds, build-{include,exclude}} value group on the first
+      // call.
+      //
+      auto reset_builds = [&cb, &nv, &reset_build_constraints, &m] ()
+      {
+        if (cb == nullptr)
+        {
+          reset_build_constraints ();
+
+          m.builds.clear ();
+          cb = &nv;
+        }
+      };
+
+      // Return the reference to the package build configuration matching the
+      // build config-specific builds group value override, if exists. If no
+      // configuration matches, then throw manifest_parsing, except for the
+      // validate-only mode in which case just add an empty configuration with
+      // this name and return the reference to it.
+      //
+      // The n argument specifies the length of the configuration name in
+      // {*-builds, *-build-{include,exclude}} values.
+      //
+      auto build_conf = [&pbc, &cbc, &nv, &obcs, &bad_name, &m, validate_only]
+                        (size_t n) -> build_package_config&
+      {
+        const string& nm (nv.name);
+
+        // If this is the first build config override value, then save its
+        // address. But first verify that no common build constraints group
+        // value overrides are applied yet and throw if that's not the case.
+        //
+        if (pbc == nullptr)
+        {
+          if (cbc != nullptr)
+            bad_name ('\'' + nm + "' override specified together with '" +
+                      cbc->name + "' override");
+
+          pbc = &nv;
+        }
+
+        small_vector<build_package_config, 1>& cs (m.build_configs);
+
+        // Find the build package configuration. If there is no such a
+        // configuration then throw, except for the validate-only mode in
+        // which case just add an empty configuration with this name.
+        //
+        // Note that we are using indexes rather then configuration addresses
+        // due to potential reallocations.
+        //
+        size_t ci (0); // Silence Clang's 'uninitialized use' warning.
+        {
+          auto i (find_if (cs.begin (), cs.end (),
+                           [&nm, n] (const build_package_config& c)
+                           {return nm.compare (0, n, c.name) == 0;}));
+
+          if (i == cs.end ())
+          {
+            string cn (nm, 0, n);
+
+            if (validate_only)
+            {
+              ci = cs.size ();
+              cs.emplace_back (move (cn));
+            }
+            else
+              bad_name ("cannot override '" + nm + "' value: no build " +
+                        "package configuration '" + cn + '\'');
+          }
+          else
+            ci = i - cs.begin ();
+        }
+
+        build_package_config& r (cs[ci]);
+        bool bv (nm.compare (n, nm.size () - n, "-builds") == 0);
+
+        // If this is the first encountered
+        // {*-builds, *-build-{include,exclude}} override for this build
+        // config, then clear this config' constraints member and add an entry
+        // to the overridden configs list.
+        //
+        auto i (find_if (obcs.begin (), obcs.end (),
+                         [ci] (const auto& c) {return c.first == ci;}));
+
+        bool first (i == obcs.end ());
+
+        if (first)
+        {
+          r.constraints.clear ();
+
+          obcs.push_back (make_pair (ci, bv));
+        }
+
+        // If this is the first encountered *-builds override, then also clear
+        // this config' builds member.
+        //
+        if (bv && (first || !i->second))
+        {
+          r.builds.clear ();
+
+          if (!first)
+            i->second = true;
+        }
+
+        return r;
+      };
+
+      // Reset the {build-*email} value group on the first call.
+      //
+      auto reset_build_emails = [&be, &nv, &m] ()
+      {
+        if (be == nullptr)
+        {
+          m.build_email = nullopt;
+          m.build_warning_email = nullopt;
+          m.build_error_email = nullopt;
+          be = &nv;
+        }
+      };
+
       const string& n (nv.name);
 
       if (n == "builds")
       {
         reset_builds ();
-        builds.push_back (parse_build_class_expr (nv, builds.empty (), name));
+
+        m.builds.push_back (
+          parse_build_class_expr (nv, m.builds.empty (), name));
       }
       else if (n == "build-include")
       {
         reset_build_constraints ();
 
-        build_constraints.push_back (
+        m.build_constraints.push_back (
           parse_build_constraint (nv, false /* exclusion */, name));
       }
       else if (n == "build-exclude")
       {
         reset_build_constraints ();
 
-        build_constraints.push_back (
+        m.build_constraints.push_back (
+          parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if (n.size () > 7 && n.compare (n.size () - 7, 7, "-builds") == 0)
+      {
+        build_package_config& bc (build_conf (n.size () - 7));
+
+        bc.builds.push_back (
+          parse_build_class_expr (nv, bc.builds.empty (), name));
+      }
+      else if (n.size () > 14 &&
+               n.compare (n.size () - 14, 14, "-build-include") == 0)
+      {
+        build_package_config& bc (build_conf (n.size () - 14));
+
+        bc.constraints.push_back (
+          parse_build_constraint (nv, false /* exclusion */, name));
+      }
+      else if (n.size () > 14 &&
+               n.compare (n.size () - 14, 14, "-build-exclude") == 0)
+      {
+        build_package_config& bc (build_conf (n.size () - 14));
+
+        bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
       else if (n == "build-email")
       {
         reset_build_emails ();
-        build_email = parse_email (nv, "build", name, true /* empty */);
+        m.build_email = parse_email (nv, "build", name, true /* empty */);
       }
       else if (n == "build-warning-email")
       {
         reset_build_emails ();
-        build_warning_email = parse_email (nv, "build warning", name);
+        m.build_warning_email = parse_email (nv, "build warning", name);
       }
       else if (n == "build-error-email")
       {
         reset_build_emails ();
-        build_error_email = parse_email (nv, "build error", name);
+        m.build_error_email = parse_email (nv, "build error", name);
       }
       else
-      {
-        string d ("cannot override '" + n + "' value");
+        bad_name ("cannot override '" + n + "' value");
+    }
 
-        throw !name.empty ()
-              ? parsing (name, nv.name_line, nv.name_column, d)
-              : parsing (d);
+    // Common build constraints and build config overrides are mutually
+    // exclusive.
+    //
+    assert (cbc == nullptr || pbc == nullptr);
+
+    // Now, if not in the validate-only mode, as all the potential build
+    // constraint overrides are applied, perform the final adjustments to the
+    // build config constraints.
+    //
+    if (!validate_only)
+    {
+      if (cbc != nullptr)      // Common build constraints are overridden?
+      {
+        for (build_package_config& c: m.build_configs)
+        {
+          c.builds.clear ();
+          c.constraints.clear ();
+        }
+      }
+      else if (pbc != nullptr) // Build config constraints are overridden?
+      {
+        for (size_t i (0); i != m.build_configs.size (); ++i)
+        {
+          if (find_if (obcs.begin (), obcs.end (),
+                       [i] (const auto& pc) {return pc.first == i;}) ==
+              obcs.end ())
+          {
+            build_package_config& c (m.build_configs[i]);
+
+            c.builds.clear ();
+            c.constraints.clear ();
+            c.builds.emplace_back ("none", "" /* comment */);
+          }
+        }
       }
     }
+  }
+
+  void package_manifest::
+  override (const vector<manifest_name_value>& nvs, const string& name)
+  {
+    bpkg::override (nvs, name, *this, false /* validate_only */);
   }
 
   void package_manifest::
@@ -4517,7 +4717,7 @@ namespace bpkg
                       const string& name)
   {
     package_manifest p;
-    p.override (nvs, name);
+    bpkg::override (nvs, name, p, true /* validate_only */);
   }
 
   static const string description_file ("description-file");

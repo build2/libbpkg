@@ -33,7 +33,7 @@ main (int argc, char* argv[])
 {
   vector<manifest_name_value> overrides;
 
-  bool name (false);
+  string name;
 
   uint64_t l (1);
   for (int i (1); i != argc; ++i)
@@ -42,7 +42,7 @@ main (int argc, char* argv[])
 
     if (a == "-n")
     {
-      name = true;
+      name = "args";
     }
     else
     {
@@ -78,7 +78,19 @@ main (int argc, char* argv[])
   try
   {
     package_manifest m (p);
-    m.override (overrides, name ? "args" : string ());
+    m.override (overrides, name);
+
+    // While at it, test validate_overrides().
+    //
+    try
+    {
+      package_manifest::validate_overrides (overrides, name);
+    }
+    catch (const manifest_parsing& e)
+    {
+      assert (false); // Validation must never fail if override succeeds.
+    }
+
     m.serialize (s);
   }
   catch (const manifest_parsing& e)
