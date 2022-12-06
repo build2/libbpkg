@@ -1292,6 +1292,15 @@ namespace bpkg
     //   {build-*email}
     //   {builds, build-{include,exclude}}
     //   {*-builds, *-build-{include,exclude}}
+    //   {*-build-config}
+    //
+    // Throw manifest_parsing if the configuration specified by the build
+    // package configuration-specific build constraints group value overrides
+    // doesn't exists. In contrast, for the build config override add a new
+    // configuration if it doesn't exist and update the arguments of the
+    // existing configuration otherwise. In the former case, all the potential
+    // build constraints overrides for such a newly added configuration must
+    // follow the respective *-build-config override.
     //
     // Note that the build constraints group values (both common and build
     // config-specific) are overridden hierarchically so that the

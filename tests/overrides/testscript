@@ -100,6 +100,9 @@
   :
   $* 'network-builds: all' 'network-build-include: windows*' 'network-build-exclude: *' \
      'cache-build-include: freebsd*' 'cache-build-exclude: *' 'cache-builds: legacy' \
+       'cache-build-config: config.libfoo.cache=true config.libfoo.buffer=1028' \
+     'deprecated-api-build-config: config.libfoo.deprecated_api=true' 'deprecated-api-builds: windows' \
+     'experimental-api-build-config: config.libfoo.experimental_api=true' \
      'sys-build-include: linux*' 'sys-build-exclude: *' \
      'fancy-builds: gcc' <<EOI >>EOO
     : 1
@@ -148,7 +151,7 @@
     network-builds: all
     network-build-include: windows*
     network-build-exclude: *
-    cache-build-config: config.libfoo.cache=true
+    cache-build-config: config.libfoo.cache=true config.libfoo.buffer=1028
     cache-builds: legacy
     cache-build-include: freebsd*
     cache-build-exclude: *
@@ -160,8 +163,11 @@
     older-builds: none
     fancy-build-config: config.libfoo.fancy=true
     fancy-builds: gcc
+    deprecated-api-build-config: config.libfoo.deprecated_api=true
+    deprecated-api-builds: windows
+    experimental-api-build-config: config.libfoo.experimental_api=true
+    experimental-api-builds: none
     EOO
-
 
   : build-config-default
   :
@@ -184,6 +190,27 @@
     default-build-exclude: *
     network-build-config: config.libfoo.network=true
     network-builds: none
+    EOO
+
+  : add-build-config
+  :
+  $* 'experimental-api-build-config: config.libfoo.experimental_api=true' <<EOI >>EOO
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    network-build-config: config.libfoo.network=true
+    network-builds: all
+    EOI
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    network-build-config: config.libfoo.network=true
+    network-builds: all
+    experimental-api-build-config: config.libfoo.experimental_api=true
     EOO
 
   : none
@@ -305,5 +332,17 @@
     network-build-config: config.libfoo.network=true
     EOI
     'build-exclude' override specified together with 'network-builds' override
+    EOE
+
+  : build-config-after-config-builds
+  :
+  $* 'deprecated-api-builds: windows' 'deprecated-api-build-config: config.libfoo.deprecated-api=true' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    cannot override 'deprecated-api-builds' value: no build package configuration 'deprecated-api'
     EOE
 }

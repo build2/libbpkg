@@ -86,7 +86,7 @@ main (int argc, char* argv[])
     {
       package_manifest::validate_overrides (overrides, name);
     }
-    catch (const manifest_parsing& e)
+    catch (const manifest_parsing&)
     {
       assert (false); // Validation must never fail if override succeeds.
     }

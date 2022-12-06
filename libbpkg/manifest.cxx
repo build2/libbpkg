@@ -4497,17 +4497,53 @@ namespace bpkg
         }
       };
 
-      // Return the reference to the package build configuration matching the
-      // build config-specific builds group value override, if exists. If no
-      // configuration matches, then throw manifest_parsing, except for the
+      // Return the reference to the package build configuration which matches
+      // the build config value override, if exists. If no configuration
+      // matches, then create one, if requested, and throw manifest_parsing
+      // otherwise.
+      //
+      // The n argument specifies the length of the configuration name in
+      // *-build-config, *-builds, and *-build-{include,exclude} values.
+      //
+      auto build_conf =
+        [&nv, &bad_name, &m] (size_t n, bool create) -> build_package_config&
+      {
+        const string& nm (nv.name);
+        small_vector<build_package_config, 1>& cs (m.build_configs);
+
+        // Find the build package configuration. If no configuration is found,
+        // then create one, if requested, and throw otherwise.
+        //
+        auto i (find_if (cs.begin (), cs.end (),
+                         [&nm, n] (const build_package_config& c)
+                         {return nm.compare (0, n, c.name) == 0;}));
+
+        if (i == cs.end ())
+        {
+          string cn (nm, 0, n);
+
+          if (create)
+          {
+            cs.emplace_back (move (cn));
+            return cs.back ();
+          }
+          else
+            bad_name ("cannot override '" + nm + "' value: no build " +
+                      "package configuration '" + cn + '\'');
+        }
+
+        return *i;
+      };
+
+      // Return the reference to the package build configuration which matches
+      // the build config-specific builds group value override, if exists. If
+      // no configuration matches, then throw manifest_parsing, except for the
       // validate-only mode in which case just add an empty configuration with
       // this name and return the reference to it.
       //
-      // The n argument specifies the length of the configuration name in
-      // {*-builds, *-build-{include,exclude}} values.
-      //
-      auto build_conf = [&pbc, &cbc, &nv, &obcs, &bad_name, &m, validate_only]
-                        (size_t n) -> build_package_config&
+      auto build_conf_constr =
+        [&pbc, &cbc, &nv, &obcs, &bad_name, &build_conf, &m, validate_only]
+        (size_t n) -> build_package_config&
       {
         const string& nm (nv.name);
 
@@ -4533,30 +4569,8 @@ namespace bpkg
         // Note that we are using indexes rather then configuration addresses
         // due to potential reallocations.
         //
-        size_t ci (0); // Silence Clang's 'uninitialized use' warning.
-        {
-          auto i (find_if (cs.begin (), cs.end (),
-                           [&nm, n] (const build_package_config& c)
-                           {return nm.compare (0, n, c.name) == 0;}));
-
-          if (i == cs.end ())
-          {
-            string cn (nm, 0, n);
-
-            if (validate_only)
-            {
-              ci = cs.size ();
-              cs.emplace_back (move (cn));
-            }
-            else
-              bad_name ("cannot override '" + nm + "' value: no build " +
-                        "package configuration '" + cn + '\'');
-          }
-          else
-            ci = i - cs.begin ();
-        }
-
-        build_package_config& r (cs[ci]);
+        build_package_config& r (build_conf (n, validate_only));
+        size_t ci (&r - cs.data ());
         bool bv (nm.compare (n, nm.size () - n, "-builds") == 0);
 
         // If this is the first encountered
@@ -4626,9 +4640,20 @@ namespace bpkg
         m.build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
+      else if ((n.size () > 13 &&
+                n.compare (n.size () - 13, 13, "-build-config") == 0))
+      {
+        build_package_config& bc (
+          build_conf (n.size () - 13, true /* create */));
+
+        auto vc (parser::split_comment (nv.value));
+
+        bc.arguments = move (vc.first);
+        bc.comment = move (vc.second);
+      }
       else if (n.size () > 7 && n.compare (n.size () - 7, 7, "-builds") == 0)
       {
-        build_package_config& bc (build_conf (n.size () - 7));
+        build_package_config& bc (build_conf_constr (n.size () - 7));
 
         bc.builds.push_back (
           parse_build_class_expr (nv, bc.builds.empty (), name));
@@ -4636,7 +4661,7 @@ namespace bpkg
       else if (n.size () > 14 &&
                n.compare (n.size () - 14, 14, "-build-include") == 0)
       {
-        build_package_config& bc (build_conf (n.size () - 14));
+        build_package_config& bc (build_conf_constr (n.size () - 14));
 
         bc.constraints.push_back (
           parse_build_constraint (nv, false /* exclusion */, name));
@@ -4644,7 +4669,7 @@ namespace bpkg
       else if (n.size () > 14 &&
                n.compare (n.size () - 14, 14, "-build-exclude") == 0)
       {
-        build_package_config& bc (build_conf (n.size () - 14));
+        build_package_config& bc (build_conf_constr (n.size () - 14));
 
         bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
