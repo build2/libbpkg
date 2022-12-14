@@ -566,7 +566,7 @@ namespace bpkg
   }
 
   version& version::
-  operator= (version&& v)
+  operator= (version&& v) noexcept
   {
     if (this != &v)
     {
@@ -624,7 +624,8 @@ namespace bpkg
   }
 
   text_file::
-  text_file (text_file&& f): file (f.file), comment (move (f.comment))
+  text_file (text_file&& f) noexcept
+      : file (f.file), comment (move (f.comment))
   {
     if (file)
       new (&path) path_type (move (f.path));
@@ -642,12 +643,12 @@ namespace bpkg
   }
 
   text_file& text_file::
-  operator= (text_file&& f)
+  operator= (text_file&& f) noexcept
   {
     if (this != &f)
     {
       this->~text_file ();
-      new (this) text_file (move (f)); // Assume noexcept move-construction.
+      new (this) text_file (move (f)); // Rely on noexcept move-construction.
     }
     return *this;
   }
@@ -2643,7 +2644,7 @@ namespace bpkg
   }
 
   build_class_term::
-  build_class_term (build_class_term&& t)
+  build_class_term (build_class_term&& t) noexcept
       : operation (t.operation),
         inverted (t.inverted),
         simple (t.simple)
@@ -2667,13 +2668,13 @@ namespace bpkg
   }
 
   build_class_term& build_class_term::
-  operator= (build_class_term&& t)
+  operator= (build_class_term&& t) noexcept
   {
     if (this != &t)
     {
       this->~build_class_term ();
 
-      // Assume noexcept move-construction.
+      // Rely on noexcept move-construction.
       //
       new (this) build_class_term (move (t));
     }

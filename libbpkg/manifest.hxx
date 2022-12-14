@@ -102,7 +102,7 @@ namespace bpkg
 
     version (version&&) = default;
     version (const version&) = default;
-    version& operator= (version&&);
+    version& operator= (version&&) noexcept;
     version& operator= (const version&);
 
     // If the revision is ignored, then the iteration (that semantically
@@ -281,9 +281,9 @@ namespace bpkg
     text_file (path_type p, std::string c)
         : file (true), path (std::move (p)), comment (std::move (c)) {}
 
-    text_file (text_file&&);
+    text_file (text_file&&) noexcept;
     text_file (const text_file&);
-    text_file& operator= (text_file&&);
+    text_file& operator= (text_file&&) noexcept;
     text_file& operator= (const text_file&);
 
     ~text_file ();
@@ -882,9 +882,9 @@ namespace bpkg
     build_class_term ()
         : operation ('\0'), inverted (false), simple (true), name () {}
 
-    build_class_term (build_class_term&&);
+    build_class_term (build_class_term&&) noexcept;
     build_class_term (const build_class_term&);
-    build_class_term& operator= (build_class_term&&);
+    build_class_term& operator= (build_class_term&&) noexcept;
     build_class_term& operator= (const build_class_term&);
 
     ~build_class_term ();
