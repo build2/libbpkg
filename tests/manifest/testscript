@@ -606,6 +606,103 @@
     }
   }
 
+  : distribution
+  :
+  {
+    : incomplete
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: libcrypto
+        version: 1.1.1+18
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        debian-name: libssl1.1 libssl-dev
+        debian-version: 1.1.1n
+        debian-to-downstream-version: /([^.])\.([^.])\.([^.])n/\1.\2.\3+18/
+        debian-to-downstream-version: /([^.])\.([^.])\.([^.])o/\1.\2.\3+19/
+        debian-to-downstream-version: /([^.])\.([^.])\.([^.])p/\1.\2.\3+20/
+        fedora-name: openssl-libs openssl-devel
+        fedora-version: $
+        EOF
+    }
+
+    : complete
+    :
+    {
+      $* -c <<EOI >>EOO
+        : 1
+        name: libcrypto
+        version: +2-1.1.1-a.1+2
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        fedora-name: openssl-libs openssl-devel
+        fedora-version: $
+        EOI
+        : 1
+        name: libcrypto
+        version: +2-1.1.1-a.1+2
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        fedora-name: openssl-libs openssl-devel
+        fedora-version: 1.1.1
+        EOO
+    }
+
+    : dash-in-name
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libcrypto
+        version: 1.1.1+18
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        de-bian-name: libssl1.1 libssl-dev
+        EOI
+        stdin:7:1: error: distribution name 'de-bian' contains '-'
+        EOE
+    }
+
+    : empty-value
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libcrypto
+        version: 1.1.1+18
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        debian-name:
+        EOI
+        stdin:7:13: error: empty package distribution value
+        EOE
+    }
+
+    : redefinition
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: libcrypto
+        version: 1.1.1+18
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        debian-name: libssl1.1 libssl-dev
+        debian-name: libssl1.1 libssl-dev
+        EOI
+        stdin:8:1: error: package distribution value redefinition
+        EOE
+    }
+  }
+
   : depends
   :
   {

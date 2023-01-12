@@ -811,18 +811,18 @@ namespace bpkg
   //
   enum class package_manifest_flags: std::uint16_t
   {
-    none                           = 0x000,
+    none                     = 0x000,
 
-    forbid_file                    = 0x001, // Forbid *-file manifest values.
-    forbid_location                = 0x002,
-    forbid_sha256sum               = 0x004,
-    forbid_fragment                = 0x008,
-    forbid_incomplete_dependencies = 0x010,
+    forbid_file              = 0x001, // Forbid *-file manifest values.
+    forbid_location          = 0x002,
+    forbid_sha256sum         = 0x004,
+    forbid_fragment          = 0x008,
+    forbid_incomplete_values = 0x010, // depends, <distribution>-version, etc.
 
-    require_location               = 0x020,
-    require_sha256sum              = 0x040,
-    require_description_type       = 0x080,
-    require_bootstrap_build        = 0x100
+    require_location         = 0x020,
+    require_sha256sum        = 0x040,
+    require_description_type = 0x080,
+    require_bootstrap_build  = 0x100
   };
 
   inline package_manifest_flags
@@ -1130,6 +1130,27 @@ namespace bpkg
           content (std::move (c)) {}
   };
 
+  // Binary distribution package information.
+  //
+  // The name is prefixed with the distribution name/version and has the
+  // `<name>[_<version>]-*` form. For example:
+  //
+  // debian
+  // debian_10
+  //
+  // Note that the value semantics can be distribution-specific.
+  //
+  struct distribution_name_value
+  {
+    std::string name;
+    std::string value;
+
+    distribution_name_value () = default;
+    distribution_name_value (std::string n, std::string v)
+        : name (std::move (n)),
+          value (std::move (v)) {}
+  };
+
   class LIBBPKG_EXPORT package_manifest
   {
   public:
@@ -1189,6 +1210,10 @@ namespace bpkg
     std::vector<buildfile>  buildfiles;      // Buildfiles content.
     std::vector<butl::path> buildfile_paths;
 
+    // The binary distributions package information.
+    //
+    std::vector<distribution_name_value> distributions;
+
     // The following values are only valid in the manifest list (and only for
     // certain repository types).
     //
@@ -1220,7 +1245,7 @@ namespace bpkg
     //
     package_manifest (butl::manifest_parser&,
                       bool ignore_unknown = false,
-                      bool complete_dependencies = true,
+                      bool complete_values = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |
@@ -1242,7 +1267,7 @@ namespace bpkg
     package_manifest (butl::manifest_parser&,
                       const std::function<translate_function>&,
                       bool ignore_unknown = false,
-                      bool complete_depends = true,
+                      bool complete_values = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |
@@ -1257,7 +1282,7 @@ namespace bpkg
     package_manifest (const std::string& name,
                       std::vector<butl::manifest_name_value>&&,
                       bool ignore_unknown = false,
-                      bool complete_dependencies = true,
+                      bool complete_values = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |
@@ -1267,7 +1292,7 @@ namespace bpkg
                       std::vector<butl::manifest_name_value>&&,
                       const std::function<translate_function>&,
                       bool ignore_unknown = false,
-                      bool complete_depends = true,
+                      bool complete_values = true,
                       package_manifest_flags =
                         package_manifest_flags::forbid_location  |
                         package_manifest_flags::forbid_sha256sum |
@@ -1278,7 +1303,7 @@ namespace bpkg
     package_manifest (butl::manifest_parser&,
                       butl::manifest_name_value start,
                       bool ignore_unknown,
-                      bool complete_depends,
+                      bool complete_values,
                       package_manifest_flags);
 
     // Override manifest values with the specified. Throw manifest_parsing if
@@ -1382,9 +1407,9 @@ namespace bpkg
   inline package_manifest
   pkg_package_manifest (butl::manifest_parser& p,
                         bool ignore_unknown = false,
-                        bool complete_depends = true)
+                        bool complete_values = true)
   {
-    return package_manifest (p, ignore_unknown, complete_depends);
+    return package_manifest (p, ignore_unknown, complete_values);
   }
 
   LIBBPKG_EXPORT package_manifest
