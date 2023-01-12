@@ -40,7 +40,7 @@ using namespace bpkg;
 // In the second form read and parse the package manifest from stdin and
 // serialize it to stdout.
 //
-// -c   complete the dependency constraints
+// -c   complete the incomplete values (depends, <distribution>-version, etc)
 // -i   ignore unknown
 //
 // Note: the above options should go after -p on the command line.
@@ -74,7 +74,7 @@ main (int argc, char* argv[])
   {
     if (mode == "-p")
     {
-      bool complete_dependencies (false);
+      bool complete_values (false);
       bool ignore_unknown (false);
       bool long_lines (false);
 
@@ -83,7 +83,7 @@ main (int argc, char* argv[])
         string o (argv[i]);
 
         if (o == "-c")
-          complete_dependencies = true;
+          complete_values = true;
         else if (o == "-i")
           ignore_unknown = true;
         else if (o == "-l")
@@ -114,7 +114,7 @@ main (int argc, char* argv[])
           }
         },
         ignore_unknown,
-        complete_dependencies).serialize (s);
+        complete_values).serialize (s);
     }
     else if (mode == "-ec")
     {

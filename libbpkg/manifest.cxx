@@ -3240,6 +3240,25 @@ namespace bpkg
     return r;
   }
 
+  // distribution_name_value
+  //
+  optional<string> distribution_name_value::
+  distribution (const string& s) const
+  {
+    size_t sn (s.size ());
+    size_t nn (name.size ());
+
+    if (nn > sn && name.compare (nn - sn, sn, s) == 0)
+    {
+      size_t p (name.find ('-'));
+
+      if (p == nn - sn)
+        return string (name, 0, p);
+    }
+
+    return nullopt;
+  }
+
   // pkg_package_manifest
   //
   static build_class_expr
@@ -3346,7 +3365,7 @@ namespace bpkg
     const function<name_value ()>& next,
     const function<package_manifest::translate_function>& translate,
     bool iu,
-    bool cd,
+    bool cv,
     package_manifest_flags fl,
     package_manifest& m)
   {
@@ -3429,6 +3448,43 @@ namespace bpkg
         else
           bad_value (string ("up to five ") + what + " allowed");
       }
+    };
+
+    // Note: the n argument is the distribution name length.
+    //
+    auto parse_distribution = [&bad_name, &bad_value] (string&& nm, size_t n,
+                                                       string&& vl)
+    {
+      size_t p (nm.find ('-'));
+
+      // Distribution-related manifest value name always has a dash-starting
+      // suffix (-name, etc).
+      //
+      assert (p != string::npos);
+
+      if (p < n)
+        bad_name ("distribution name '" + string (nm, 0, n) + "' contains '-'");
+
+      if (vl.empty ())
+        bad_value ("empty package distribution value");
+
+      return distribution_name_value (move (nm), move (vl));
+    };
+
+    auto add_distribution = [&m, &bad_name] (distribution_name_value&& nv,
+                                             bool unique)
+    {
+      vector<distribution_name_value>& dvs (m.distribution_values);
+
+      if (unique &&
+          find_if (dvs.begin (), dvs.end (),
+                   [&nv] (const distribution_name_value& dnv)
+                   {return dnv.name == nv.name;}) != dvs.end ())
+      {
+        bad_name ("package distribution value redefinition");
+      }
+
+      dvs.push_back (move (nv));
     };
 
     auto flag = [fl] (package_manifest_flags f)
@@ -3886,8 +3942,8 @@ namespace bpkg
         m.build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
-      else if ((n.size () > 13 &&
-                n.compare (n.size () - 13, 13, "-build-config") == 0))
+      else if (n.size () > 13 &&
+               n.compare (n.size () - 13, 13, "-build-config") == 0)
       {
         auto vc (parser::split_comment (v));
 
@@ -3901,7 +3957,7 @@ namespace bpkg
         bc.arguments = move (vc.first);
         bc.comment = move (vc.second);
       }
-      else if ((n.size () > 7 && n.compare (n.size () - 7, 7, "-builds") == 0))
+      else if (n.size () > 7 && n.compare (n.size () - 7, 7, "-builds") == 0)
       {
         n.resize (n.size () - 7);
 
@@ -3910,8 +3966,8 @@ namespace bpkg
         bc.builds.push_back (
           parse_build_class_expr (nv, bc.builds.empty (), name));
       }
-      else if ((n.size () > 14 &&
-                n.compare (n.size () - 14, 14, "-build-include") == 0))
+      else if (n.size () > 14 &&
+               n.compare (n.size () - 14, 14, "-build-include") == 0)
       {
         n.resize (n.size () - 14);
 
@@ -3920,8 +3976,8 @@ namespace bpkg
         bc.constraints.push_back (
           parse_build_constraint (nv, false /* exclusion */, name));
       }
-      else if ((n.size () > 14 &&
-                n.compare (n.size () - 14, 14, "-build-exclude") == 0))
+      else if (n.size () > 14 &&
+               n.compare (n.size () - 14, 14, "-build-exclude") == 0)
       {
         n.resize (n.size () - 14);
 
@@ -4000,6 +4056,41 @@ namespace bpkg
         else
           bad_value ("path with build or build2 extension expected");
 
+      }
+      else if (n.size () > 5 && n.compare (n.size () - 5, 5, "-name") == 0)
+      {
+        add_distribution (
+          parse_distribution (move (n), n.size () - 5, move (v)),
+          false /* unique */);
+      }
+      // Note: must precede the check for the "-version" suffix.
+      //
+      else if (n.size () > 22 &&
+               n.compare (n.size () - 22, 22, "-to-downstream-version") == 0)
+      {
+        add_distribution (
+          parse_distribution (move (n), n.size () - 22, move (v)),
+          false /* unique */);
+      }
+      // Note: must follow the check for "upstream-version".
+      //
+      else if (n.size () > 8 && n.compare (n.size () - 8, 8, "-version") == 0)
+      {
+        // If the value is forbidden then throw, but only after the name is
+        // validated. Thus, check for that before we move the value from.
+        //
+        bool bad (v == "$" &&
+                  flag (package_manifest_flags::forbid_incomplete_values));
+
+        // Can throw.
+        //
+        distribution_name_value d (
+          parse_distribution (move (n), n.size () - 8, move (v)));
+
+        if (bad)
+          bad_value ("$ not allowed");
+
+        add_distribution (move (d), true /* unique */);
       }
       else if (n == "location")
       {
@@ -4152,7 +4243,7 @@ namespace bpkg
     // Now, when the version manifest value is parsed, we can parse the
     // dependencies and complete their constraints, if requested.
     //
-    auto complete_constraint = [&m, cd, &flag] (auto&& dep)
+    auto complete_constraint = [&m, cv, &flag] (auto&& dep)
     {
       if (dep.constraint)
       try
@@ -4160,12 +4251,12 @@ namespace bpkg
         version_constraint& vc (*dep.constraint);
 
         if (!vc.complete () &&
-            flag (package_manifest_flags::forbid_incomplete_dependencies))
+            flag (package_manifest_flags::forbid_incomplete_values))
           throw invalid_argument ("$ not allowed");
 
         // Complete the constraint.
         //
-        if (cd)
+        if (cv)
           vc = vc.effective (m.version);
       }
       catch (const invalid_argument& e)
@@ -4238,6 +4329,29 @@ namespace bpkg
       }
     }
 
+    // Now, when the version manifest value is parsed, we complete the
+    // <distribution>-version values, if requested.
+    //
+    if (cv)
+    {
+      for (distribution_name_value& nv: m.distribution_values)
+      {
+        const string& n (nv.name);
+        string& v (nv.value);
+
+        if (v == "$"                                                         &&
+            (n.size () > 8 && n.compare (n.size () - 8, 8, "-version") == 0) &&
+            n.find ('-') == n.size () - 8)
+        {
+          v = version (default_epoch (m.version),
+                       move (m.version.upstream),
+                       nullopt /* release */,
+                       nullopt /* revision */,
+                       0 /* iteration */).string ();
+        }
+      }
+    }
+
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
 
@@ -4277,7 +4391,7 @@ namespace bpkg
     name_value nv,
     const function<package_manifest::translate_function>& tf,
     bool iu,
-    bool cd,
+    bool cv,
     package_manifest_flags fl,
     package_manifest& m)
   {
@@ -4297,7 +4411,7 @@ namespace bpkg
                             [&p] () {return p.next ();},
                             tf,
                             iu,
-                            cd,
+                            cv,
                             fl,
                             m);
   }
@@ -4309,12 +4423,12 @@ namespace bpkg
       p,
       move (nv),
       iu,
-      false /* complete_depends */,
-      package_manifest_flags::forbid_file                    |
-      package_manifest_flags::forbid_fragment                |
-      package_manifest_flags::forbid_incomplete_dependencies |
-      package_manifest_flags::require_location               |
-      package_manifest_flags::require_description_type       |
+      false /* complete_values */,
+      package_manifest_flags::forbid_file              |
+      package_manifest_flags::forbid_fragment          |
+      package_manifest_flags::forbid_incomplete_values |
+      package_manifest_flags::require_location         |
+      package_manifest_flags::require_description_type |
       package_manifest_flags::require_bootstrap_build);
   }
 
@@ -4324,10 +4438,10 @@ namespace bpkg
   package_manifest (manifest_parser& p,
                     const function<translate_function>& tf,
                     bool iu,
-                    bool cd,
+                    bool cv,
                     package_manifest_flags fl)
   {
-    parse_package_manifest (p, p.next (), tf, iu, cd, fl, *this);
+    parse_package_manifest (p, p.next (), tf, iu, cv, fl, *this);
 
     // Make sure this is the end.
     //
@@ -4340,9 +4454,9 @@ namespace bpkg
   package_manifest::
   package_manifest (manifest_parser& p,
                     bool iu,
-                    bool cd,
+                    bool cv,
                     package_manifest_flags fl)
-      : package_manifest (p, function<translate_function> (), iu, cd, fl)
+      : package_manifest (p, function<translate_function> (), iu, cv, fl)
   {
   }
 
@@ -4351,7 +4465,7 @@ namespace bpkg
                     vector<name_value>&& vs,
                     const function<translate_function>& tf,
                     bool iu,
-                    bool cd,
+                    bool cv,
                     package_manifest_flags fl)
   {
     auto i (vs.begin ());
@@ -4366,7 +4480,7 @@ namespace bpkg
                             },
                             tf,
                             iu,
-                            cd,
+                            cv,
                             fl,
                             *this);
   }
@@ -4375,13 +4489,13 @@ namespace bpkg
   package_manifest (const string& name,
                     vector<name_value>&& vs,
                     bool iu,
-                    bool cd,
+                    bool cv,
                     package_manifest_flags fl)
       : package_manifest (name,
                           move (vs),
                           function<translate_function> (),
                           iu,
-                          cd,
+                          cv,
                           fl)
   {
   }
@@ -4390,11 +4504,11 @@ namespace bpkg
   package_manifest (manifest_parser& p,
                     name_value nv,
                     bool iu,
-                    bool cd,
+                    bool cv,
                     package_manifest_flags fl)
   {
     parse_package_manifest (
-      p, move (nv), function<translate_function> (), iu, cd, fl, *this);
+      p, move (nv), function<translate_function> (), iu, cv, fl, *this);
   }
 
   optional<text_type> package_manifest::
@@ -5032,6 +5146,9 @@ namespace bpkg
 
       for (const path& f: m.buildfile_paths)
         s.next ("build-file", f.posix_string () + (an ? ".build2" : ".build"));
+
+      for (const distribution_name_value& nv: m.distribution_values)
+        s.next (nv.name, nv.value);
 
       if (m.location)
         s.next ("location", m.location->posix_string ());
