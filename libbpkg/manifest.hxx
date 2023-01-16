@@ -1219,7 +1219,7 @@ namespace bpkg
 
     // The binary distributions package information.
     //
-    std::vector<distribution_name_value> distributions;
+    std::vector<distribution_name_value> distribution_values;
 
     // The following values are only valid in the manifest list (and only for
     // certain repository types).

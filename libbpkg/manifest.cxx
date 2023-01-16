@@ -3455,15 +3455,17 @@ namespace bpkg
     auto add_distribution = [&m, &bad_name] (distribution_name_value&& nv,
                                              bool unique)
     {
+      vector<distribution_name_value>& dvs (m.distribution_values);
+
       if (unique &&
-          find_if (m.distributions.begin (), m.distributions.end (),
+          find_if (dvs.begin (), dvs.end (),
                    [&nv] (const distribution_name_value& dnv)
-                   {return dnv.name == nv.name;}) != m.distributions.end ())
+                   {return dnv.name == nv.name;}) != dvs.end ())
       {
         bad_name ("package distribution value redefinition");
       }
 
-      m.distributions.push_back (move (nv));
+      dvs.push_back (move (nv));
     };
 
     auto flag = [fl] (package_manifest_flags f)
@@ -4313,17 +4315,14 @@ namespace bpkg
     //
     if (cv)
     {
-      for (distribution_name_value& nv: m.distributions)
+      for (distribution_name_value& nv: m.distribution_values)
       {
         const string& n (nv.name);
         string& v (nv.value);
 
-        // @@ redo by checking no other `-`.
-        //
         if (v == "$"                                                         &&
             (n.size () > 8 && n.compare (n.size () - 8, 8, "-version") == 0) &&
-            (n.size () <= 22 ||
-             n.compare (n.size () - 22, 22, "-to-downstream-version") != 0))
+            n.find ('-') == n.size () - 8)
         {
           v = version (default_epoch (m.version),
                        move (m.version.upstream),
@@ -5129,7 +5128,7 @@ namespace bpkg
       for (const path& f: m.buildfile_paths)
         s.next ("build-file", f.posix_string () + (an ? ".build2" : ".build"));
 
-      for (const distribution_name_value& nv: m.distributions)
+      for (const distribution_name_value& nv: m.distribution_values)
         s.next (nv.name, nv.value);
 
       if (m.location)

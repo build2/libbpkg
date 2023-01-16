@@ -641,6 +641,7 @@
         license: OpenSSL
         fedora-name: openssl-libs openssl-devel
         fedora-version: $
+        fedora-to-downstream-version: $
         EOI
         : 1
         name: libcrypto
@@ -650,6 +651,7 @@
         license: OpenSSL
         fedora-name: openssl-libs openssl-devel
         fedora-version: 1.1.1
+        fedora-to-downstream-version: $
         EOO
     }
 
