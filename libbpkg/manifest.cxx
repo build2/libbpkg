@@ -4051,6 +4051,8 @@ namespace bpkg
           parse_distribution (move (n), n.size () - 22, move (v)),
           false /* unique */);
       }
+      // Note: must follow the check for "upstream-version".
+      //
       else if (n.size () > 8 && n.compare (n.size () - 8, 8, "-version") == 0)
       {
         // If the value is forbidden then throw, but only after the name is
@@ -4316,6 +4318,8 @@ namespace bpkg
         const string& n (nv.name);
         string& v (nv.value);
 
+        // @@ redo by checking no other `-`.
+        //
         if (v == "$"                                                         &&
             (n.size () > 8 && n.compare (n.size () - 8, 8, "-version") == 0) &&
             (n.size () <= 22 ||

@@ -1132,13 +1132,20 @@ namespace bpkg
 
   // Binary distribution package information.
   //
-  // The name is prefixed with the distribution name/version and has the
-  // `<name>[_<version>]-*` form. For example:
+  // The name is prefixed with the <distribution> id, typically name/version
+  // pair in the <name>[_<version>] form. For example:
   //
-  // debian
-  // debian_10
+  // debian-name
+  // debian_10-name
+  // ubuntu_20.04-name
   //
-  // Note that the value semantics can be distribution-specific.
+  // Currently recognized names:
+  //
+  // <distribution>-name
+  // <distribution>-version
+  // <distribution>-to-downstream-version
+  //
+  // Note that the value format/semantics can be distribution-specific.
   //
   struct distribution_name_value
   {
