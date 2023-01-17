@@ -3240,6 +3240,25 @@ namespace bpkg
     return r;
   }
 
+  // distribution_name_value
+  //
+  optional<string> distribution_name_value::
+  distribution (const string& s) const
+  {
+    size_t sn (s.size ());
+    size_t nn (name.size ());
+
+    if (nn > sn && name.compare (nn - sn, sn, s) == 0)
+    {
+      size_t p (name.find ('-'));
+
+      if (p == nn - sn)
+        return string (name, 0, p);
+    }
+
+    return nullopt;
+  }
+
   // pkg_package_manifest
   //
   static build_class_expr

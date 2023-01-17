@@ -1156,6 +1156,12 @@ namespace bpkg
     distribution_name_value (std::string n, std::string v)
         : name (std::move (n)),
           value (std::move (v)) {}
+
+    // Return the name's <distribution> component if the name has the
+    // specified suffix, which is assumed to be valid (-name, etc).
+    //
+    butl::optional<std::string>
+    distribution (const std::string& suffix) const;
   };
 
   class LIBBPKG_EXPORT package_manifest
