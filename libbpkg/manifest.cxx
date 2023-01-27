@@ -4061,7 +4061,7 @@ namespace bpkg
       {
         add_distribution (
           parse_distribution (move (n), n.size () - 5, move (v)),
-          true /* unique */);
+          false /* unique */);
       }
       // Note: must precede the check for the "-version" suffix.
       //

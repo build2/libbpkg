@@ -655,6 +655,21 @@
         EOO
     }
 
+    : multiple-names
+    :
+    {
+      $* <<EOO >>EOO
+        : 1
+        name: libcrypto
+        version: 1.1.1+18
+        upstream-version: 1.1.1n
+        summary: C library providing general cryptography and X.509 support
+        license: OpenSSL
+        debian-name: libcurl4 libcurl4-doc libcurl4-openssl-dev
+        debian-name: libcurl3-gnutls libcurl4-gnutls-dev
+        EOO
+    }
+
     : dash-in-name
     :
     {
@@ -684,23 +699,6 @@
         debian-name:
         EOI
         stdin:7:13: error: empty package distribution value
-        EOE
-    }
-
-    : redefinition
-    :
-    {
-      $* <<EOI 2>>EOE != 0
-        : 1
-        name: libcrypto
-        version: 1.1.1+18
-        upstream-version: 1.1.1n
-        summary: C library providing general cryptography and X.509 support
-        license: OpenSSL
-        debian-name: libssl1.1 libssl-dev
-        debian-name: libssl1.1 libssl-dev
-        EOI
-        stdin:8:1: error: package distribution value redefinition
         EOE
     }
   }
