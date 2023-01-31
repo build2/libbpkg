@@ -1147,7 +1147,7 @@ namespace bpkg
   //
   // Note that the value format/semantics can be distribution-specific.
   //
-  struct distribution_name_value
+  struct LIBBPKG_EXPORT distribution_name_value
   {
     std::string name;
     std::string value;
