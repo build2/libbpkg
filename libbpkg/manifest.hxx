@@ -11,7 +11,6 @@
 #include <cstdint>    // uint*_t
 #include <ostream>
 #include <utility>    // move()
-#include <stdexcept>  // logic_error
 #include <functional>
 
 #include <libbutl/url.hxx>
@@ -111,23 +110,12 @@ namespace bpkg
     std::string
     string (bool ignore_revision = false, bool ignore_iteration = false) const;
 
-    bool
-    operator< (const version& v) const noexcept {return compare (v) < 0;}
-
-    bool
-    operator> (const version& v) const noexcept {return compare (v) > 0;}
-
-    bool
-    operator== (const version& v) const noexcept {return compare (v) == 0;}
-
-    bool
-    operator<= (const version& v) const noexcept {return compare (v) <= 0;}
-
-    bool
-    operator>= (const version& v) const noexcept {return compare (v) >= 0;}
-
-    bool
-    operator!= (const version& v) const noexcept {return compare (v) != 0;}
+    bool operator<  (const version& v) const noexcept;
+    bool operator>  (const version& v) const noexcept;
+    bool operator== (const version& v) const noexcept;
+    bool operator<= (const version& v) const noexcept;
+    bool operator>= (const version& v) const noexcept;
+    bool operator!= (const version& v) const noexcept;
 
     // If the revision is ignored, then the iteration is also ignored,
     // regardless of the argument (see above for details).
@@ -135,28 +123,7 @@ namespace bpkg
     int
     compare (const version& v,
              bool ignore_revision = false,
-             bool ignore_iteration = false) const noexcept
-    {
-      if (epoch != v.epoch)
-        return epoch < v.epoch ? -1 : 1;
-
-      if (int c = canonical_upstream.compare (v.canonical_upstream))
-        return c;
-
-      if (int c = canonical_release.compare (v.canonical_release))
-        return c;
-
-      if (!ignore_revision)
-      {
-        if (revision != v.revision)
-          return revision < v.revision ? -1 : 1;
-
-        if (!ignore_iteration && iteration != v.iteration)
-          return iteration < v.iteration ? -1 : 1;
-      }
-
-      return 0;
-    }
+             bool ignore_iteration = false) const noexcept;
 
     bool
     empty () const noexcept
@@ -207,33 +174,10 @@ namespace bpkg
     return os << (v.empty () ? "<empty-version>" : v.string ());
   }
 
-  inline version::flags
-  operator&= (version::flags& x, version::flags y)
-  {
-    return x = static_cast<version::flags> (
-      static_cast<std::uint16_t> (x) &
-      static_cast<std::uint16_t> (y));
-  }
-
-  inline version::flags
-  operator|= (version::flags& x, version::flags y)
-  {
-    return x = static_cast<version::flags> (
-      static_cast<std::uint16_t> (x) |
-      static_cast<std::uint16_t> (y));
-  }
-
-  inline version::flags
-  operator& (version::flags x, version::flags y)
-  {
-    return x &= y;
-  }
-
-  inline version::flags
-  operator| (version::flags x, version::flags y)
-  {
-    return x |= y;
-  }
+  version::flags operator&  (version::flags,  version::flags);
+  version::flags operator|  (version::flags,  version::flags);
+  version::flags operator&= (version::flags&, version::flags);
+  version::flags operator|= (version::flags&, version::flags);
 
   // priority
   //
@@ -249,6 +193,17 @@ namespace bpkg
         : value (v), comment (std::move (c)) {}
 
     operator value_type () const {return value;}
+  };
+
+  // language
+  //
+  struct language
+  {
+    std::string name;
+    bool        impl; // True if implementation-only.
+
+    language (): impl (false) {}
+    language (std::string n, bool i): name (std::move (n)), impl (i) {}
   };
 
   // description
@@ -415,17 +370,10 @@ namespace bpkg
   }
 
   inline bool
-  operator== (const version_constraint& x, const version_constraint& y)
-  {
-    return x.min_version == y.min_version && x.max_version == y.max_version &&
-           x.min_open == y.min_open && x.max_open == y.max_open;
-  }
+  operator== (const version_constraint&, const version_constraint&);
 
   inline bool
-  operator!= (const version_constraint& x, const version_constraint& y)
-  {
-    return !(x == y);
-  }
+  operator!= (const version_constraint&, const version_constraint&);
 
   struct LIBBPKG_EXPORT dependency
   {
@@ -447,11 +395,8 @@ namespace bpkg
     string () const;
   };
 
-  inline std::ostream&
-  operator<< (std::ostream& os, const dependency& d)
-  {
-    return os << d.string ();
-  }
+  std::ostream&
+  operator<< (std::ostream&, const dependency&);
 
   // depends
   //
@@ -593,8 +538,13 @@ namespace bpkg
     // Return true if the string() function would return the single-line
     // representation.
     //
-    LIBBPKG_EXPORT bool
-    single_line () const;
+    bool
+    single_line () const
+    {
+      return !prefer  &&
+             !require &&
+             (!reflect || reflect->find ('\n') == std::string::npos);
+    }
   };
 
   inline std::ostream&
@@ -650,7 +600,7 @@ namespace bpkg
 
     // Return true if there is a conditional alternative in the list.
     //
-    LIBBPKG_EXPORT bool
+    bool
     conditional () const;
   };
 
@@ -701,8 +651,11 @@ namespace bpkg
     // Return true if the string() function would return the single-line
     // representation.
     //
-    LIBBPKG_EXPORT bool
-    single_line () const;
+    bool
+    single_line () const
+    {
+      return !reflect || reflect->find ('\n') == std::string::npos;
+    }
 
     // Return true if this is a single requirement with an empty id or an
     // empty enable condition.
@@ -755,7 +708,7 @@ namespace bpkg
 
     // Return true if there is a conditional alternative in the list.
     //
-    LIBBPKG_EXPORT bool
+    bool
     conditional () const;
 
     // Return true if this is a single simple requirement alternative.
@@ -825,33 +778,17 @@ namespace bpkg
     require_bootstrap_build  = 0x100
   };
 
-  inline package_manifest_flags
-  operator&= (package_manifest_flags& x, package_manifest_flags y)
-  {
-    return x = static_cast<package_manifest_flags> (
-      static_cast<std::uint16_t> (x) &
-      static_cast<std::uint16_t> (y));
-  }
+  package_manifest_flags
+  operator& (package_manifest_flags, package_manifest_flags);
 
-  inline package_manifest_flags
-  operator|= (package_manifest_flags& x, package_manifest_flags y)
-  {
-    return x = static_cast<package_manifest_flags> (
-      static_cast<std::uint16_t> (x) |
-      static_cast<std::uint16_t> (y));
-  }
+  package_manifest_flags
+  operator| (package_manifest_flags, package_manifest_flags);
 
-  inline package_manifest_flags
-  operator& (package_manifest_flags x, package_manifest_flags y)
-  {
-    return x &= y;
-  }
+  package_manifest_flags
+  operator&= (package_manifest_flags&, package_manifest_flags);
 
-  inline package_manifest_flags
-  operator| (package_manifest_flags x, package_manifest_flags y)
-  {
-    return x |= y;
-  }
+  package_manifest_flags
+  operator|= (package_manifest_flags&, package_manifest_flags);
 
   // Target build configuration class term.
   //
@@ -973,12 +910,7 @@ namespace bpkg
            bool& result) const;
 
     bool
-    match (const strings& cs, const build_class_inheritance_map& bs) const
-    {
-      bool r (false);
-      match (cs, bs, r);
-      return r;
-    }
+    match (const strings&, const build_class_inheritance_map&) const;
   };
 
   inline std::ostream&
@@ -1147,7 +1079,7 @@ namespace bpkg
   //
   // Note that the value format/semantics can be distribution-specific.
   //
-  struct LIBBPKG_EXPORT distribution_name_value
+  struct distribution_name_value
   {
     std::string name;
     std::string value;
@@ -1174,11 +1106,13 @@ namespace bpkg
     package_name name;
     version_type version;
     butl::optional<std::string> upstream_version;
+    butl::optional<std::string> type;             // <name>[, ...]
+    butl::small_vector<language, 1> languages;    // <name>[=impl][, ...]
     butl::optional<package_name> project;
     butl::optional<priority_type> priority;
     std::string summary;
-
     butl::small_vector<licenses, 1> license_alternatives;
+
     butl::small_vector<std::string, 5> topics;
     butl::small_vector<std::string, 5> keywords;
     butl::optional<text_file> description;
@@ -1234,6 +1168,35 @@ namespace bpkg
     butl::optional<std::string> sha256sum;
     butl::optional<std::string> fragment;
 
+    // Translate optional type to either `exe`, `lib`, or `other`.
+    //
+    // Specifically, if type is present but is not one of the recognized
+    // names, then return `other`. If type is absent and the package name
+    // starts with the `lib` prefix, then return `lib`. Otherwise, return
+    // `exe`.
+    //
+    std::string
+    effective_type () const;
+
+    static std::string
+    effective_type (const butl::optional<std::string>&, const package_name&);
+
+    // Translate the potentially empty list of languages to a non-empty one.
+    //
+    // Specifically, if the list of languages is not empty, then return it as
+    // is. Otherwise, if the package name has an extension (as in, say,
+    // libbutl.bash), then return it as the language. Otherwise, return `cc`
+    // (unspecified c-common language).
+    //
+    butl::small_vector<language, 1>
+    effective_languages () const;
+
+    static butl::small_vector<language, 1>
+    effective_languages (const butl::small_vector<language, 1>&,
+                         const package_name&);
+
+    // Return effective project name.
+    //
     const package_name&
     effective_project () const noexcept {return project ? *project : name;}
 
@@ -1417,13 +1380,10 @@ namespace bpkg
 
   // Create individual package manifest.
   //
-  inline package_manifest
+  package_manifest
   pkg_package_manifest (butl::manifest_parser& p,
                         bool ignore_unknown = false,
-                        bool complete_values = true)
-  {
-    return package_manifest (p, ignore_unknown, complete_values);
-  }
+                        bool complete_values = true);
 
   LIBBPKG_EXPORT package_manifest
   dir_package_manifest (butl::manifest_parser&, bool ignore_unknown = false);
@@ -1729,9 +1689,8 @@ namespace bpkg
                          repository_type,
                          const repository_location& base);
 
-    repository_location (const repository_location& l,
-                         const repository_location& base)
-        : repository_location (l.url (), l.type (), base) {}
+    repository_location (const repository_location&,
+                         const repository_location& base);
 
     // Note that relative locations have no canonical name. Canonical name of
     // an empty location is the empty name.
@@ -1749,59 +1708,22 @@ namespace bpkg
     empty () const noexcept {return url_.empty ();}
 
     bool
-    local () const
-    {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      return url_.scheme == repository_protocol::file;
-    }
+    local () const;
 
     bool
-    remote () const
-    {
-      return !local ();
-    }
+    remote () const;
 
     bool
-    absolute () const
-    {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      // Note that in remote locations path is always relative.
-      //
-      return url_.path->absolute ();
-    }
+    absolute () const;
 
     bool
-    relative () const
-    {
-      return local () && url_.path->relative ();
-    }
+    relative () const;
 
     repository_type
-    type () const
-    {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      return type_;
-    }
+    type () const;
 
     repository_basis
-    basis () const
-    {
-      switch (type ())
-      {
-      case repository_type::pkg: return repository_basis::archive;
-      case repository_type::dir: return repository_basis::directory;
-      case repository_type::git: return repository_basis::version_control;
-      }
-
-      assert (false); // Can't be here.
-      return repository_basis::archive;
-    }
+    basis () const;
 
     // Note that the URL of an empty location is empty.
     //
@@ -1815,69 +1737,30 @@ namespace bpkg
     // "directories" it always contains the trailing slash.
     //
     const butl::path&
-    path () const
-    {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      return *url_.path;
-    }
+    path () const;
 
     const std::string&
-    host () const
-    {
-      if (local ())
-        throw std::logic_error ("local location");
-
-      return url_.authority->host;
-    }
+    host () const;
 
     // Value 0 indicated that no port was specified explicitly.
     //
     std::uint16_t
-    port () const
-    {
-      if (local ())
-        throw std::logic_error ("local location");
-
-      return url_.authority->port;
-    }
+    port () const;
 
     repository_protocol
-    proto () const
-    {
-      if (empty ())
-        throw std::logic_error ("empty location");
-
-      return url_.scheme;
-    }
+    proto () const;
 
     const butl::optional<std::string>&
-    fragment () const
-    {
-      if (relative ())
-        throw std::logic_error ("relative filesystem path");
-
-      return url_.fragment;
-    }
+    fragment () const;
 
     bool
-    archive_based () const
-    {
-      return basis () == repository_basis::archive;
-    }
+    archive_based () const;
 
     bool
-    directory_based () const
-    {
-      return basis () == repository_basis::directory;
-    }
+    directory_based () const;
 
     bool
-    version_control_based () const
-    {
-      return basis () == repository_basis::version_control;
-    }
+    version_control_based () const;
 
     // Return an untyped URL if the correct type can be guessed just from
     // the URL. Otherwise, return the typed URL.
@@ -2173,5 +2056,7 @@ namespace bpkg
     return extract_package_version (s.c_str (), fl);
   }
 }
+
+#include <libbpkg/manifest.ixx>
 
 #endif // LIBBPKG_MANIFEST_HXX

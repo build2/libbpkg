@@ -102,6 +102,176 @@
       EOE
   }
 
+  : type
+  :
+  {
+    : valid
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      type: lib
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOF
+
+    : extras
+    :
+    $* <<EOI >>EOO
+      : 1
+      name: foo
+      version: 2.0.0
+      type: bash, something extra
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+      : 1
+      name: foo
+      version: 2.0.0
+      type: bash
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOO
+
+    : duplicate
+    :
+    $* <<EOI 2>'stdin:5:1: error: package type redefinition' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      type: lib
+      type: exe
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : empty
+    :
+    $* <<EOI 2>'stdin:4:6: error: empty package type' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      type:
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : empty-extras
+    :
+    $* <<EOI 2>'stdin:4:7: error: empty package type' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      type: , extras
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+  }
+
+  : language
+  :
+  {
+    : valid
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: c++
+      language: c=impl
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOF
+
+    : extras
+    :
+    $* <<EOI >>EOO
+      : 1
+      name: foo
+      version: 2.0.0
+      language: c++, something extra
+      language: c=impl, something extra
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+      : 1
+      name: foo
+      version: 2.0.0
+      language: c++
+      language: c=impl
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOO
+
+    : empty
+    :
+    $* <<EOI 2>'stdin:4:10: error: empty package language' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language:
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : empty-extras
+    :
+    $* <<EOI 2>'stdin:4:11: error: empty package language' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: , extras
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : empty-impl
+    :
+    $* <<EOI 2>'stdin:4:11: error: empty package language' != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: =impl
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : invalid-value
+    :
+    $* <<EOI 2>"stdin:4:11: error: unexpected 'imp' value after '='" != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: c++=imp
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : empty-value
+    :
+    $* <<EOI 2>"stdin:4:11: error: expected 'impl' after '='" != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: c++=
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+
+    : duplicate
+    :
+    $* <<EOI 2>"stdin:5:11: error: duplicate package language" != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      language: c++=impl
+      language: c++
+      summary: Modern C++ parser
+      license: LGPLv2
+      EOI
+  }
+
   : license
   :
   {
@@ -3897,6 +4067,8 @@
       :
       name: libfoo
       version: 1.2.3+2
+      type: lib
+      language: c++
       project: foo
       priority: high; Due to critical bug fix.
       summary: Modern XML parser

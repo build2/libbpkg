@@ -9,10 +9,10 @@
 #include <sstream>
 #include <cassert>
 #include <cstdlib>     // strtoull()
-#include <cstring>     // strncmp(), strcmp(), strchr()
+#include <cstring>     // strncmp(), strcmp(), strchr(), strcspn()
 #include <utility>     // move()
 #include <cstdint>     // uint*_t
-#include <algorithm>   // find(), find_if_not(), find_first_of(), replace()
+#include <algorithm>   // find(), find_if(), find_first_of(), replace()
 #include <stdexcept>   // invalid_argument
 #include <type_traits> // remove_reference
 
@@ -1112,20 +1112,6 @@ namespace bpkg
     }
   }
 
-  std::string dependency::
-  string () const
-  {
-    std::string r (name.string ());
-
-    if (constraint)
-    {
-      r += ' ';
-      r += constraint->string ();
-    }
-
-    return r;
-  }
-
   // dependency_alternative
   //
   string dependency_alternative::
@@ -1224,14 +1210,6 @@ namespace bpkg
     }
 
     return r;
-  }
-
-  bool dependency_alternative::
-  single_line () const
-  {
-    return !prefer  &&
-           !require &&
-           (!reflect || reflect->find ('\n') == string::npos);
   }
 
   // dependency_alternatives
@@ -2419,18 +2397,6 @@ namespace bpkg
     return serializer::merge_comment (r, comment);
   }
 
-  bool dependency_alternatives::
-  conditional () const
-  {
-    for (const dependency_alternative& da: *this)
-    {
-      if (da.enable)
-        return true;
-    }
-
-    return false;
-  }
-
   // requirement_alternative
   //
   string requirement_alternative::
@@ -2513,12 +2479,6 @@ namespace bpkg
     }
 
     return r;
-  }
-
-  bool requirement_alternative::
-  single_line () const
-  {
-    return !reflect || reflect->find ('\n') == string::npos;
   }
 
   // requirement_alternatives
@@ -2618,18 +2578,6 @@ namespace bpkg
       r += ' ';
 
     return serializer::merge_comment (r, comment);
-  }
-
-  bool requirement_alternatives::
-  conditional () const
-  {
-    for (const requirement_alternative& ra: *this)
-    {
-      if (ra.enable)
-        return true;
-    }
-
-    return false;
   }
 
   // build_class_term
@@ -3240,25 +3188,6 @@ namespace bpkg
     return r;
   }
 
-  // distribution_name_value
-  //
-  optional<string> distribution_name_value::
-  distribution (const string& s) const
-  {
-    size_t sn (s.size ());
-    size_t nn (name.size ());
-
-    if (nn > sn && name.compare (nn - sn, sn, s) == 0)
-    {
-      size_t p (name.find ('-'));
-
-      if (p == nn - sn)
-        return string (name, 0, p);
-    }
-
-    return nullopt;
-  }
-
   // pkg_package_manifest
   //
   static build_class_expr
@@ -3708,6 +3637,64 @@ namespace bpkg
           bad_value ("empty upstream package version");
 
         upstream_version = move (nv);
+      }
+      else if (n == "type")
+      {
+        if (m.type)
+          bad_name ("package type redefinition");
+
+        // Strip the type extra information, if present.
+        //
+        size_t p (v.find (','));
+        if (p != string::npos)
+        {
+          v.resize (p);
+          trim_right (v);
+        }
+
+        if (v.empty ())
+          bad_value ("empty package type");
+
+        m.type = move (v);
+      }
+      else if (n == "language")
+      {
+        // Strip the language extra information, if present.
+        //
+        size_t p (v.find (','));
+        if (p != string::npos)
+          v.resize (p);
+
+        // Determine the language impl flag.
+        //
+        bool impl (false);
+        p = v.find ('=');
+        if (p != string::npos)
+        {
+          string s (trim (string (v, p + 1)));
+          if (s != "impl")
+            bad_value (!s.empty ()
+                       ? "unexpected '" + s + "' value after '='"
+                       : "expected 'impl' after '='");
+
+          impl = true;
+
+          v.resize (p);
+        }
+
+        // Finally, validate and add the language.
+        //
+        trim_right (v);
+
+        if (v.empty ())
+          bad_value ("empty package language");
+
+        if (find_if (m.languages.begin (), m.languages.end (),
+                     [&v] (const language& l) {return l.name == v;}) !=
+            m.languages.end ())
+          bad_value ("duplicate package language");
+
+        m.languages.emplace_back (move (v), impl);
       }
       else if (n == "project")
       {
@@ -4452,15 +4439,6 @@ namespace bpkg
   }
 
   package_manifest::
-  package_manifest (manifest_parser& p,
-                    bool iu,
-                    bool cv,
-                    package_manifest_flags fl)
-      : package_manifest (p, function<translate_function> (), iu, cv, fl)
-  {
-  }
-
-  package_manifest::
   package_manifest (const string& name,
                     vector<name_value>&& vs,
                     const function<translate_function>& tf,
@@ -4976,6 +4954,12 @@ namespace bpkg
 
     if (m.upstream_version)
       s.next ("upstream-version", *m.upstream_version);
+
+    if (m.type)
+      s.next ("type", *m.type);
+
+    for (const language& l: m.languages)
+      s.next ("language", !l.impl ? l.name : l.name + "=impl");
 
     if (m.project)
       s.next ("project", m.project->string ());
