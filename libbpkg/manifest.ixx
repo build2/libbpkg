@@ -242,7 +242,11 @@ namespace bpkg
   effective_type (const butl::optional<std::string>& t, const package_name& n)
   {
     if (t)
-      return *t == "exe" || *t == "lib" ? *t : "other";
+    {
+      std::string tp (*t, 0, t->find (','));
+      butl::trim (tp);
+      return tp == "exe" || tp == "lib" ? tp : "other";
+    }
 
     const std::string& s (n.string ());
     return s.size () > 3 && s.compare (0, 3, "lib") == 0 ? "lib" : "exe";
@@ -252,6 +256,12 @@ namespace bpkg
   effective_type () const
   {
     return effective_type (type, name);
+  }
+
+  inline strings package_manifest::
+  effective_type_sub_options () const
+  {
+    return effective_type_sub_options (type);
   }
 
   inline butl::small_vector<language, 1> package_manifest::

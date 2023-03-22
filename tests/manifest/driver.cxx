@@ -23,6 +23,7 @@ using namespace bpkg;
 // argv[0] (-pp|-dp|-gp|-pr|-dr|-gr|-s) [-l]
 // argv[0] -p [-c] [-i] [-l]
 // argv[0] -ec <version>
+// argv[0] -et <type> <name>
 // argv[0] -v
 //
 // In the first form read and parse manifest list from stdin and serialize it
@@ -52,7 +53,10 @@ using namespace bpkg;
 // roundtrip them to stdout together with their effective constraints,
 // calculated using version passed as an argument.
 //
-// In the forth form print the libbpkg version to stdout and exit.
+// In the forth form print the effective type and the type sub-options to
+// stdout (one per line) and exit.
+//
+// In the fifth form print the libbpkg version to stdout and exit.
 //
 int
 main (int argc, char* argv[])
@@ -134,6 +138,18 @@ main (int argc, char* argv[])
 
         cout << c << " " << ec << endl;
       }
+    }
+    else if (mode == "-et")
+    {
+      assert (argc == 4);
+
+      optional<string> t (*argv[2] != '\0' ? argv[2] : optional<string> ());
+      package_name n (argv[3]);
+
+      cout << package_manifest::effective_type (t, n) << endl;
+
+      for (const string& so: package_manifest::effective_type_sub_options (t))
+        cout << so << endl;
     }
     else
     {

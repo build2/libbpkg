@@ -1168,18 +1168,26 @@ namespace bpkg
     butl::optional<std::string> sha256sum;
     butl::optional<std::string> fragment;
 
-    // Translate optional type to either `exe`, `lib`, or `other`.
+    // Extract the name from optional type, returning either `exe`, `lib`, or
+    // `other`.
     //
-    // Specifically, if type is present but is not one of the recognized
-    // names, then return `other`. If type is absent and the package name
-    // starts with the `lib` prefix, then return `lib`. Otherwise, return
-    // `exe`.
+    // Specifically, if type is present but the name is not recognized, then
+    // return `other`. If type is absent and the package name starts with the
+    // `lib` prefix, then return `lib`. Otherwise, return `exe`.
     //
     std::string
     effective_type () const;
 
     static std::string
     effective_type (const butl::optional<std::string>&, const package_name&);
+
+    // Extract sub-options from optional type.
+    //
+    strings
+    effective_type_sub_options () const;
+
+    static strings
+    effective_type_sub_options (const butl::optional<std::string>&);
 
     // Translate the potentially empty list of languages to a non-empty one.
     //

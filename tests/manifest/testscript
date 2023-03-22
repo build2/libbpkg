@@ -129,7 +129,7 @@
       : 1
       name: foo
       version: 2.0.0
-      type: bash
+      type: bash, something extra
       summary: Modern C++ parser
       license: LGPLv2
       EOO
@@ -4756,4 +4756,22 @@
       $* '0+1'         <'~$' 2>'invalid version: dependent version is stub'            == 1 : stub-version
     }
   }
+}
+
+: effective-type
+:
+{
+  test.options += -et
+
+  $* ''      libfoo >'lib'   : lib-prefix
+  $* ''      foo    >'exe'   : no-lib-prefix
+  $* 'mixed' foo    >'other' : other
+
+  : lib-binless
+  :
+  $* 'lib,binless,extras' libfoo >>EOO
+    lib
+    binless
+    extras
+    EOO
 }

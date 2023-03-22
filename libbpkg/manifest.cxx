@@ -3643,16 +3643,7 @@ namespace bpkg
         if (m.type)
           bad_name ("package type redefinition");
 
-        // Strip the type extra information, if present.
-        //
-        size_t p (v.find (','));
-        if (p != string::npos)
-        {
-          v.resize (p);
-          trim_right (v);
-        }
-
-        if (v.empty ())
+        if (v.empty () || v.find (',') == 0)
           bad_value ("empty package type");
 
         m.type = move (v);
@@ -4487,6 +4478,23 @@ namespace bpkg
   {
     parse_package_manifest (
       p, move (nv), function<translate_function> (), iu, cv, fl, *this);
+  }
+
+  strings package_manifest::
+  effective_type_sub_options (const optional<string>& t)
+  {
+    strings r;
+
+    if (t)
+    {
+      for (size_t b (0), e (0); next_word (*t, b, e, ','); )
+      {
+        if (b != 0)
+          r.push_back (trim (string (*t, b, e - b)));
+      }
+    }
+
+    return r;
   }
 
   optional<text_type> package_manifest::
