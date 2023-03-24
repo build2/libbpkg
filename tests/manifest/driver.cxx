@@ -143,7 +143,10 @@ main (int argc, char* argv[])
     {
       assert (argc == 4);
 
-      optional<string> t (*argv[2] != '\0' ? argv[2] : optional<string> ());
+      optional<string> t (*argv[2] != '\0'
+                          ? string (argv[2])
+                          : optional<string> ());
+
       package_name n (argv[3]);
 
       cout << package_manifest::effective_type (t, n) << endl;
