@@ -661,6 +661,132 @@ namespace bpkg
     return *this;
   }
 
+  // text_type
+  //
+  string
+  to_string (text_type t)
+  {
+    switch (t)
+    {
+    case text_type::plain:       return "text/plain";
+    case text_type::github_mark: return "text/markdown;variant=GFM";
+    case text_type::common_mark: return "text/markdown;variant=CommonMark";
+    }
+
+    assert (false); // Can't be here.
+    return string ();
+  }
+
+  optional<text_type>
+  to_text_type (const string& t)
+  {
+    auto bad_type = [] (const string& d) {throw invalid_argument (d);};
+
+    // Parse the media type representation (see RFC2045 for details) into the
+    // type/subtype value and the parameter list. Note: we don't support
+    // parameter quoting and comments for simplicity.
+    //
+    size_t p (t.find (';'));
+    const string& tp (p != string::npos ? trim (string (t, 0, p)) : t);
+
+    small_vector<pair<string, string>, 1> ps;
+
+    while (p != string::npos)
+    {
+      // Extract parameter name.
+      //
+      size_t b (p + 1);
+      p = t.find ('=', b);
+
+      if (p == string::npos)
+        bad_type ("missing '='");
+
+      string n (trim (string (t, b, p - b)));
+
+      // Extract parameter value.
+      //
+      b = p + 1;
+      p = t.find (';', b);
+
+      string v (trim (string (t,
+                              b,
+                              p != string::npos ? p - b : string::npos)));
+
+      ps.emplace_back (move (n), move (v));
+    }
+
+    // Calculate the resulting text type, failing on unrecognized media type,
+    // unexpected parameter name or value.
+    //
+    // Note that type, subtype, and parameter names are matched
+    // case-insensitively.
+    //
+    optional<text_type> r;
+
+    // Currently only the plain and markdown text types are allowed. Later we
+    // can potentially introduce some other text types.
+    //
+    if (icasecmp (tp, "text/plain") == 0)
+    {
+      // Currently, we don't expect parameters for plain text. Later we can
+      // potentially introduce some plain text variants.
+      //
+      if (ps.empty ())
+        r = text_type::plain;
+    }
+    else if (icasecmp (tp, "text/markdown") == 0)
+    {
+      // Currently, a single optional variant parameter with the two possible
+      // values is allowed for markdown. Later we can potentially introduce
+      // some other markdown variants.
+      //
+      if (ps.empty () ||
+          (ps.size () == 1 && icasecmp (ps[0].first, "variant") == 0))
+      {
+        // Note that markdown variants are matched case-insensitively (see
+        // RFC7763 for details).
+        //
+        string v;
+        if (ps.empty () || icasecmp (v = move (ps[0].second), "GFM") == 0)
+          r = text_type::github_mark;
+        else if (icasecmp (v, "CommonMark") == 0)
+          r = text_type::common_mark;
+      }
+    }
+    else if (icasecmp (tp, "text/", 5) != 0)
+      bad_type ("text type expected");
+
+    return r;
+  }
+
+  // typed_text_file
+  //
+  optional<text_type> typed_text_file::
+  effective_type (bool iu) const
+  {
+    optional<text_type> r;
+
+    if (type)
+    {
+      r = to_text_type (*type);
+    }
+    else if (file)
+    {
+      string ext (path.extension ());
+      if (ext.empty () || icasecmp (ext, "txt") == 0)
+        r = text_type::plain;
+      else if (icasecmp (ext, "md") == 0 || icasecmp (ext, "markdown") == 0)
+        r = text_type::github_mark;
+    }
+    else
+      r = text_type::plain;
+
+    if (!r && !iu)
+      throw invalid_argument ("unknown text type");
+
+    return r;
+  }
+
   // manifest_url
   //
   manifest_url::
@@ -2943,104 +3069,6 @@ namespace bpkg
     match_classes (cs, im, expr, r);
   }
 
-  // text_type
-  //
-  string
-  to_string (text_type t)
-  {
-    switch (t)
-    {
-    case text_type::plain:       return "text/plain";
-    case text_type::github_mark: return "text/markdown;variant=GFM";
-    case text_type::common_mark: return "text/markdown;variant=CommonMark";
-    }
-
-    assert (false); // Can't be here.
-    return string ();
-  }
-
-  optional<text_type>
-  to_text_type (const string& t)
-  {
-    auto bad_type = [] (const string& d) {throw invalid_argument (d);};
-
-    // Parse the media type representation (see RFC2045 for details) into the
-    // type/subtype value and the parameter list. Note: we don't support
-    // parameter quoting and comments for simplicity.
-    //
-    size_t p (t.find (';'));
-    const string& tp (p != string::npos ? trim (string (t, 0, p)) : t);
-
-    small_vector<pair<string, string>, 1> ps;
-
-    while (p != string::npos)
-    {
-      // Extract parameter name.
-      //
-      size_t b (p + 1);
-      p = t.find ('=', b);
-
-      if (p == string::npos)
-        bad_type ("missing '='");
-
-      string n (trim (string (t, b, p - b)));
-
-      // Extract parameter value.
-      //
-      b = p + 1;
-      p = t.find (';', b);
-
-      string v (trim (string (t,
-                              b,
-                              p != string::npos ? p - b : string::npos)));
-
-      ps.emplace_back (move (n), move (v));
-    }
-
-    // Calculate the resulting text type, failing on unrecognized media type,
-    // unexpected parameter name or value.
-    //
-    // Note that type, subtype, and parameter names are matched
-    // case-insensitively.
-    //
-    optional<text_type> r;
-
-    // Currently only the plain and markdown text types are allowed. Later we
-    // can potentially introduce some other text types.
-    //
-    if (icasecmp (tp, "text/plain") == 0)
-    {
-      // Currently, we don't expect parameters for plain text. Later we can
-      // potentially introduce some plain text variants.
-      //
-      if (ps.empty ())
-        r = text_type::plain;
-    }
-    else if (icasecmp (tp, "text/markdown") == 0)
-    {
-      // Currently, a single optional variant parameter with the two possible
-      // values is allowed for markdown. Later we can potentially introduce
-      // some other markdown variants.
-      //
-      if (ps.empty () ||
-          (ps.size () == 1 && icasecmp (ps[0].first, "variant") == 0))
-      {
-        // Note that markdown variants are matched case-insensitively (see
-        // RFC7763 for details).
-        //
-        string v;
-        if (ps.empty () || icasecmp (v = move (ps[0].second), "GFM") == 0)
-          r = text_type::github_mark;
-        else if (icasecmp (v, "CommonMark") == 0)
-          r = text_type::common_mark;
-      }
-    }
-    else if (icasecmp (tp, "text/", 5) != 0)
-      bad_type ("text type expected");
-
-    return r;
-  }
-
   // test_dependency_type
   //
   string
@@ -3563,11 +3591,15 @@ namespace bpkg
     vector<name_value> requirements;
     small_vector<name_value, 1> tests;
 
-    // We will cache the description and its type values to validate them
-    // later, after both are parsed.
+    // We will cache the descriptions and changes and their type values to
+    // validate them later, after all are parsed.
     //
     optional<name_value> description;
     optional<name_value> description_type;
+    optional<name_value> package_description;
+    optional<name_value> package_description_type;
+    vector<name_value>   changes;
+    optional<name_value> changes_type;
 
     m.build_configs.emplace_back ("default");
 
@@ -3743,28 +3775,28 @@ namespace bpkg
         if (description)
         {
           if (description->name == "description-file")
-            bad_name ("package description and description-file are "
+            bad_name ("project description and description file are "
                       "mutually exclusive");
           else
-            bad_name ("package description redefinition");
+            bad_name ("project description redefinition");
         }
 
         if (v.empty ())
-          bad_value ("empty package description");
+          bad_value ("empty project description");
 
         description = move (nv);
       }
       else if (n == "description-file")
       {
         if (flag (package_manifest_flags::forbid_file))
-          bad_name ("package description-file not allowed");
+          bad_name ("project description file not allowed");
 
         if (description)
         {
           if (description->name == "description-file")
-            bad_name ("package description-file redefinition");
+            bad_name ("project description file redefinition");
           else
-            bad_name ("package description-file and description are "
+            bad_name ("project description file and description are "
                       "mutually exclusive");
         }
 
@@ -3773,32 +3805,69 @@ namespace bpkg
       else if (n == "description-type")
       {
         if (description_type)
-          bad_name ("package description-type redefinition");
+          bad_name ("project description type redefinition");
 
         description_type = move (nv);
+      }
+      else if (n == "package-description")
+      {
+        if (package_description)
+        {
+          if (package_description->name == "package-description-file")
+            bad_name ("package description and description file are "
+                      "mutually exclusive");
+          else
+            bad_name ("package description redefinition");
+        }
+
+        if (v.empty ())
+          bad_value ("empty package description");
+
+        package_description = move (nv);
+      }
+      else if (n == "package-description-file")
+      {
+        if (flag (package_manifest_flags::forbid_file))
+          bad_name ("package description file not allowed");
+
+        if (package_description)
+        {
+          if (package_description->name == "package-description-file")
+            bad_name ("package description file redefinition");
+          else
+            bad_name ("package description file and description are "
+                      "mutually exclusive");
+        }
+
+        package_description = move (nv);
+      }
+      else if (n == "package-description-type")
+      {
+        if (package_description_type)
+          bad_name ("package description type redefinition");
+
+        package_description_type = move (nv);
       }
       else if (n == "changes")
       {
         if (v.empty ())
           bad_value ("empty package changes specification");
 
-        m.changes.emplace_back (move (v));
+        changes.emplace_back (move (nv));
       }
       else if (n == "changes-file")
       {
         if (flag (package_manifest_flags::forbid_file))
           bad_name ("package changes-file not allowed");
 
-        auto vc (parser::split_comment (v));
-        path p (move (vc.first));
+        changes.emplace_back (move (nv));
+      }
+      else if (n == "changes-type")
+      {
+        if (changes_type)
+          bad_name ("package changes type redefinition");
 
-        if (p.empty ())
-          bad_value ("no path in package changes-file");
-
-        if (p.absolute ())
-          bad_value ("package changes-file path is absolute");
-
-        m.changes.emplace_back (move (p), move (vc.second));
+        changes_type = move (nv);
       }
       else if (n == "url")
       {
@@ -4150,23 +4219,24 @@ namespace bpkg
       m.upstream_version = move (nv.value);
     }
 
-    // Verify that description is specified if the description type is
-    // specified.
+    // Parse and validate a text/file manifest value and its respective type
+    // value, if present. Return a typed_text_file object.
     //
-    if (description_type && !description)
-      bad_value ("no package description for specified description type");
-
-    // Validate (and set) description and its type.
-    //
-    if (description)
+    auto parse_text_file = [iu, &nv, &bad_value] (name_value&& text_file,
+                                                  optional<name_value>&& type,
+                                                  const char* what)
+      -> typed_text_file
     {
+      typed_text_file r;
+
       // Restore as bad_value() uses its line/column.
       //
-      nv = move (*description);
+      nv = move (text_file);
 
       string& v (nv.value);
+      const string& n (nv.name);
 
-      if (nv.name == "description-file")
+      if (n.size () > 5 && n.compare (n.size () - 5, 5, "-file") == 0)
       {
         auto vc (parser::split_comment (v));
 
@@ -4177,44 +4247,134 @@ namespace bpkg
         }
         catch (const invalid_path& e)
         {
-          bad_value (string ("invalid package description file: ") +
-                     e.what ());
+          bad_value (string ("invalid ") + what + " file: " + e.what ());
         }
 
         if (p.empty ())
-          bad_value ("no path in package description-file");
+          bad_value (string ("no path in ") + what + " file");
 
         if (p.absolute ())
-          bad_value ("package description-file path is absolute");
+          bad_value (string (what) + " file path is absolute");
 
-        m.description = text_file (move (p), move (vc.second));
+        r = typed_text_file (move (p), move (vc.second));
       }
       else
-        m.description = text_file (move (v));
+        r = typed_text_file (move (v));
 
-      if (description_type)
-        m.description_type = move (description_type->value);
+      if (type)
+        r.type = move (type->value);
 
-      // Verify the description type.
+      // Verify the text type.
       //
       try
       {
-        m.effective_description_type (iu);
+        r.effective_type (iu);
       }
       catch (const invalid_argument& e)
       {
-        if (description_type)
+        if (type)
         {
-          // Restore as bad_value() uses its line/column.
+          // Restore as bad_value() uses its line/column. Note that we don't
+          // need to restore the moved out type value.
           //
-          nv = move (*description_type);
+          nv = move (*type);
 
-          bad_value (string ("invalid package description type: ") +
-                     e.what ());
+          bad_value (string ("invalid ") + what + " type: " + e.what ());
         }
         else
-          bad_value (string ("invalid package description file: ") +
-                     e.what ());
+          bad_value (string ("invalid ") + what + " file: " + e.what ());
+      }
+
+      return r;
+    };
+
+    // As above but also accepts nullopt as the text_file argument, in which
+    // case throws manifest_parsing if the type is specified and return
+    // nullopt otherwise.
+    //
+    auto parse_text_file_opt = [&nv, &bad_name, &parse_text_file]
+                               (optional<name_value>&& text_file,
+                                optional<name_value>&& type,
+                                const char* what) -> optional<typed_text_file>
+    {
+      // Verify that the text/file value is specified if the type value is
+      // specified.
+      //
+      if (!text_file)
+      {
+        if (type)
+        {
+          // Restore as bad_name() uses its line/column.
+          //
+          nv = move (*type);
+
+          bad_name (string ("no ") + what + " for specified type");
+        }
+
+        return nullopt;
+      }
+
+      return parse_text_file (move (*text_file), move (type), what);
+    };
+
+    // Parse the project/package descriptions/types.
+    //
+    m.description = parse_text_file_opt (move (description),
+                                         move (description_type),
+                                         "project description");
+
+    m.package_description =
+      parse_text_file_opt (move (package_description),
+                           move (package_description_type),
+                           "package description");
+
+    // Parse the package changes/types.
+    //
+    // Note: at the end of the loop the changes_type variable may contain
+    // value in unspecified state but we can still check for the value
+    // presence.
+    //
+    for (name_value& c: changes)
+    {
+      // Move the changes_type value from for the last changes entry.
+      //
+      m.changes.push_back (
+        parse_text_file (move (c),
+                         (&c != &changes.back ()
+                          ? optional<name_value> (changes_type)
+                          : move (changes_type)),
+                         "changes"));
+    }
+
+    // If there are multiple changes and the changes type is not explicitly
+    // specified, then verify that all changes effective types are the same.
+    // Note that in the "ignore unknown" mode there can be unresolved
+    // effective types which we just skip.
+    //
+    if (changes.size () > 1 && !changes_type)
+    {
+      optional<text_type> type;
+
+      for (size_t i (0); i != m.changes.size (); ++i)
+      {
+        const typed_text_file& c (m.changes[i]);
+
+        if (optional<text_type> t = c.effective_type (iu))
+        {
+          if (!type)
+          {
+            type = *t;
+          }
+          else if (*t != *type)
+          {
+            // Restore as bad_value() uses its line/column.
+            //
+            nv = move (changes[i]);
+
+            bad_value ("changes type '" + to_string (*t) + "' differs from " +
+                       " previous type '" + to_string (*type) + "'");
+          }
+        }
       }
     }
 
@@ -4336,10 +4496,32 @@ namespace bpkg
     if (!m.sha256sum && flag (package_manifest_flags::require_sha256sum))
       bad_name ("no package sha256sum specified");
 
-    if (m.description       &&
-        !m.description_type &&
-        flag (package_manifest_flags::require_description_type))
-      bad_name ("no package description type specified");
+    if (flag (package_manifest_flags::require_text_type))
+    {
+      if (m.description && !m.description->type)
+        bad_name ("no project description type specified");
+
+      if (m.package_description && !m.package_description->type)
+        bad_name ("no package description type specified");
+
+      // Note that changes either all have the same explicitly specified type
+      // or have no type.
+      //
+      if (!m.changes.empty () && !m.changes.front ().type)
+      {
+        // @@ TMP To support older repositories allow absent changes type
+        //        until toolchain 0.16.0 is released.
+        //
+        //        Note that for such repositories the packages may not have
+        //        changes values other than plan text. Thus, we can safely set
+        //        this type, if they are absent, so that the caller can always
+        //        be sure that these values are always present for package
+        //        manifest lists.
+        //bad_name ("no package changes type specified");
+        for (typed_text_file& c: m.changes)
+          c.type = "text/plain";
+      }
+    }
 
     if (!m.bootstrap_build &&
         flag (package_manifest_flags::require_bootstrap_build))
@@ -4406,7 +4588,7 @@ namespace bpkg
       package_manifest_flags::forbid_fragment          |
       package_manifest_flags::forbid_incomplete_values |
       package_manifest_flags::require_location         |
-      package_manifest_flags::require_description_type |
+      package_manifest_flags::require_text_type        |
       package_manifest_flags::require_bootstrap_build);
   }
 
@@ -4493,33 +4675,6 @@ namespace bpkg
           r.push_back (trim (string (*t, b, e - b)));
       }
     }
-
-    return r;
-  }
-
-  optional<text_type> package_manifest::
-  effective_description_type (bool iu) const
-  {
-    if (!description)
-      throw logic_error ("absent description");
-
-    optional<text_type> r;
-
-    if (description_type)
-      r = to_text_type (*description_type);
-    else if (description->file)
-    {
-      string ext (description->path.extension ());
-      if (ext.empty () || icasecmp (ext, "txt") == 0)
-        r = text_type::plain;
-      else if (icasecmp (ext, "md") == 0 || icasecmp (ext, "markdown") == 0)
-        r = text_type::github_mark;
-    }
-    else
-      r = text_type::plain;
-
-    if (!r && !iu)
-      throw invalid_argument ("unknown text type");
 
     return r;
   }
@@ -4846,66 +5001,87 @@ namespace bpkg
     bpkg::override (nvs, name, p, true /* validate_only */);
   }
 
-  static const string description_file ("description-file");
-  static const string changes_file     ("changes-file");
-  static const string build_file       ("build-file");
+  static const string description_file         ("description-file");
+  static const string package_description_file ("package-description-file");
+  static const string changes_file             ("changes-file");
+  static const string build_file               ("build-file");
 
   void package_manifest::
   load_files (const function<load_function>& loader, bool iu)
   {
-    // Load a file and verify that its content is not empty, if the loader
-    // returns the content.
+    // If required, load a file and verify that its content is not empty, if
+    // the loader returns the content. Make the text type explicit.
     //
-    auto load = [&loader] (const string& n, const path& p)
+    auto load = [iu, &loader] (typed_text_file& text,
+                               const string& file_value_name)
     {
-      optional<string> r (loader (n, p));
-
-      if (r && r->empty ())
-        throw parsing ("package " + n + " references empty file");
-
-      return r;
-    };
-
-    // Load the description-file manifest value.
-    //
-    if (description)
-    {
-      // Make the description type explicit.
+      // Make the type explicit.
       //
-      optional<text_type> t (effective_description_type (iu)); // Can throw.
+      optional<text_type> t;
+
+      // Convert the potential invalid_argument exception to the
+      // manifest_parsing exception similar to what we do in the manifest
+      // parser.
+      //
+      try
+      {
+        t = text.effective_type (iu);
+      }
+      catch (const invalid_argument& e)
+      {
+        if (text.type)
+        {
+          // Strip trailing "-file".
+          //
+          string prefix (file_value_name, 0, file_value_name.size () - 5);
+
+          throw parsing ("invalid " + prefix + "-type package manifest " +
+                         "value: " + e.what ());
+        }
+        else
+        {
+          throw parsing ("invalid " + file_value_name + " package " +
+                         "manifest value: " + e.what ());
+        }
+      }
+
 
       assert (t || iu); // Can only be absent if we ignore unknown.
 
-      if (!description_type && t)
-        description_type = to_string (*t);
+      if (!text.type && t)
+        text.type = to_string (*t);
 
-      // At this point the description type can only be absent if the
-      // description comes from a file. Otherwise, we would end up with the
-      // plain text.
+      // At this point the type can only be absent if the text comes from a
+      // file. Otherwise, we would end up with the plain text.
       //
-      assert (description_type || description->file);
+      assert (text.type || text.file);
 
-      if (description->file)
+      if (text.file)
       {
-        if (!description_type)
-          description_type = "text/unknown; extension=" +
-                             description->path.extension ();
+        if (!text.type)
+          text.type = "text/unknown; extension=" + text.path.extension ();
 
-        if (optional<string> fc = load (description_file, description->path))
-          description = text_file (move (*fc));
+        if (optional<string> fc = loader (file_value_name, text.path))
+        {
+          if (fc->empty ())
+            throw parsing ("package manifest value " + file_value_name +
+                           " references empty file");
+
+          text = typed_text_file (move (*fc), move (text.type));
+        }
       }
-    }
+    };
 
-    // Load the changes-file manifest values.
+    // Load the descriptions and changes, if present.
     //
-    for (text_file& c: changes)
-    {
-      if (c.file)
-      {
-        if (optional<string> fc = load (changes_file, c.path))
-          c = text_file (move (*fc));
-      }
-    }
+    if (description)
+      load (*description, description_file);
+
+    if (package_description)
+      load (*package_description, package_description_file);
+
+    for (typed_text_file& c: changes)
+      load (c, changes_file);
 
     // Load the build-file manifest values.
     //
@@ -4996,26 +5172,46 @@ namespace bpkg
       if (!m.keywords.empty ())
         s.next ("keywords", concatenate (m.keywords, " "));
 
-      if (m.description)
+      auto serialize_text_file = [&s] (const text_file& v, const string& n)
       {
-        if (m.description->file)
-          s.next ("description-file",
-                  serializer::merge_comment (m.description->path.string (),
-                                             m.description->comment));
+        if (v.file)
+          s.next (n + "-file",
+                  serializer::merge_comment (v.path.string (), v.comment));
         else
-          s.next ("description", m.description->text);
+          s.next (n, v.text);
+      };
 
-        if (m.description_type)
-          s.next ("description-type", *m.description_type);
-      }
+      auto serialize_description = [&s, &serialize_text_file]
+                                   (const optional<typed_text_file>& desc,
+                                    const char* prefix)
+      {
+        if (desc)
+        {
+          string p (prefix);
+          serialize_text_file (*desc, p + "description");
+
+          if (desc->type)
+            s.next (p + "description-type", *desc->type);
+        }
+      };
+
+      serialize_description (m.description, "" /* prefix */);
+      serialize_description (m.package_description, "package-");
 
       for (const auto& c: m.changes)
+        serialize_text_file (c, "changes");
+
+      // If there are any changes, then serialize the type of the first
+      // changes entry, if present. Note that if it is present, then we assume
+      // that the type was specified explicitly and so it is the same for all
+      // entries.
+      //
+      if (!m.changes.empty ())
       {
-        if (c.file)
-          s.next ("changes-file",
-                  serializer::merge_comment (c.path.string (), c.comment));
-        else
-          s.next ("changes", c.text);
+        const typed_text_file& c (m.changes.front ());
+
+        if (c.type)
+          s.next ("changes-type", *c.type);
       }
 
       if (m.url)
@@ -5393,20 +5589,26 @@ namespace bpkg
           d + " for " + p.name.string () + '-' + p.version.string ());
       };
 
-      if (p.description)
+      // Throw manifest_serialization if the text is in a file or untyped.
+      //
+      auto verify_text_file = [&bad_value] (const typed_text_file& v,
+                                            const string& n)
       {
-        if (p.description->file)
-          bad_value ("forbidden description-file");
+        if (v.file)
+          bad_value ("forbidden " + n + "-file");
 
-        if (!p.description_type)
-          bad_value ("no valid description-type");
-      }
+        if (!v.type)
+          bad_value ("no valid " + n + "-type");
+      };
+
+      if (p.description)
+        verify_text_file (*p.description, "description");
+
+      if (p.package_description)
+        verify_text_file (*p.package_description, "package-description");
 
       for (const auto& c: p.changes)
-      {
-        if (c.file)
-          bad_value ("forbidden changes-file");
-      }
+        verify_text_file (c, "changes");
 
       if (!p.buildfile_paths.empty ())
         bad_value ("forbidden build-file");

@@ -206,11 +206,6 @@ namespace bpkg
     language (std::string n, bool i): name (std::move (n)), impl (i) {}
   };
 
-  // description
-  // description-file
-  // change
-  // change-file
-  //
   class LIBBPKG_EXPORT text_file
   {
   public:
@@ -242,6 +237,72 @@ namespace bpkg
     text_file& operator= (const text_file&);
 
     ~text_file ();
+  };
+
+  enum class text_type
+  {
+    plain,
+    common_mark,
+    github_mark
+  };
+
+  LIBBPKG_EXPORT std::string
+  to_string (text_type);
+
+  // Throw std::invalid_argument if the argument is not a well-formed text
+  // type. Otherwise, return nullopt for an unknown text variant.
+  //
+  LIBBPKG_EXPORT butl::optional<text_type>
+  to_text_type (const std::string&);
+
+  inline std::ostream&
+  operator<< (std::ostream& os, text_type t)
+  {
+    return os << to_string (t);
+  }
+
+  // description
+  // description-file
+  // description-type
+  // package-description
+  // package-description-file
+  // package-description-type
+  // change
+  // change-file
+  // change-type
+  //
+  class LIBBPKG_EXPORT typed_text_file: public text_file
+  {
+  public:
+    butl::optional<std::string> type;
+
+    // File text constructor.
+    //
+    explicit
+    typed_text_file (std::string s = "",
+                     butl::optional<std::string> t = butl::nullopt)
+        : text_file (std::move (s)), type (std::move (t)) {}
+
+    // File reference constructor.
+    //
+    typed_text_file (path_type p,
+                     std::string c,
+                     butl::optional<std::string> t = butl::nullopt)
+        : text_file (std::move (p), std::move (c)), type (std::move (t)) {}
+
+    // Return the type value if present, text_type::github_mark if it refers
+    // to a file with the .md or .markdown extension and text_type::plain if
+    // it refers to a file with the .txt extension or no extension or the text
+    // does not come from a file. Depending on the ignore_unknown value either
+    // throw std::invalid_argument or return nullopt if the type value or the
+    // file extension is unknown.
+    //
+    // Note: also throws std::invalid_argument if the type is not well-formed.
+    // This, however, may not happen for an object created by the package
+    // manifest parser since it has already verified that.
+    //
+    butl::optional<text_type>
+    effective_type (bool ignore_unknown = false) const;
   };
 
   // license
@@ -774,7 +835,7 @@ namespace bpkg
 
     require_location         = 0x020,
     require_sha256sum        = 0x040,
-    require_description_type = 0x080,
+    require_text_type        = 0x080, // description-type, changes-type, etc.
     require_bootstrap_build  = 0x100
   };
 
@@ -965,28 +1026,6 @@ namespace bpkg
     }
   };
 
-  enum class text_type
-  {
-    plain,
-    common_mark,
-    github_mark
-  };
-
-  LIBBPKG_EXPORT std::string
-  to_string (text_type);
-
-  // Throw std::invalid_argument if the argument is not a well-formed text
-  // type. Otherwise, return nullopt for an unknown text variant.
-  //
-  LIBBPKG_EXPORT butl::optional<text_type>
-  to_text_type (const std::string&); // May throw std::invalid_argument.
-
-  inline std::ostream&
-  operator<< (std::ostream& os, text_type t)
-  {
-    return os << to_string (t);
-  }
-
   enum class test_dependency_type
   {
     tests,
@@ -1115,9 +1154,9 @@ namespace bpkg
 
     butl::small_vector<std::string, 5> topics;
     butl::small_vector<std::string, 5> keywords;
-    butl::optional<text_file> description;
-    butl::optional<std::string> description_type;
-    butl::small_vector<text_file, 1> changes;
+    butl::optional<typed_text_file> description;
+    butl::optional<typed_text_file> package_description;
+    butl::small_vector<typed_text_file, 1> changes;
     butl::optional<manifest_url> url;
     butl::optional<manifest_url> doc_url;
     butl::optional<manifest_url> src_url;
@@ -1207,17 +1246,6 @@ namespace bpkg
     //
     const package_name&
     effective_project () const noexcept {return project ? *project : name;}
-
-    // Return the description type value if present, text_type::github_mark if
-    // the description refers to a file with the .md or .markdown extension
-    // and text_type::plain if it refers to a file with the .txt extension or
-    // no extension or the description does not come from a file. Depending on
-    // the ignore_unknown value either throw std::invalid_argument or return
-    // nullopt if the description value or the file extension is unknown.
-    // Throw std::logic_error if the description value is nullopt.
-    //
-    butl::optional<text_type>
-    effective_description_type (bool ignore_unknown = false) const;
 
   public:
     package_manifest () = default;
@@ -1368,9 +1396,10 @@ namespace bpkg
     // Load the *-file manifest values using the specified load function that
     // returns the file contents passing through any exception it may throw.
     // If nullopt is returned, then the respective *-file value is left
-    // unexpanded. Set the potentially absent description type value to the
-    // effective description type. If the effective type is nullopt then
-    // assign a synthetic unknown type.
+    // unexpanded. Set the potentially absent project description, package
+    // description, and changes type values to their effective types. If an
+    // effective type is nullopt then assign a synthetic unknown type if the
+    // ignore_unknown argument is true and throw manifest_parsing otherwise.
     //
     // Note that if the returned file contents is empty, load_files() makes
     // sure that this is allowed by the value's semantics throwing
