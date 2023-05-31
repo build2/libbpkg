@@ -488,7 +488,7 @@
         license: LGPLv2
         description-file: README.rtf
         EOI
-        stdin:6:19: error: invalid project description file: unknown text type
+        stdin:6:19: error: invalid project description file: unknown text type (use description-type manifest value to specify explicitly)
         EOE
 
       : ignore-unknown
@@ -739,7 +739,7 @@
         license: LGPLv2
         package-description-file: README.rtf
         EOI
-        stdin:6:27: error: invalid package description file: unknown text type
+        stdin:6:27: error: invalid package description file: unknown text type (use package-description-type manifest value to specify explicitly)
         EOE
 
       : ignore-unknown
@@ -933,6 +933,19 @@
       %|
       stdin:6:15: error: invalid changes file: invalid filesystem path
       %)
+      EOE
+
+    : unknown-text-type
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      changes-file: CHANGES.0
+      EOI
+      stdin:6:15: error: invalid changes file: unknown text type (use changes-type manifest value to specify explicitly)
       EOE
 
     : different-type

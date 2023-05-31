@@ -4282,7 +4282,16 @@ namespace bpkg
           bad_value (string ("invalid ") + what + " type: " + e.what ());
         }
         else
-          bad_value (string ("invalid ") + what + " file: " + e.what ());
+        {
+          // Note that this can only happen due to inability to guess the
+          // type from the file extension. Let's help the user here a bit.
+          //
+          assert (r.file);
+
+          bad_value (string ("invalid ") + what + " file: " + e.what () +
+                     " (use " + string (n, 0, n.size () - 5)            +
+                     "-type manifest value to specify explicitly)");
+        }
       }
 
       return r;
