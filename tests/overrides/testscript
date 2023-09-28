@@ -15,6 +15,10 @@
     build-email: foo@example.com
     build-error-email: error@example.com
     build-warning-email: warning@example.com
+    network-build-config: config.libfoo.network=true
+    network-build-email: network-foo@example.com
+    network-build-error-email: network-error@example.com
+    network-build-warning-email: network-warning@example.com
     EOI
     : 1
     name: libfoo
@@ -22,6 +26,7 @@
     summary: Modern C++ parser
     license: LGPLv2
     build-email: bar@example.com
+    network-build-config: config.libfoo.network=true
     EOO
 
   : builds
@@ -99,6 +104,8 @@
   : build-configs
   :
   $* 'network-builds: all' 'network-build-include: windows*' 'network-build-exclude: *' \
+     'network-build-warning-email: network-warning@example.com' 'sys-build-email:' \
+     'cache-build-error-email: cache-error@example.com' \
      'cache-build-include: freebsd*' 'cache-build-exclude: *' 'cache-builds: legacy' \
        'cache-build-config: config.libfoo.cache=true config.libfoo.buffer=1028' \
      'deprecated-api-build-config: config.libfoo.deprecated_api=true' 'deprecated-api-builds: windows' \
@@ -110,63 +117,80 @@
     version: 2.0.0
     summary: Modern C++ parser
     license: LGPLv2
+    build-email: foo@example.com
+    build-error-email: error@example.com
+    build-warning-email: warning@example.com
     builds: all
     build-include: linux*
     build-include: macos*
     build-include: freebsd*
     build-exclude: *
-    network-build-config: config.libfoo.network=true
     network-builds: default
     network-build-include: linux*
     network-build-exclude: *
-    cache-build-config: config.libfoo.cache=true
+    network-build-config: config.libfoo.network=true
+    network-build-error-email: network-error@example.com
     cache-builds: default
     cache-build-include: macos*
     cache-build-exclude: *
-    sys-build-config: ?sys:libcrypto
+    cache-build-config: config.libfoo.cache=true
+    cache-build-email: cache@example.com
     sys-builds: default
     sys-build-include: freebsd*
     sys-build-exclude: *
-    older-build-config: ?libbar/1.0.0
+    sys-build-config: ?sys:libcrypto
+    sys-build-email: sys@example.com
     older-builds: default
     older-build-include: windows*
     older-build-exclude: *
-    fancy-build-config: config.libfoo.fancy=true
+    older-build-config: ?libbar/1.0.0
     fancy-builds: default
     fancy-build-include: windows*
     fancy-build-exclude: *
+    fancy-build-config: config.libfoo.fancy=true
     EOI
     : 1
     name: libfoo
     version: 2.0.0
     summary: Modern C++ parser
     license: LGPLv2
+    build-email: foo@example.com
+    build-warning-email: warning@example.com
+    build-error-email: error@example.com
     builds: all
     build-include: linux*
     build-include: macos*
     build-include: freebsd*
     build-exclude: *
     default-builds: none
-    network-build-config: config.libfoo.network=true
+    default-build-email:
     network-builds: all
     network-build-include: windows*
     network-build-exclude: *
-    cache-build-config: config.libfoo.cache=true config.libfoo.buffer=1028
+    network-build-config: config.libfoo.network=true
+    network-build-warning-email: network-warning@example.com
     cache-builds: legacy
     cache-build-include: freebsd*
     cache-build-exclude: *
-    sys-build-config: ?sys:libcrypto
+    cache-build-config: config.libfoo.cache=true config.libfoo.buffer=1028
+    cache-build-error-email: cache-error@example.com
     sys-builds: default
     sys-build-include: linux*
     sys-build-exclude: *
-    older-build-config: ?libbar/1.0.0
+    sys-build-config: ?sys:libcrypto
+    sys-build-email:
     older-builds: none
-    fancy-build-config: config.libfoo.fancy=true
+    older-build-config: ?libbar/1.0.0
+    older-build-email:
     fancy-builds: gcc
-    deprecated-api-build-config: config.libfoo.deprecated_api=true
+    fancy-build-config: config.libfoo.fancy=true
+    fancy-build-email:
     deprecated-api-builds: windows
-    experimental-api-build-config: config.libfoo.experimental_api=true
+    deprecated-api-build-config: config.libfoo.deprecated_api=true
+    deprecated-api-build-email:
     experimental-api-builds: none
+    experimental-api-build-config: config.libfoo.experimental_api=true
+    experimental-api-build-email:
     EOO
 
   : build-config-default
@@ -177,8 +201,8 @@
     version: 2.0.0
     summary: Modern C++ parser
     license: LGPLv2
-    network-build-config: config.libfoo.network=true
     network-builds: all
+    network-build-config: config.libfoo.network=true
     EOI
     : 1
     name: libfoo
@@ -188,8 +212,8 @@
     default-builds: all
     default-build-include: windows*
     default-build-exclude: *
-    network-build-config: config.libfoo.network=true
     network-builds: none
+    network-build-config: config.libfoo.network=true
     EOO
 
   : add-build-config
@@ -208,8 +232,8 @@
     version: 2.0.0
     summary: Modern C++ parser
     license: LGPLv2
-    network-build-config: config.libfoo.network=true
     network-builds: all
+    network-build-config: config.libfoo.network=true
     experimental-api-build-config: config.libfoo.experimental_api=true
     EOO
 
@@ -344,5 +368,31 @@
     license: LGPLv2
     EOI
     cannot override 'deprecated-api-builds' value: no build package configuration 'deprecated-api'
+    EOE
+
+  : config-email-after-email
+  :
+  $* 'build-email: foo@example.com' 'network-build-warning-email: warning@example.com' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    network-build-config: config.libfoo.network=true
+    EOI
+    'network-build-warning-email' override specified together with 'build-email' override
+    EOE
+
+  : email-after-config-email
+  :
+  $* 'network-build-warning-email: warning@example.com' 'build-email: foo@example.com' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    network-build-config: config.libfoo.network=true
+    EOI
+    'build-email' override specified together with 'network-build-warning-email' override
     EOE
 }

@@ -1060,8 +1060,8 @@
         version: 2.0.0
         summary: Modern C++ parser
         license: LGPLv2
-        bar-build-config: config.foo.bar = true; Bar.
         bar-builds: all
+        bar-build-config: config.foo.bar = true; Bar.
         baz-build-config: config.foo.baz = true; Baz.
         EOF
     }
@@ -1110,6 +1110,81 @@
         bar-builds: all
         bar-builds: all
         EOI
+    }
+
+    : email
+    :
+    {
+      : override
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          package-email: package@example.com
+          build-email: build@example.com
+          build-warning-email: build-warning@example.com
+          build-error-email: build-error@example.com
+          bar-build-config: config.foo.bar = true; Bar.
+          bar-build-email: bar-build@example.com
+          bar-build-warning-email: bar-build-warning@example.com
+          bar-build-error-email: bar-build-error@example.com
+          EOF
+      }
+
+      : disabled
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          package-email: package@example.com
+          build-email: build@example.com
+          build-warning-email: build-warning@example.com
+          build-error-email: build-error@example.com
+          bar-build-config: config.foo.bar = true; Bar.
+          bar-build-email:
+          EOF
+      }
+
+      : unrecognized
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-error-email: build-error@example.com
+          bar-build-email: bar-build@example.com
+          EOI
+          stdin:7:1: error: stray build notification email: no build package configuration 'bar'
+          EOE
+      }
+
+      : empty
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-error-email: build-error@example.com
+          bar-build-config: config.foo.bar = true; Bar.
+          bar-build-warning-email: ; Empty
+          EOI
+          stdin:8:26: error: empty build configuration warning email
+          EOE
+      }
     }
   }
 
@@ -4447,10 +4522,10 @@
       build-include: linux*
       build-include: freebsd*
       build-exclude: *; Only supports Linux and FreeBSD.
-      network-build-config: config.libfoo.network=true; Enable networking API.
       network-builds: default
       network-build-include: linux*
       network-build-exclude: *; Only supports Linux.
+      network-build-config: config.libfoo.network=true; Enable networking API.
       bootstrap-build:\
       project = libfoo
 

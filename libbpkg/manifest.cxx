@@ -3557,10 +3557,21 @@ namespace bpkg
       };
 
     // Return the package build configuration with the specified name, if
-    // already exists, or the newly created configuration otherwise.
+    // already exists. If no configuration matches, then create one, if
+    // requested, and throw manifest_parsing otherwise. If the new
+    // configuration creation is not allowed, then the description for a
+    // potential manifest_parsing exception needs to also be specified.
     //
-    auto build_conf = [&m] (string&& nm) -> build_package_config&
+    auto build_conf = [&m, &bad_name] (string&& nm,
+                                       bool create = true,
+                                       const string& desc = "")
+      -> build_package_config&
     {
+      // The error description must only be specified if the creation of the
+      // package build configuration is not allowed.
+      //
+      assert (desc.empty () == create);
+
       small_vector<build_package_config, 1>& cs (m.build_configs);
 
       auto i (find_if (cs.begin (), cs.end (),
@@ -3569,6 +3580,9 @@ namespace bpkg
 
       if (i != cs.end ())
         return *i;
+
+      if (!create)
+        bad_name (desc + ": no build package configuration '" + nm + '\'');
 
       // Add the new build configuration (arguments, builds, etc will come
       // later).
@@ -3600,6 +3614,16 @@ namespace bpkg
     optional<name_value> package_description_type;
     vector<name_value>   changes;
     optional<name_value> changes_type;
+
+    // It doesn't make sense for only emails to be specified for a package
+    // build configuration. Thus, we will cache the build configuration email
+    // manifest values to parse them later, after all other build
+    // configuration values are parsed, and to make sure that the build
+    // configurations they refer to are also specified.
+    //
+    vector<name_value> build_config_emails;
+    vector<name_value> build_config_warning_emails;
+    vector<name_value> build_config_error_emails;
 
     m.build_configs.emplace_back ("default");
 
@@ -4033,6 +4057,24 @@ namespace bpkg
         bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
+      else if (n.size () > 12 &&
+               n.compare (n.size () - 12, 12, "-build-email") == 0)
+      {
+        n.resize (n.size () - 12);
+        build_config_emails.push_back (move (nv));
+      }
+      else if (n.size () > 20 &&
+               n.compare (n.size () - 20, 20, "-build-warning-email") == 0)
+      {
+        n.resize (n.size () - 20);
+        build_config_warning_emails.push_back (move (nv));
+      }
+      else if (n.size () > 18 &&
+               n.compare (n.size () - 18, 18, "-build-error-email") == 0)
+      {
+        n.resize (n.size () - 18);
+        build_config_error_emails.push_back (move (nv));
+      }
       // @@ TMP time to drop *-0.14.0?
       //
       else if (n == "tests"      || n == "tests-0.14.0"    ||
@@ -4387,6 +4429,59 @@ namespace bpkg
       }
     }
 
+    // Parse the build configuration emails.
+    //
+    // Note: the argument can only be one of the build_config_*emails
+    // variables (see above) to distinguish between the email kinds.
+    //
+    auto parse_build_config_emails = [&name,
+                                      &nv,
+                                      &build_config_emails,
+                                      &build_config_warning_emails,
+                                      &build_config_error_emails,
+                                      &build_conf,
+                                      &parse_email]
+                                     (vector<name_value>&& emails)
+    {
+      enum email_kind {build, warning, error};
+
+      email_kind ek (
+        &emails == &build_config_emails         ? email_kind::build   :
+        &emails == &build_config_warning_emails ? email_kind::warning :
+        email_kind::error);
+
+      // The argument can only be one of the build_config_*emails variables.
+      //
+      assert (ek != email_kind::error || &emails == &build_config_error_emails);
+
+      for (name_value& e: emails)
+      {
+        // Restore as bad_name() and bad_value() use its line/column.
+        //
+        nv = move (e);
+
+        build_package_config& bc (
+          build_conf (move (nv.name),
+                      false /* create */,
+                      "stray build notification email"));
+
+        parse_email (
+          nv,
+          (ek == email_kind::build   ? bc.email         :
+           ek == email_kind::warning ? bc.warning_email :
+           bc.error_email),
+          (ek == email_kind::build   ? "build configuration"         :
+           ek == email_kind::warning ? "build configuration warning" :
+           "build configuration error"),
+          name,
+          ek == email_kind::build /* empty */);
+      }
+    };
+
+    parse_build_config_emails (move (build_config_emails));
+    parse_build_config_emails (move (build_config_warning_emails));
+    parse_build_config_emails (move (build_config_error_emails));
+
     // Now, when the version manifest value is parsed, we can parse the
     // dependencies and complete their constraints, if requested.
     //
@@ -4712,13 +4807,21 @@ namespace bpkg
 
     // The first {build-*email} override value.
     //
-    const manifest_name_value* be (nullptr);
+    const manifest_name_value* cbe (nullptr);
 
-    // List of indexes of the overridden build configurations together with
-    // flags which indicate if the *-builds override value was encountered for
-    // this configuration.
+    // The first {*-build-*email} override value.
+    //
+    const manifest_name_value* pbe  (nullptr);
+
+    // List of indexes of the build configurations with the overridden build
+    // constraints together with flags which indicate if the *-builds override
+    // value was encountered for this configuration.
     //
     vector<pair<size_t, bool>> obcs;
+
+    // List of indexes of the build configurations with the overridden emails.
+    //
+    vector<size_t> obes;
 
     // Apply overrides.
     //
@@ -4768,7 +4871,8 @@ namespace bpkg
       // otherwise.
       //
       // The n argument specifies the length of the configuration name in
-      // *-build-config, *-builds, and *-build-{include,exclude} values.
+      // *-build-config, *-builds, *-build-{include,exclude}, and
+      // *-build-*email values.
       //
       auto build_conf =
         [&nv, &bad_name, &m] (size_t n, bool create) -> build_package_config&
@@ -4869,17 +4973,75 @@ namespace bpkg
         return r;
       };
 
-      // Reset the {build-*email} value group on the first call.
+      // Reset the {build-*email} value group on the first call but throw if
+      // any of the {*-build-*email} override values are already encountered.
       //
-      auto reset_build_emails = [&be, &nv, &m] ()
+      auto reset_build_emails = [&cbe, &pbe, &nv, &bad_name, &m] ()
       {
-        if (be == nullptr)
+        if (cbe == nullptr)
         {
+          if (pbe != nullptr)
+            bad_name ('\'' + nv.name + "' override specified together with '" +
+                      pbe->name + "' override");
+
           m.build_email = nullopt;
           m.build_warning_email = nullopt;
           m.build_error_email = nullopt;
-          be = &nv;
+          cbe = &nv;
         }
+      };
+
+      // Return the reference to the package build configuration which matches
+      // the build config-specific emails group value override, if exists. If
+      // no configuration matches, then throw manifest_parsing, except for the
+      // validate-only mode in which case just add an empty configuration with
+      // this name and return the reference to it.
+      //
+      auto build_conf_email =
+        [&pbe, &cbe, &nv, &obes, &bad_name, &build_conf, &m, validate_only]
+        (size_t n) -> build_package_config&
+      {
+        const string& nm (nv.name);
+
+        // If this is the first build config override value, then save its
+        // address. But first verify that no common build emails group value
+        // overrides are applied yet and throw if that's not the case.
+        //
+        if (pbe == nullptr)
+        {
+          if (cbe != nullptr)
+            bad_name ('\'' + nm + "' override specified together with '" +
+                      cbe->name + "' override");
+
+          pbe = &nv;
+        }
+
+        small_vector<build_package_config, 1>& cs (m.build_configs);
+
+        // Find the build package configuration. If there is no such a
+        // configuration then throw, except for the validate-only mode in
+        // which case just add an empty configuration with this name.
+        //
+        // Note that we are using indexes rather then configuration addresses
+        // due to potential reallocations.
+        //
+        build_package_config& r (build_conf (n, validate_only));
+        size_t ci (&r - cs.data ());
+
+        // If this is the first encountered {*-build-*email} override for this
+        // build config, then clear this config' email members and add an
+        // entry to the overridden configs list.
+        //
+        if (find (obes.begin (), obes.end (), ci) == obes.end ())
+        {
+          r.email = nullopt;
+          r.warning_email = nullopt;
+          r.error_email = nullopt;
+
+          obes.push_back (ci);
+        }
+
+        return r;
       };
 
       const string& n (nv.name);
@@ -4954,6 +5116,29 @@ namespace bpkg
         reset_build_emails ();
         m.build_error_email = parse_email (nv, "build error", name);
       }
+      else if (n.size () > 12 &&
+               n.compare (n.size () - 12, 12, "-build-email") == 0)
+      {
+        build_package_config& bc (build_conf_email (n.size () - 12));
+
+        bc.email = parse_email (
+          nv, "build configuration", name, true /* empty */);
+      }
+      else if (n.size () > 20 &&
+               n.compare (n.size () - 20, 20, "-build-warning-email") == 0)
+      {
+        build_package_config& bc (build_conf_email (n.size () - 20));
+
+        bc.warning_email = parse_email (
+          nv, "build configuration warning", name);
+      }
+      else if (n.size () > 18 &&
+               n.compare (n.size () - 18, 18, "-build-error-email") == 0)
+      {
+        build_package_config& bc (build_conf_email (n.size () - 18));
+
+        bc.error_email = parse_email (nv, "build configuration error", name);
+      }
       else
         bad_name ("cannot override '" + n + "' value");
     }
@@ -4964,8 +5149,8 @@ namespace bpkg
     assert (cbc == nullptr || pbc == nullptr);
 
     // Now, if not in the validate-only mode, as all the potential build
-    // constraint overrides are applied, perform the final adjustments to the
-    // build config constraints.
+    // constraint/email overrides are applied, perform the final adjustments
+    // to the build config constraints/emails.
     //
     if (!validate_only)
     {
@@ -4990,6 +5175,30 @@ namespace bpkg
             c.builds.clear ();
             c.constraints.clear ();
             c.builds.emplace_back ("none", "" /* comment */);
+          }
+        }
+      }
+
+      if (cbe != nullptr)      // Common build emails are overridden?
+      {
+        for (build_package_config& c: m.build_configs)
+        {
+          c.email = nullopt;
+          c.warning_email = nullopt;
+          c.error_email = nullopt;
+        }
+      }
+      else if (pbe != nullptr) // Build config emails are overridden?
+      {
+        for (size_t i (0); i != m.build_configs.size (); ++i)
+        {
+          if (find (obes.begin (), obes.end (), i) == obes.end ())
+          {
+            build_package_config& c (m.build_configs[i]);
+
+            c.email = email ();
+            c.warning_email = nullopt;
+            c.error_email = nullopt;
           }
         }
       }
@@ -5303,10 +5512,6 @@ namespace bpkg
 
       for (const build_package_config& bc: m.build_configs)
       {
-        if (!bc.arguments.empty () || !bc.comment.empty ())
-          s.next (bc.name + "-build-config",
-                  serializer::merge_comment (bc.arguments, bc.comment));
-
         if (!bc.builds.empty ())
         {
           string n (bc.name + "-builds");
@@ -5326,6 +5531,24 @@ namespace bpkg
                                                : c.config + '/' + *c.target,
                                                c.comment));
         }
+
+        if (!bc.arguments.empty () || !bc.comment.empty ())
+          s.next (bc.name + "-build-config",
+                  serializer::merge_comment (bc.arguments, bc.comment));
+
+        if (bc.email)
+          s.next (bc.name + "-build-email",
+                  serializer::merge_comment (*bc.email, bc.email->comment));
+
+        if (bc.warning_email)
+          s.next (bc.name + "-build-warning-email",
+                  serializer::merge_comment (*bc.warning_email,
+                                             bc.warning_email->comment));
+
+        if (bc.error_email)
+          s.next (bc.name + "-build-error-email",
+                  serializer::merge_comment (*bc.error_email,
+                                             bc.error_email->comment));
       }
 
       bool an (m.alt_naming && *m.alt_naming);

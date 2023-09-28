@@ -980,12 +980,15 @@ namespace bpkg
     return os << bce.string ();
   }
 
-  // Package build configuration. Includes comment and optional target build
-  // configuration class expressions/constraints overrides.
+  // Package build configuration. Includes comment and optional overrides for
+  // target build configuration class expressions/constraints and build
+  // notification emails.
   //
   class build_package_config
   {
   public:
+    using email_type = bpkg::email;
+
     std::string name;
 
     // Whitespace separated list of potentially double/single-quoted package
@@ -998,6 +1001,10 @@ namespace bpkg
 
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> constraints;
+
+    butl::optional<email_type> email;
+    butl::optional<email_type> warning_email;
+    butl::optional<email_type> error_email;
 
     build_package_config () = default;
 
@@ -1023,6 +1030,31 @@ namespace bpkg
       noexcept
     {
       return !builds.empty () || !constraints.empty () ? constraints : common;
+    }
+
+    // Return the configuration's build notification emails if they override
+    // the specified common build notification emails and return the latter
+    // otherwise (see package_manifest::override() for the override semantics
+    // details).
+    //
+    const butl::optional<email_type>&
+    effective_email (const butl::optional<email_type>& common) const noexcept
+    {
+      return email || warning_email || error_email ? email : common;
+    }
+
+    const butl::optional<email_type>&
+    effective_warning_email (const butl::optional<email_type>& common) const
+      noexcept
+    {
+      return email || warning_email || error_email ? warning_email : common;
+    }
+
+    const butl::optional<email_type>&
+    effective_error_email (const butl::optional<email_type>& common) const
+      noexcept
+    {
+      return email || warning_email || error_email ? error_email : common;
     }
   };
 
@@ -1330,14 +1362,15 @@ namespace bpkg
     //   {builds, build-{include,exclude}}
     //   {*-builds, *-build-{include,exclude}}
     //   {*-build-config}
+    //   {*-build-*email}
     //
     // Throw manifest_parsing if the configuration specified by the build
-    // package configuration-specific build constraints group value overrides
-    // doesn't exists. In contrast, for the build config override add a new
-    // configuration if it doesn't exist and update the arguments of the
-    // existing configuration otherwise. In the former case, all the potential
-    // build constraints overrides for such a newly added configuration must
-    // follow the respective *-build-config override.
+    // package configuration-specific build constraints or emails group value
+    // overrides doesn't exists. In contrast, for the build config override
+    // add a new configuration if it doesn't exist and update the arguments of
+    // the existing configuration otherwise. In the former case, all the
+    // potential build constraints and emails overrides for such a newly added
+    // configuration must follow the respective *-build-config override.
     //
     // Note that the build constraints group values (both common and build
     // config-specific) are overridden hierarchically so that the
@@ -1350,6 +1383,15 @@ namespace bpkg
     // constraints are removed. Otherwise, if some build config-specific
     // constraints are overridden, then for the remaining configs the build
     // constraints are reset to `builds: none`.
+    //
+    // Similar to the build constraints groups, the common and build
+    // config-specific build emails group value overrides are mutually
+    // exclusive. If the common build emails are overridden, then all the
+    // build config-specific emails are reset to nullopt. Otherwise, if some
+    // build config-specific emails are overridden, then for the remaining
+    // configs the email is reset to the empty value and the warning and error
+    // emails are reset to nullopt (which effectively disables email
+    // notifications for such configurations).
     //
     // If a non-empty source name is specified, then the specified values are
     // assumed to also include the line/column information and the possibly
