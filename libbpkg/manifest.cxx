@@ -3104,11 +3104,12 @@ namespace bpkg
     using std::string;
 
     // We will use the dependency alternatives parser to parse the
-    // `<name> [<version-constraint>] [<reflect-config>]` representation into
-    // a temporary dependency alternatives object. Then we will verify that
-    // the result has no multiple alternatives/dependency packages and
-    // unexpected clauses and will move the required information (dependency,
-    // reflection, etc) into the being created test dependency object.
+    // `<name> [<version-constraint>] ['?' <enable-condition>] [<reflect-config>]`
+    // representation into a temporary dependency alternatives object. Then we
+    // will verify that the result has no multiple alternatives/dependency
+    // packages and unexpected clauses and will move the required information
+    // (dependency, reflection, etc) into the being created test dependency
+    // object.
 
     // Verify that there is no newline characters to forbid the multi-line
     // dependency alternatives representation.
@@ -3187,16 +3188,14 @@ namespace bpkg
     //
     // Note that the require, prefer, and accept clauses can only be present
     // in the multi-line representation and we have already verified that this
-    // is not the case.
-    //
-    if (da.enable)
-      throw invalid_argument ("unexpected enable clause");
+    // is not the case. So there is nothing to verify here.
 
-    // Move the dependency and the reflect clause into the being created test
-    // dependency object.
+    // Move the dependency and the enable and reflect clauses into the being
+    // created test dependency object.
     //
     static_cast<dependency&> (*this) = move (da[0]);
 
+    enable  = move (da.enable);
     reflect = move (da.reflect);
   }
 
@@ -3206,6 +3205,13 @@ namespace bpkg
     std::string r (buildtime
                    ? "* " + dependency::string ()
                    :        dependency::string ());
+
+    if (enable)
+    {
+      r += " ? (";
+      r += *enable;
+      r += ')';
+    }
 
     if (reflect)
     {

@@ -4023,6 +4023,17 @@
         tests: bar config.bar.test = foo
         EOF
 
+      : enable
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar == 1.0.0 ? ($windows) config.bar.test = foo
+        EOF
+
       : invalid-variable
       :
       $* <<EOI 2>>EOE != 0
@@ -4034,6 +4045,45 @@
         tests: bar config.foo.test = bar
         EOI
         stdin:6:8: error: config.bar.* variable assignment expected instead of <buildfile fragment>
+        EOE
+    }
+
+    : enable
+    :
+    {
+      : after-version-constraint
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar == 1.0.0 ? ($windows)
+        EOF
+
+      : no-version-constraint
+      :
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar ? ($windows)
+        EOF
+
+      : unterminated
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        tests: bar ? ($windows
+        EOI
+        stdin:6:8: error: unterminated evaluation context
         EOE
     }
 
@@ -4090,19 +4140,6 @@
       tests: {bar baz}
       EOI
       stdin:6:8: error: only single package allowed
-      EOE
-
-    : enable
-    :
-    $* <<EOI 2>>EOE != 0
-      : 1
-      name: foo
-      version: 2.0.0
-      summary: Modern C++ parser
-      license: LGPLv2
-      tests: bar ? (windows)
-      EOI
-      stdin:6:8: error: unexpected enable clause
       EOE
   }
 

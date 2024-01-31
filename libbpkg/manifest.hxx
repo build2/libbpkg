@@ -1083,6 +1083,7 @@ namespace bpkg
   {
     test_dependency_type type;
     bool buildtime;
+    butl::optional<std::string> enable;
     butl::optional<std::string> reflect;
 
     test_dependency () = default;
@@ -1090,15 +1091,17 @@ namespace bpkg
                      test_dependency_type t,
                      bool b,
                      butl::optional<version_constraint> c,
+                     butl::optional<std::string> e,
                      butl::optional<std::string> r)
         : dependency {std::move (n), std::move (c)},
           type (t),
           buildtime (b),
+          enable (std::move (e)),
           reflect (std::move (r)) {}
 
     // Parse the test dependency string representation in the
-    // `[*] <name> [<version-constraint>] [<reflect-config>]` form. Throw
-    // std::invalid_argument if the value is invalid.
+    // `[*] <name> [<version-constraint>] ['?' <enable-condition>] [<reflect-config>]`
+    // form. Throw std::invalid_argument if the value is invalid.
     //
     // Verify that the reflect clause, if present, refers to the test
     // dependency package configuration variable. Note that such variable
