@@ -10,7 +10,7 @@
 #include <cassert>
 #include <cstdint>    // uint*_t
 #include <ostream>
-#include <utility>    // move()
+#include <utility>    // move(), pair
 #include <functional>
 
 #include <libbutl/url.hxx>
@@ -980,6 +980,39 @@ namespace bpkg
     return os << bce.string ();
   }
 
+  // Build auxiliary configuration name-matching wildcard. Includes optional
+  // environment name (specified as a suffix in the [*-]build-auxiliary[-*]
+  // value name) and comment.
+  //
+  class LIBBPKG_EXPORT build_auxiliary
+  {
+  public:
+    std::string environment_name;
+
+    // Filesystem wildcard pattern for the build auxiliary configuration name.
+    //
+    std::string config;
+
+    std::string comment;
+
+    build_auxiliary () = default;
+    build_auxiliary (std::string en,
+                     std::string cf,
+                     std::string cm)
+        : environment_name (std::move (en)),
+          config (std::move (cf)),
+          comment (std::move (cm)) {}
+
+    // Parse a package manifest value name in the [*-]build-auxiliary[-*] form
+    // into the pair of the build package configuration name (first) and the
+    // build auxiliary environment name (second), with an unspecified name
+    // represented as an empty string. Return nullopt if the value name
+    // doesn't match this form.
+    //
+    static butl::optional<std::pair<std::string, std::string>>
+    parse_value_name (const std::string&);
+  };
+
   // Package build configuration. Includes comment and optional overrides for
   // target build configuration class expressions/constraints and build
   // notification emails.
@@ -1001,6 +1034,11 @@ namespace bpkg
 
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> constraints;
+
+    // Note that all entries in this list must have distinct environment names
+    // (with empty name being one of the possibilities).
+    //
+    std::vector<build_auxiliary> auxiliaries;
 
     butl::optional<email_type> email;
     butl::optional<email_type> warning_email;
@@ -1030,6 +1068,16 @@ namespace bpkg
       noexcept
     {
       return !builds.empty () || !constraints.empty () ? constraints : common;
+    }
+
+    // Return the configuration's auxiliaries, if specified, and the common
+    // ones otherwise.
+    //
+    const std::vector<build_auxiliary>&
+    effective_auxiliaries (const std::vector<build_auxiliary>& common) const
+      noexcept
+    {
+      return !auxiliaries.empty () ? auxiliaries : common;
     }
 
     // Return the configuration's build notification emails if they override
@@ -1205,11 +1253,15 @@ namespace bpkg
     std::vector<requirement_alternatives> requirements;
     butl::small_vector<test_dependency, 1> tests;
 
-    // Common build classes/constraints that apply to all configurations
-    // unless overridden.
+    // Common build classes, constraints, and auxiliaries that apply to all
+    // configurations unless overridden.
+    //
+    // Note that all entries in build_auxiliaries must have distinct
+    // environment names (with empty name being one of the possibilities).
     //
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
+    std::vector<build_auxiliary> build_auxiliaries;
 
     // Note that the parsing constructor adds the implied (empty) default
     // configuration at the beginning of the list. Also note that serialize()
@@ -1357,9 +1409,12 @@ namespace bpkg
     // any value is invalid, cannot be overridden, or its name is not
     // recognized.
     //
-    // The specified values override the whole groups they belong to,
-    // resetting all the group values prior to being applied. Currently, only
-    // the following value groups can be overridden:
+    // The specified values other than [*-]build-auxiliary[-*] override the
+    // whole groups they belong to, resetting all the group values prior to
+    // being applied. The [*-]build-auxiliary[-*] values only override the
+    // matching values, which are expected to already be present in the
+    // manifest. Currently, only the following value groups/values can be
+    // overridden:
     //
     //   {build-*email}
     //   {builds, build-{include,exclude}}
@@ -1367,13 +1422,16 @@ namespace bpkg
     //   {*-build-config}
     //   {*-build-*email}
     //
+    //   [*-]build-auxiliary[-*]
+    //
     // Throw manifest_parsing if the configuration specified by the build
-    // package configuration-specific build constraints or emails group value
-    // overrides doesn't exists. In contrast, for the build config override
-    // add a new configuration if it doesn't exist and update the arguments of
-    // the existing configuration otherwise. In the former case, all the
-    // potential build constraints and emails overrides for such a newly added
-    // configuration must follow the respective *-build-config override.
+    // package configuration-specific build constraint, email, or auxiliary
+    // value override doesn't exists. In contrast, for the build config
+    // override add a new configuration if it doesn't exist and update the
+    // arguments of the existing configuration otherwise. In the former case,
+    // all the potential build constraint, email, and auxiliary overrides for
+    // such a newly added configuration must follow the respective
+    // *-build-config override.
     //
     // Note that the build constraints group values (both common and build
     // config-specific) are overridden hierarchically so that the

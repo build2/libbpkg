@@ -1048,6 +1048,116 @@
       EOI
   }
 
+  : build-auxiliary
+  :
+  {
+    : named
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-auxiliary-pgsql: *-postgresql_*
+        build-auxiliary-mysql: *-mysql_*
+        EOF
+    }
+
+    : unnamed
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-auxiliary: *-postgresql**
+        EOF
+    }
+
+    : empty-config-pattern
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-auxiliary:
+        EOI
+        stdin:6:17: error: empty build auxiliary configuration name pattern
+        EOE
+    }
+
+    : mixed
+    :
+    {
+      : named-unnamed
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-auxiliary-pgsql: *-postgresql**
+          build-auxiliary: *-mysql**
+          EOF
+      }
+
+      : unnamed-named
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-auxiliary: *-mysql**
+          build-auxiliary-pgsql: *-postgresql**
+          EOF
+      }
+
+      : unnamed-unnamed
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-auxiliary: *-mysql**
+          build-auxiliary: *-postgresql**
+          EOI
+          stdin:7:1: error: build auxiliary environment redefinition
+          EOE
+      }
+
+      : redefinition
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-auxiliary-pgsql: *-postgresql**
+          build-auxiliary-pgsql: *-postgresql**
+          EOI
+          stdin:7:1: error: build auxiliary environment redefinition
+          EOE
+      }
+    }
+  }
+
   : build-config
   :
   {
@@ -1110,6 +1220,115 @@
         bar-builds: all
         bar-builds: all
         EOI
+    }
+
+    : auxiliary
+    {
+      : named
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          bar-build-auxiliary-pgsql: *-postgresql_*
+          baz-build-auxiliary-mysql: *-mysql_*
+          EOF
+      }
+
+      : unnamed
+      :
+      {
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          bar-build-auxiliary: *-postgresql**
+          EOF
+      }
+
+      : empty-config-pattern
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          bar-build-auxiliary:
+          EOI
+          stdin:6:21: error: empty build auxiliary configuration name pattern
+          EOE
+      }
+
+      : mixed
+      :
+      {
+        : named-unnamed
+        :
+        {
+          $* <<EOF >>EOF
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            bar-build-auxiliary-pgsql: *-postgresql**
+            bar-build-auxiliary: *-mysql**
+            EOF
+        }
+
+        : unnamed-named
+        :
+        {
+          $* <<EOF >>EOF
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            bar-build-auxiliary: *-mysql**
+            bar-build-auxiliary-pgsql: *-postgresql**
+            EOF
+        }
+
+        : unnamed-unnamed
+        :
+        {
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            bar-build-auxiliary: *-mysql**
+            bar-build-auxiliary: *-postgresql**
+            EOI
+            stdin:7:1: error: build auxiliary environment redefinition
+            EOE
+        }
+
+        : redefinition
+        :
+        {
+          $* <<EOI 2>>EOE != 0
+            : 1
+            name: foo
+            version: 2.0.0
+            summary: Modern C++ parser
+            license: LGPLv2
+            bar-build-auxiliary-pgsql: *-postgresql**
+            bar-build-auxiliary-pgsql: *-postgresql**
+            EOI
+            stdin:7:1: error: build auxiliary environment redefinition
+            EOE
+        }
+      }
     }
 
     : email

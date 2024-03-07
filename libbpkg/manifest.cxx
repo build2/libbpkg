@@ -3069,6 +3069,44 @@ namespace bpkg
     match_classes (cs, im, expr, r);
   }
 
+  // build_auxiliary
+  //
+  optional<pair<string, string>> build_auxiliary::
+  parse_value_name (const string& n)
+  {
+    // Check if the value name matches exactly.
+    //
+    if (n == "build-auxiliary")
+      return make_pair (string (), string ());
+
+    // Check if this is a *-build-auxiliary name.
+    //
+    if (n.size () > 16 &&
+        n.compare (n.size () - 16, 16, "-build-auxiliary") == 0)
+    {
+      return make_pair (string (n, 0, n.size () - 16), string ());
+    }
+
+    // Check if this is a build-auxiliary-* name.
+    //
+    if (n.size () > 16 && n.compare (0, 16, "build-auxiliary-") == 0)
+      return make_pair (string (), string (n, 16));
+
+    // Check if this is a *-build-auxiliary-* name.
+    //
+    size_t p (n.find ("-build-auxiliary-"));
+
+    if (p != string::npos   &&
+        p != 0              && // Not '-build-auxiliary-*'?
+        p + 17 != n.size () && // Not '*-build-auxiliary-'?
+        n.find ("-build-auxiliary-", p + 17) == string::npos) // Unambiguous?
+    {
+      return make_pair (string (n, 0, p), string (n, p + 17));
+    }
+
+    return nullopt;
+  }
+
   // test_dependency_type
   //
   string
@@ -3318,6 +3356,33 @@ namespace bpkg
     return email (move (v), move (c));
   }
 
+  // Parse the [*-]build-auxiliary[-*] manifest value.
+  //
+  // Note that the environment name is expected to already be retrieved using
+  // build_auxiliary::parse_value_name().
+  //
+  static build_auxiliary
+  parse_build_auxiliary (const name_value& nv,
+                         string&& env_name,
+                         const string& source_name)
+  {
+    auto bad_value = [&nv, &source_name] (const string& d)
+    {
+      throw !source_name.empty ()
+            ? parsing (source_name, nv.value_line, nv.value_column, d)
+            : parsing (d);
+    };
+
+    pair<string, string> vc (parser::split_comment (nv.value));
+    string& v (vc.first);
+    string& c (vc.second);
+
+    if (v.empty ())
+      bad_value ("empty build auxiliary configuration name pattern");
+
+    return build_auxiliary (move (env_name), move (v), move (c));
+  }
+
   const version stub_version (0, "0", nullopt, nullopt, 0);
 
   // Parse until next() returns end-of-manifest value.
@@ -3340,16 +3405,37 @@ namespace bpkg
     auto bad_value ([&name, &nv](const string& d) {
         throw parsing (name, nv.value_line, nv.value_column, d);});
 
-    auto parse_email = [&bad_name] (const name_value& nv,
-                                    optional<email>& r,
-                                    const char* what,
-                                    const string& source_name,
-                                    bool empty = false)
+    auto parse_email = [&bad_name, &name] (const name_value& nv,
+                                           optional<email>& r,
+                                           const char* what,
+                                           bool empty = false)
     {
       if (r)
         bad_name (what + string (" email redefinition"));
 
-      r = bpkg::parse_email (nv, what, source_name, empty);
+      r = bpkg::parse_email (nv, what, name, empty);
+    };
+
+    // Parse the [*-]build-auxiliary[-*] manifest value and append it to the
+    // specified build auxiliary list. Make sure that the list contains not
+    // more than one entry with unspecified environment name and throw parsing
+    // if that's not the case. Also make sure that there are no entry
+    // redefinitions (multiple entries with the same environment name).
+    //
+    auto parse_build_auxiliary = [&bad_name, &name] (const name_value& nv,
+                                                     string&& en,
+                                                     vector<build_auxiliary>& r)
+    {
+      build_auxiliary a (bpkg::parse_build_auxiliary (nv, move (en), name));
+
+      if (find_if (r.begin (), r.end (),
+                   [&a] (const build_auxiliary& ba)
+                   {
+                     return ba.environment_name == a.environment_name;
+                   }) != r.end ())
+        bad_name ("build auxiliary environment redefinition");
+
+      r.push_back (move (a));
     };
 
     auto parse_url = [&bad_value] (const string& v,
@@ -3908,7 +3994,7 @@ namespace bpkg
       }
       else if (n == "email")
       {
-        parse_email (nv, m.email, "project", name);
+        parse_email (nv, m.email, "project");
       }
       else if (n == "doc-url")
       {
@@ -3933,19 +4019,19 @@ namespace bpkg
       }
       else if (n == "package-email")
       {
-        parse_email (nv, m.package_email, "package", name);
+        parse_email (nv, m.package_email, "package");
       }
       else if (n == "build-email")
       {
-        parse_email (nv, m.build_email, "build", name, true /* empty */);
+        parse_email (nv, m.build_email, "build", true /* empty */);
       }
       else if (n == "build-warning-email")
       {
-        parse_email (nv, m.build_warning_email, "build warning", name);
+        parse_email (nv, m.build_warning_email, "build warning");
       }
       else if (n == "build-error-email")
       {
-        parse_email (nv, m.build_error_email, "build error", name);
+        parse_email (nv, m.build_error_email, "build error");
       }
       else if (n == "priority")
       {
@@ -4018,6 +4104,19 @@ namespace bpkg
       {
         m.build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if (optional<pair<string, string>> ba =
+               build_auxiliary::parse_value_name (n))
+      {
+        if (ba->first.empty ()) // build-auxiliary*?
+        {
+          parse_build_auxiliary (nv, move (ba->second), m.build_auxiliaries);
+        }
+        else                    // *-build-auxiliary*
+        {
+          build_package_config& bc (build_conf (move (ba->first)));
+          parse_build_auxiliary (nv, move (ba->second), bc.auxiliaries);
+        }
       }
       else if (n.size () > 13 &&
                n.compare (n.size () - 13, 13, "-build-config") == 0)
@@ -4440,8 +4539,7 @@ namespace bpkg
     // Note: the argument can only be one of the build_config_*emails
     // variables (see above) to distinguish between the email kinds.
     //
-    auto parse_build_config_emails = [&name,
-                                      &nv,
+    auto parse_build_config_emails = [&nv,
                                       &build_config_emails,
                                       &build_config_warning_emails,
                                       &build_config_error_emails,
@@ -4479,7 +4577,6 @@ namespace bpkg
           (ek == email_kind::build   ? "build configuration"         :
            ek == email_kind::warning ? "build configuration warning" :
            "build configuration error"),
-          name,
           ek == email_kind::build /* empty */);
       }
     };
@@ -4829,6 +4926,15 @@ namespace bpkg
     //
     vector<size_t> obes;
 
+    // Return true if the specified package build configuration is newly
+    // created by the *-build-config override.
+    //
+    auto config_created = [&m, confs_num = m.build_configs.size ()]
+                          (const build_package_config& c)
+    {
+      return &c >= m.build_configs.data () + confs_num;
+    };
+
     // Apply overrides.
     //
     for (const manifest_name_value& nv: nvs)
@@ -5050,6 +5156,45 @@ namespace bpkg
         return r;
       };
 
+      // Parse the [*-]build-auxiliary[-*] value override. If the mode is not
+      // validate-only, then override the matching value and throw
+      // manifest_parsing if no match. But throw only unless this is a
+      // configuration-specific override (build_config is not NULL) for a
+      // newly created configuration, in which case add the value instead.
+      //
+      auto override_build_auxiliary =
+        [&bad_name,
+         &name,
+         &config_created,
+         validate_only] (const name_value& nv,
+                         string&& en,
+                         vector<build_auxiliary>& r,
+                         build_package_config* build_config = nullptr)
+      {
+        build_auxiliary a (bpkg::parse_build_auxiliary (nv, move (en), name));
+
+        if (!validate_only)
+        {
+          auto i (find_if (r.begin (), r.end (),
+                           [&a] (const build_auxiliary& ba)
+                           {
+                             return ba.environment_name == a.environment_name;
+                           }));
+
+          if (i != r.end ())
+          {
+            *i = move (a);
+          }
+          else
+          {
+            if (build_config != nullptr && config_created (*build_config))
+              r.emplace_back (move (a));
+            else
+              bad_name ("no match for '" + nv.name + "' value override");
+          }
+        }
+      };
+
       const string& n (nv.name);
 
       if (n == "builds")
@@ -5144,6 +5289,21 @@ namespace bpkg
         build_package_config& bc (build_conf_email (n.size () - 18));
 
         bc.error_email = parse_email (nv, "build configuration error", name);
+      }
+      else if (optional<pair<string, string>> ba =
+               build_auxiliary::parse_value_name (n))
+      {
+        if (ba->first.empty ()) // build-auxiliary*?
+        {
+          override_build_auxiliary (nv, move (ba->second), m.build_auxiliaries);
+        }
+        else                    // *-build-auxiliary*
+        {
+          build_package_config& bc (
+            build_conf (ba->first.size (), validate_only));
+
+          override_build_auxiliary (nv, move (ba->second), bc.auxiliaries, &bc);
+        }
       }
       else
         bad_name ("cannot override '" + n + "' value");
@@ -5516,6 +5676,12 @@ namespace bpkg
                                            : c.config + '/' + *c.target,
                                            c.comment));
 
+      for (const build_auxiliary& ba: m.build_auxiliaries)
+        s.next ((!ba.environment_name.empty ()
+                 ? "build-auxiliary-" + ba.environment_name
+                 : "build-auxiliary"),
+                serializer::merge_comment (ba.config, ba.comment));
+
       for (const build_package_config& bc: m.build_configs)
       {
         if (!bc.builds.empty ())
@@ -5536,6 +5702,17 @@ namespace bpkg
                                                ? c.config
                                                : c.config + '/' + *c.target,
                                                c.comment));
+        }
+
+        if (!bc.auxiliaries.empty ())
+        {
+          string n (bc.name + "-build-auxiliary");
+
+          for (const build_auxiliary& ba: bc.auxiliaries)
+            s.next ((!ba.environment_name.empty ()
+                     ? n + '-' + ba.environment_name
+                     : n),
+                    serializer::merge_comment (ba.config, ba.comment));
         }
 
         if (!bc.arguments.empty () || !bc.comment.empty ())

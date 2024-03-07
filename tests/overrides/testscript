@@ -254,6 +254,84 @@
     license: LGPLv2
     build-email: foo@example.com
     EOO
+
+  : build-auxiliary
+  :
+  {
+    : named
+    :
+    $* 'build-auxiliary-pgsql: *-postgresql**' \
+       'foo-build-auxiliary-oracle: *-oracle**' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      build-auxiliary-mysql: *-mysql_*
+      foo-build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql**
+      build-auxiliary-mysql: *-mysql_*
+      foo-build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-oracle: *-oracle**
+      EOO
+
+    : unnamed
+    :
+    $* 'build-auxiliary: *-postgresql**' \
+       'foo-build-auxiliary: *-oracle**' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary: *-postgresql_*
+      foo-build-auxiliary: *-oracle_*
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary: *-postgresql**
+      foo-build-auxiliary: *-oracle**
+      EOO
+
+    : new-config
+    :
+    $* 'bar-build-config:' \
+       'bar-build-auxiliary-mysql: *-mysql_8' \
+       'bar-build-auxiliary-pgsql: *-postgresql_16' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-mysql: *-mysql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-mysql: *-mysql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      bar-build-auxiliary-mysql: *-mysql_8
+      bar-build-auxiliary-pgsql: *-postgresql_16
+      EOO
+  }
 }
 
 : invalid
@@ -395,4 +473,95 @@
     EOI
     'build-email' override specified together with 'network-build-warning-email' override
     EOE
+
+  : build-auxiliary
+  :
+  {
+    : named-common
+    :
+    $* 'build-auxiliary-mysql: *-mysql_*' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      foo-build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      EOI
+      no match for 'build-auxiliary-mysql' value override
+      EOE
+
+    : named-config1
+    :
+    $* 'foo-build-auxiliary-mysql: *-mysql_*' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      foo-build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      EOI
+      no match for 'foo-build-auxiliary-mysql' value override
+      EOE
+
+    : named-config2
+    :
+    $* 'bar-build-auxiliary-oracle: *-oracle**' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary-pgsql: *-postgresql_*
+      foo-build-auxiliary-mssql: *-mssql_*
+      foo-build-auxiliary-oracle: *-oracle_*
+      EOI
+      cannot override 'bar-build-auxiliary-oracle' value: no build package configuration 'bar'
+      EOE
+
+    : unnamed-common
+    :
+    $* 'build-auxiliary-mysql: *-mysql_*' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary: *-postgresql_*
+      foo-build-auxiliary: *-oracle_*
+      EOI
+      no match for 'build-auxiliary-mysql' value override
+      EOE
+
+    : unnamed-config1
+    :
+    $* 'foo-build-auxiliary-mysql: *-mysql_*' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary: *-postgresql_*
+      foo-build-auxiliary: *-oracle_*
+      EOI
+      no match for 'foo-build-auxiliary-mysql' value override
+      EOE
+
+    : unnamed-config2
+    :
+    $* 'bar-build-auxiliary: *-mysql_*' <<EOI 2>>EOE != 0
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-auxiliary: *-postgresql_*
+      foo-build-auxiliary: *-oracle_*
+      EOI
+      cannot override 'bar-build-auxiliary' value: no build package configuration 'bar'
+      EOE
+  }
 }
