@@ -1014,13 +1014,21 @@ namespace bpkg
   };
 
   // Package build configuration. Includes comment and optional overrides for
-  // target build configuration class expressions/constraints and build
-  // notification emails.
+  // target build configuration class expressions/constraints, auxiliaries,
+  // custom bot public keys, and notification emails.
   //
-  class build_package_config
+  // Note that in the package manifest the build bot keys list contains the
+  // public keys data (std::string type). However, for other use cases it may
+  // be convenient to store some other key representations (public key object
+  // pointers represented as key fingerprints, etc; see brep for such a use
+  // case).
+  //
+  template <typename K>
+  class build_package_config_template
   {
   public:
     using email_type = bpkg::email;
+    using key_type = K;
 
     std::string name;
 
@@ -1040,16 +1048,39 @@ namespace bpkg
     //
     std::vector<build_auxiliary> auxiliaries;
 
+    std::vector<key_type> bot_keys;
+
     butl::optional<email_type> email;
     butl::optional<email_type> warning_email;
     butl::optional<email_type> error_email;
 
-    build_package_config () = default;
+    build_package_config_template () = default;
+
+    build_package_config_template (std::string n,
+                                   std::string a,
+                                   std::string c,
+                                   butl::small_vector<build_class_expr, 1> bs,
+                                   std::vector<build_constraint> cs,
+                                   std::vector<build_auxiliary> as,
+                                   std::vector<key_type> bks,
+                                   butl::optional<email_type> e,
+                                   butl::optional<email_type> we,
+                                   butl::optional<email_type> ee)
+        : name (move (n)),
+          arguments (move (a)),
+          comment (move (c)),
+          builds (move (bs)),
+          constraints (move (cs)),
+          auxiliaries (move (as)),
+          bot_keys (move (bks)),
+          email (move (e)),
+          warning_email (move (we)),
+          error_email (move (ee)) {}
 
     // Built incrementally.
     //
     explicit
-    build_package_config (std::string n): name (move (n)) {}
+    build_package_config_template (std::string n): name (move (n)) {}
 
     // Return the configuration's build class expressions/constraints if they
     // override the specified common expressions/constraints and return the
@@ -1080,6 +1111,15 @@ namespace bpkg
       return !auxiliaries.empty () ? auxiliaries : common;
     }
 
+    // Return the configuration's custom bot public keys, if specified, and
+    // the common ones otherwise.
+    //
+    const std::vector<key_type>&
+    effective_bot_keys (const std::vector<key_type>& common) const noexcept
+    {
+      return !bot_keys.empty () ? bot_keys : common;
+    }
+
     // Return the configuration's build notification emails if they override
     // the specified common build notification emails and return the latter
     // otherwise (see package_manifest::override() for the override semantics
@@ -1105,6 +1145,8 @@ namespace bpkg
       return email || warning_email || error_email ? error_email : common;
     }
   };
+
+  using build_package_config = build_package_config_template<std::string>;
 
   enum class test_dependency_type
   {
@@ -1253,8 +1295,8 @@ namespace bpkg
     std::vector<requirement_alternatives> requirements;
     butl::small_vector<test_dependency, 1> tests;
 
-    // Common build classes, constraints, and auxiliaries that apply to all
-    // configurations unless overridden.
+    // Common build classes, constraints, auxiliaries, and custom bot public
+    // keys that apply to all configurations unless overridden.
     //
     // Note that all entries in build_auxiliaries must have distinct
     // environment names (with empty name being one of the possibilities).
@@ -1262,6 +1304,7 @@ namespace bpkg
     butl::small_vector<build_class_expr, 1> builds;
     std::vector<build_constraint> build_constraints;
     std::vector<build_auxiliary> build_auxiliaries;
+    strings build_bot_keys;
 
     // Note that the parsing constructor adds the implied (empty) default
     // configuration at the beginning of the list. Also note that serialize()
@@ -1418,20 +1461,22 @@ namespace bpkg
     //
     //   {build-*email}
     //   {builds, build-{include,exclude}}
+    //   {build-bot}
     //   {*-builds, *-build-{include,exclude}}
+    //   {*-build-bot}
     //   {*-build-config}
     //   {*-build-*email}
     //
     //   [*-]build-auxiliary[-*]
     //
     // Throw manifest_parsing if the configuration specified by the build
-    // package configuration-specific build constraint, email, or auxiliary
-    // value override doesn't exists. In contrast, for the build config
-    // override add a new configuration if it doesn't exist and update the
-    // arguments of the existing configuration otherwise. In the former case,
-    // all the potential build constraint, email, and auxiliary overrides for
-    // such a newly added configuration must follow the respective
-    // *-build-config override.
+    // package configuration-specific build constraint, email, auxiliary, or
+    // custom bot public key value override doesn't exists. In contrast, for
+    // the build config override add a new configuration if it doesn't exist
+    // and update the arguments of the existing configuration otherwise. In
+    // the former case, all the potential build constraint, email, auxiliary,
+    // and bot key overrides for such a newly added configuration must follow
+    // the respective *-build-config override.
     //
     // Note that the build constraints group values (both common and build
     // config-specific) are overridden hierarchically so that the
@@ -1446,13 +1491,20 @@ namespace bpkg
     // constraints are reset to `builds: none`.
     //
     // Similar to the build constraints groups, the common and build
-    // config-specific build emails group value overrides are mutually
-    // exclusive. If the common build emails are overridden, then all the
-    // build config-specific emails are reset to nullopt. Otherwise, if some
-    // build config-specific emails are overridden, then for the remaining
-    // configs the email is reset to the empty value and the warning and error
-    // emails are reset to nullopt (which effectively disables email
-    // notifications for such configurations).
+    // config-specific custom bot key value overrides are mutually
+    // exclusive. If the common custom bot keys are overridden, then all the
+    // build config-specific custom bot keys are removed. Otherwise, if some
+    // build config-specific custom bot keys are overridden, then for the
+    // remaining configs the custom bot keys are left unchanged.
+    //
+    // Similar to the above, the common and build config-specific build emails
+    // group value overrides are mutually exclusive. If the common build
+    // emails are overridden, then all the build config-specific emails are
+    // reset to nullopt. Otherwise, if some build config-specific emails are
+    // overridden, then for the remaining configs the email is reset to the
+    // empty value and the warning and error emails are reset to nullopt
+    // (which effectively disables email notifications for such
+    // configurations).
     //
     // If a non-empty source name is specified, then the specified values are
     // assumed to also include the line/column information and the possibly

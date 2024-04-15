@@ -1158,6 +1158,115 @@
     }
   }
 
+  : build-bot
+  :
+  {
+    : basics
+    :
+    {
+      $* <<EOF >>EOF
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-bot:\
+        -----BEGIN PUBLIC KEY-----
+        MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAw5liP5pyU9ebC/nD3djZ
+        1H2dlKmUyiX0Z8POvKhLREd0B3rM59bPcnbRB4HMIhj0J0hUBvS8xb4u5udCPToa
+        x0A/LMWZ6claiivNtJ3CdLV98eklWdNUg5WXOuqq9QDKXw2ZpGbwDwCOh6aHSWVq
+        98N9AQx0ZMmMWz3qhRyxPfh+GeJ05uj2ohU9FeUJxeqUcgJT/UcMZ3+7KYbwr+Uq
+        /HCoX1BmN6nvzhQGHvJIZ2IcjvOQ0AUrPmpSZN01Zr3ZEpkHM3hJWNLu3ntJLGBQ
+        0aT5kG3iqFyr9q3M3c4J8c0AWrnDjvj0qnCyjNwqW+qIpatmCNT43DmgYr9fQLW0
+        UHusburz53AbXs12zu3gZzkb0irlShatkMqqQaqaU0/+zw1LnoZ+rvmn2XV97UuK
+        LFKMKXCnyi2ZG65IZHGkjBVAPuvsX6RgLNyner/QtkDJTbfhktInbG08dCPqv1EF
+        1OtcYKMTn8I5P2VmMO6SXXDLMSdU8b5DA5EY6Ca6JBB8g06S9sqGqXgQFysAnZs1
+        VFgMopf8WZqj23x+DX+9KKT2pVnjbwRvBAntuCDoO75gWoETDnCQXEei/PbyamPq
+        9+NjNsTDn67iJTGncZbII+eciY2YiFHm6GMzBPsUYlQcxiuO4X36jW6m2rwuw37K
+        oFDbGI3uY4LnhwmDFLbjtk8CAwEAAQ==
+        -----END PUBLIC KEY-----
+        \
+        build-bot:\
+        -----BEGIN PUBLIC KEY-----
+        AIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAw5liP5pyU9ebC/nD3djZ
+        2H2dlKmUyiX0Z8POvKhLREd0B3rM59bPcnbRB4HMIhj0J0hUBvS8xb4u5udCPToa
+        x0A/LMWZ6claiivNtJ3CdLV98eklWdNUg5WXOuqq9QDKXw2ZpGbwDwCOh6aHSWVq
+        98N9AQx0ZMmMWz3qhRyxPfh+GeJ05uj2ohU9FeUJxeqUcgJT/UcMZ3+7KYbwr+Uq
+        /HCoX1BmN6nvzhQGHvJIZ2IcjvOQ0AUrPmpSZN01Zr3ZEpkHM3hJWNLu3ntJLGBQ
+        0aT5kG3iqFyr9q3M3c4J8c0AWrnDjvj0qnCyjNwqW+qIpatmCNT43DmgYr9fQLW0
+        UHusburz53AbXs12zu3gZzkb0irlShatkMqqQaqaU0/+zw1LnoZ+rvmn2XV97UuK
+        LFKMKXCnyi2ZG65IZHGkjBVAPuvsX6RgLNyner/QtkDJTbfhktInbG08dCPqv1EF
+        1OtcYKMTn8I5P2VmMO6SXXDLMSdU8b5DA5EY6Ca6JBB8g06S9sqGqXgQFysAnZs1
+        VFgMopf8WZqj23x+DX+9KKT2pVnjbwRvBAntuCDoO75gWoETDnCQXEei/PbyamPq
+        9+NjNsTDn67iJTGncZbII+eciY2YiFHm6GMzBPsUYlQcxiuO4X36jW6m2rwuw37K
+        oFDbGI3uY4LnhwmDFLbjtk8CAwEAAQ==
+        -----END PUBLIC KEY-----
+        \
+        EOF
+    }
+
+    : empty
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-bot:
+        EOI
+        stdin:6:11: error: empty custom build bot public key
+        EOE
+    }
+
+    : duplicate
+    :
+    {
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        build-bot:\
+        -----BEGIN PUBLIC KEY-----
+        MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAw5liP5pyU9ebC/nD3djZ
+        1H2dlKmUyiX0Z8POvKhLREd0B3rM59bPcnbRB4HMIhj0J0hUBvS8xb4u5udCPToa
+        x0A/LMWZ6claiivNtJ3CdLV98eklWdNUg5WXOuqq9QDKXw2ZpGbwDwCOh6aHSWVq
+        98N9AQx0ZMmMWz3qhRyxPfh+GeJ05uj2ohU9FeUJxeqUcgJT/UcMZ3+7KYbwr+Uq
+        /HCoX1BmN6nvzhQGHvJIZ2IcjvOQ0AUrPmpSZN01Zr3ZEpkHM3hJWNLu3ntJLGBQ
+        0aT5kG3iqFyr9q3M3c4J8c0AWrnDjvj0qnCyjNwqW+qIpatmCNT43DmgYr9fQLW0
+        UHusburz53AbXs12zu3gZzkb0irlShatkMqqQaqaU0/+zw1LnoZ+rvmn2XV97UuK
+        LFKMKXCnyi2ZG65IZHGkjBVAPuvsX6RgLNyner/QtkDJTbfhktInbG08dCPqv1EF
+        1OtcYKMTn8I5P2VmMO6SXXDLMSdU8b5DA5EY6Ca6JBB8g06S9sqGqXgQFysAnZs1
+        VFgMopf8WZqj23x+DX+9KKT2pVnjbwRvBAntuCDoO75gWoETDnCQXEei/PbyamPq
+        9+NjNsTDn67iJTGncZbII+eciY2YiFHm6GMzBPsUYlQcxiuO4X36jW6m2rwuw37K
+        oFDbGI3uY4LnhwmDFLbjtk8CAwEAAQ==
+        -----END PUBLIC KEY-----
+        \
+        build-bot:\
+        -----BEGIN PUBLIC KEY-----
+        MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAw5liP5pyU9ebC/nD3djZ
+        1H2dlKmUyiX0Z8POvKhLREd0B3rM59bPcnbRB4HMIhj0J0hUBvS8xb4u5udCPToa
+        x0A/LMWZ6claiivNtJ3CdLV98eklWdNUg5WXOuqq9QDKXw2ZpGbwDwCOh6aHSWVq
+        98N9AQx0ZMmMWz3qhRyxPfh+GeJ05uj2ohU9FeUJxeqUcgJT/UcMZ3+7KYbwr+Uq
+        /HCoX1BmN6nvzhQGHvJIZ2IcjvOQ0AUrPmpSZN01Zr3ZEpkHM3hJWNLu3ntJLGBQ
+        0aT5kG3iqFyr9q3M3c4J8c0AWrnDjvj0qnCyjNwqW+qIpatmCNT43DmgYr9fQLW0
+        UHusburz53AbXs12zu3gZzkb0irlShatkMqqQaqaU0/+zw1LnoZ+rvmn2XV97UuK
+        LFKMKXCnyi2ZG65IZHGkjBVAPuvsX6RgLNyner/QtkDJTbfhktInbG08dCPqv1EF
+        1OtcYKMTn8I5P2VmMO6SXXDLMSdU8b5DA5EY6Ca6JBB8g06S9sqGqXgQFysAnZs1
+        VFgMopf8WZqj23x+DX+9KKT2pVnjbwRvBAntuCDoO75gWoETDnCQXEei/PbyamPq
+        9+NjNsTDn67iJTGncZbII+eciY2YiFHm6GMzBPsUYlQcxiuO4X36jW6m2rwuw37K
+        oFDbGI3uY4LnhwmDFLbjtk8CAwEAAQ==
+        -----END PUBLIC KEY-----
+        \
+        EOI
+        stdin:23:1: error: duplicate custom build bot public key
+        EOE
+    }
+  }
+
   : build-config
   :
   {

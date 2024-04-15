@@ -3383,6 +3383,35 @@ namespace bpkg
     return build_auxiliary (move (env_name), move (v), move (c));
   }
 
+  // Parse the [*-]build-bot manifest value and append it to the specified
+  // custom bot public keys list. Make sure the specified key is not empty and
+  // is not a duplicate and throw parsing if that's not the case.
+  //
+  // Note: value name is not used by this function (and so can be moved out,
+  // etc before the call).
+  //
+  static void
+  parse_build_bot (const name_value& nv, const string& source_name, strings& r)
+  {
+    const string& v (nv.value);
+
+    auto bad_value = [&nv, &source_name, &v] (const string& d,
+                                              bool add_key = true)
+    {
+      throw !source_name.empty ()
+            ? parsing (source_name, nv.value_line, nv.value_column, d)
+            : parsing (!add_key ? d : (d + ":\n" + v));
+    };
+
+    if (v.empty ())
+      bad_value ("empty custom build bot public key", false /* add_key */);
+
+    if (find (r.begin (), r.end (), v) != r.end ())
+      bad_value ("duplicate custom build bot public key");
+
+    r.push_back (v);
+  }
+
   const version stub_version (0, "0", nullopt, nullopt, 0);
 
   // Parse until next() returns end-of-manifest value.
@@ -4118,6 +4147,10 @@ namespace bpkg
           parse_build_auxiliary (nv, move (ba->second), bc.auxiliaries);
         }
       }
+      else if (n == "build-bot")
+      {
+        parse_build_bot (nv, name, m.build_bot_keys);
+      }
       else if (n.size () > 13 &&
                n.compare (n.size () - 13, 13, "-build-config") == 0)
       {
@@ -4161,6 +4194,14 @@ namespace bpkg
 
         bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if (n.size () > 10 &&
+               n.compare (n.size () - 10, 10, "-build-bot") == 0)
+      {
+        n.resize (n.size () - 10);
+
+        build_package_config& bc (build_conf (move (n)));
+        parse_build_bot (nv, name, bc.bot_keys);
       }
       else if (n.size () > 12 &&
                n.compare (n.size () - 12, 12, "-build-email") == 0)
@@ -4908,6 +4949,14 @@ namespace bpkg
     //
     const manifest_name_value* pbc  (nullptr);
 
+    // The first {build-bot} override value.
+    //
+    const manifest_name_value* cbb (nullptr);
+
+    // The first {*-build-bot} override value.
+    //
+    const manifest_name_value* pbb  (nullptr);
+
     // The first {build-*email} override value.
     //
     const manifest_name_value* cbe (nullptr);
@@ -4921,6 +4970,10 @@ namespace bpkg
     // value was encountered for this configuration.
     //
     vector<pair<size_t, bool>> obcs;
+
+    // List of indexes of the build configurations with the overridden bots.
+    //
+    vector<size_t> obbs;
 
     // List of indexes of the build configurations with the overridden emails.
     //
@@ -4983,7 +5036,7 @@ namespace bpkg
       // otherwise.
       //
       // The n argument specifies the length of the configuration name in
-      // *-build-config, *-builds, *-build-{include,exclude}, and
+      // *-build-config, *-builds, *-build-{include,exclude}, *-build-bot, and
       // *-build-*email values.
       //
       auto build_conf =
@@ -5020,7 +5073,9 @@ namespace bpkg
       // the build config-specific builds group value override, if exists. If
       // no configuration matches, then throw manifest_parsing, except for the
       // validate-only mode in which case just add an empty configuration with
-      // this name and return the reference to it.
+      // this name and return the reference to it. Also verify that no common
+      // build constraints group value overrides are applied yet and throw if
+      // that's not the case.
       //
       auto build_conf_constr =
         [&pbc, &cbc, &nv, &obcs, &bad_name, &build_conf, &m, validate_only]
@@ -5085,6 +5140,75 @@ namespace bpkg
         return r;
       };
 
+      // Reset the {build-bot} value group on the first call but throw if any
+      // of the {*-build-bot} override values are already encountered.
+      //
+      auto reset_build_bots = [&cbb, &pbb, &nv, &bad_name, &m] ()
+      {
+        if (cbb == nullptr)
+        {
+          if (pbb != nullptr)
+            bad_name ('\'' + nv.name + "' override specified together with '" +
+                      pbb->name + "' override");
+
+          m.build_bot_keys.clear ();
+          cbb = &nv;
+        }
+      };
+
+      // Return the reference to the package build configuration which matches
+      // the build config-specific build bot value override, if exists. If no
+      // configuration matches, then throw manifest_parsing, except for the
+      // validate-only mode in which case just add an empty configuration with
+      // this name and return the reference to it. Also verify that no common
+      // build bot value overrides are applied yet and throw if that's not the
+      // case.
+      //
+      auto build_conf_bot =
+        [&pbb, &cbb, &nv, &obbs, &bad_name, &build_conf, &m, validate_only]
+        (size_t n) -> build_package_config&
+      {
+        const string& nm (nv.name);
+
+        // If this is the first build config override value, then save its
+        // address. But first verify that no common build bot value overrides
+        // are applied yet and throw if that's not the case.
+        //
+        if (pbb == nullptr)
+        {
+          if (cbb != nullptr)
+            bad_name ('\'' + nm + "' override specified together with '" +
+                      cbb->name + "' override");
+
+          pbb = &nv;
+        }
+
+        small_vector<build_package_config, 1>& cs (m.build_configs);
+
+        // Find the build package configuration. If there is no such a
+        // configuration then throw, except for the validate-only mode in
+        // which case just add an empty configuration with this name.
+        //
+        // Note that we are using indexes rather then configuration addresses
+        // due to potential reallocations.
+        //
+        build_package_config& r (build_conf (n, validate_only));
+        size_t ci (&r - cs.data ());
+
+        // If this is the first encountered {*-build-bot} override for this
+        // build config, then clear this config' bot_keys members and add an
+        // entry to the overridden configs list.
+        //
+        if (find (obbs.begin (), obbs.end (), ci) == obbs.end ())
+        {
+          r.bot_keys.clear ();
+
+          obbs.push_back (ci);
+        }
+
+        return r;
+      };
+
       // Reset the {build-*email} value group on the first call but throw if
       // any of the {*-build-*email} override values are already encountered.
       //
@@ -5107,7 +5231,9 @@ namespace bpkg
       // the build config-specific emails group value override, if exists. If
       // no configuration matches, then throw manifest_parsing, except for the
       // validate-only mode in which case just add an empty configuration with
-      // this name and return the reference to it.
+      // this name and return the reference to it. Also verify that no common
+      // build emails group value overrides are applied yet and throw if
+      // that's not the case.
       //
       auto build_conf_email =
         [&pbe, &cbe, &nv, &obes, &bad_name, &build_conf, &m, validate_only]
@@ -5218,6 +5344,12 @@ namespace bpkg
         m.build_constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
       }
+      else if (n == "build-bot")
+      {
+        reset_build_bots ();
+
+        parse_build_bot (nv, name, m.build_bot_keys);
+      }
       else if ((n.size () > 13 &&
                 n.compare (n.size () - 13, 13, "-build-config") == 0))
       {
@@ -5251,6 +5383,12 @@ namespace bpkg
 
         bc.constraints.push_back (
           parse_build_constraint (nv, true /* exclusion */, name));
+      }
+      else if (n.size () > 10 &&
+               n.compare (n.size () - 10, 10, "-build-bot") == 0)
+      {
+        build_package_config& bc (build_conf_bot (n.size () - 10));
+        parse_build_bot (nv, name, bc.bot_keys);
       }
       else if (n == "build-email")
       {
@@ -5315,8 +5453,9 @@ namespace bpkg
     assert (cbc == nullptr || pbc == nullptr);
 
     // Now, if not in the validate-only mode, as all the potential build
-    // constraint/email overrides are applied, perform the final adjustments
-    // to the build config constraints/emails.
+    // constraint, bot keys, and email overrides are applied, perform the
+    // final adjustments to the build config constraints, bot keys, and
+    // emails.
     //
     if (!validate_only)
     {
@@ -5343,6 +5482,12 @@ namespace bpkg
             c.builds.emplace_back ("none", "" /* comment */);
           }
         }
+      }
+
+      if (cbb != nullptr)      // Common build bots are overridden?
+      {
+        for (build_package_config& c: m.build_configs)
+          c.bot_keys.clear ();
       }
 
       if (cbe != nullptr)      // Common build emails are overridden?
@@ -5682,6 +5827,9 @@ namespace bpkg
                  : "build-auxiliary"),
                 serializer::merge_comment (ba.config, ba.comment));
 
+      for (const string& k: m.build_bot_keys)
+        s.next ("build-bot", k);
+
       for (const build_package_config& bc: m.build_configs)
       {
         if (!bc.builds.empty ())
@@ -5713,6 +5861,14 @@ namespace bpkg
                      ? n + '-' + ba.environment_name
                      : n),
                     serializer::merge_comment (ba.config, ba.comment));
+        }
+
+        if (!bc.bot_keys.empty ())
+        {
+          string n (bc.name + "-build-bot");
+
+          for (const string& k: bc.bot_keys)
+            s.next (n, k);
         }
 
         if (!bc.arguments.empty () || !bc.comment.empty ())

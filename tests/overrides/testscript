@@ -332,6 +332,75 @@
       bar-build-auxiliary-pgsql: *-postgresql_16
       EOO
   }
+
+  : build-bot
+  :
+  {
+    : common
+    :
+    $* 'build-bot: key3' 'build-bot: key4' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key1
+      foo-build-bot: key2
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key3
+      build-bot: key4
+      EOO
+
+    : config
+    :
+    $* 'foo-build-bot: key3' 'foo-build-bot: key4' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key1
+      foo-build-bot: key2
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key1
+      foo-build-bot: key3
+      foo-build-bot: key4
+      EOO
+
+    : new-config
+    :
+    $* 'bar-build-config:' \
+       'bar-build-bot: key1' \
+       'bar-build-bot: key2' <<EOI >>EOO
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key1
+      foo-build-bot: key2
+      EOI
+      : 1
+      name: libfoo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      build-bot: key1
+      foo-build-bot: key2
+      bar-build-bot: key1
+      bar-build-bot: key2
+      EOO
+  }
 }
 
 : invalid
@@ -446,6 +515,44 @@
     license: LGPLv2
     EOI
     cannot override 'deprecated-api-builds' value: no build package configuration 'deprecated-api'
+    EOE
+
+  : config-bot-after-built-bot
+  :
+  $* 'build-bot: key1' 'foo-build-bot: key2' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    foo-build-config:
+    EOI
+    'foo-build-bot' override specified together with 'build-bot' override
+    EOE
+
+  : built-bot-after-config-bot
+  :
+  $* 'foo-build-bot: key1' 'build-bot: key2' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    foo-build-config:
+    EOI
+    'build-bot' override specified together with 'foo-build-bot' override
+    EOE
+
+  : no-build-bot-config
+  :
+  $* 'foo-build-bot: key1' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    cannot override 'foo-build-bot' value: no build package configuration 'foo'
     EOE
 
   : config-email-after-email
