@@ -2154,21 +2154,6 @@ namespace bpkg
         r.enable = eval ? parse_eval () : string ();
 
         next (t, tt);
-
-        // @@ TMP Treat requirements similar to `? cli` as `cli ?` until
-        //    toolchain 0.15.0 and libodb-mssql 2.5.0-b.22 are both released.
-        //
-        //    NOTE: don't forget to drop the temporary test in
-        //    tests/manifest/testscript when dropping this workaround.
-        //
-        if (!eval && tt == type::word)
-        try
-        {
-          r.back ().name = package_name (move (t.value));
-          next (t, tt);
-        }
-        catch (const invalid_argument&) {}
-
         return r;
       }
 
@@ -4221,18 +4206,8 @@ namespace bpkg
         n.resize (n.size () - 18);
         build_config_error_emails.push_back (move (nv));
       }
-      // @@ TMP time to drop *-0.14.0?
-      //
-      else if (n == "tests"      || n == "tests-0.14.0"    ||
-               n == "examples"   || n == "examples-0.14.0" ||
-               n == "benchmarks" || n == "benchmarks-0.14.0")
+      else if (n == "tests" || n == "examples" || n == "benchmarks")
       {
-        // Strip the '-0.14.0' suffix from the value name, if present.
-        //
-        size_t p (n.find ('-'));
-        if (p != string::npos)
-          n.resize (p);
-
         tests.push_back (move (nv));
       }
       else if (n == "bootstrap-build" || n == "bootstrap-build2")
@@ -4758,7 +4733,9 @@ namespace bpkg
       if (!m.changes.empty () && !m.changes.front ().type)
       {
         // @@ TMP To support older repositories allow absent changes type
-        //        until toolchain 0.16.0 is released.
+        //        until toolchain 0.16.0 is released. Or maybe wait until
+        //        0.18.0 is released to support some older private
+        //        repositories for a bit longer.
         //
         //        Note that for such repositories the packages may not have
         //        changes values other than plan text. Thus, we can safely set
@@ -4773,24 +4750,7 @@ namespace bpkg
 
     if (!m.bootstrap_build &&
         flag (package_manifest_flags::require_bootstrap_build))
-    {
-      // @@ TMP To support older repositories allow absent bootstrap build
-      //        and alt_naming until toolchain 0.15.0 is released.
-      //
-      //        Note that for such repositories the packages may not have any
-      //        need for the bootstrap buildfile (may not have any dependency
-      //        clauses, etc). Thus, we can safely set the bootstrap build and
-      //        alt_naming values to an empty string and false, respectively,
-      //        if they are absent, so that the caller can always be sure that
-      //        these values are always present for package manifest lists.
-      //
-      //        Note: don't forget to uncomment no-bootstrap test in
-      //        tests/manifest/testscript when removing this workaround.
-      //
-      // bad_name ("no package bootstrap build specified");
-      m.bootstrap_build = "project = " + m.name.string () + '\n';
-      m.alt_naming = false;
-    }
+      bad_name ("no package bootstrap build specified");
   }
 
   static void
@@ -5644,7 +5604,7 @@ namespace bpkg
     manifest_serializer& s,
     const package_manifest& m,
     bool header_only,
-    const optional<standard_version>& min_ver = nullopt)
+    const optional<standard_version>& /* min_ver */ = nullopt)
   {
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: version release is not empty,
@@ -5793,23 +5753,7 @@ namespace bpkg
         s.next ("requires", r.string ());
 
       for (const test_dependency& t: m.tests)
-      {
-        string n (to_string (t.type));
-
-        // If we generate the manifest for parsing by clients of libbpkg
-        // versions less than 0.14.0-, then replace the introduced in 0.14.0
-        // build-time tests, examples, and benchmarks values with
-        // tests-0.14.0, examples-0.14.0, and benchmarks-0.14.0,
-        // respectively. This way such clients will still be able to parse it,
-        // ignoring unknown values.
-        //
-        // @@ TMP time to drop?
-        //                                               0.14.0-
-        if (t.buildtime && min_ver && min_ver->version < 13999990001ULL)
-          n += "-0.14.0";
-
-        s.next (n, t.string ());
-      }
+        s.next (to_string (t.type), t.string ());
 
       for (const build_class_expr& e: m.builds)
         s.next ("builds", serializer::merge_comment (e.string (), e.comment));

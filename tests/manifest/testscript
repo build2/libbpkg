@@ -4109,29 +4109,6 @@
         stdin:6:13: error: end of simple requirement expected
         EOE
 
-      # @@ TMP Drop this test and uncomment the next one when toolchain 0.15.0
-      #    is released (see dependency_alternatives_parser::parse_alternative()
-      #    for details).
-      #
-      : old-fashioned
-      :
-      $* <<EOI >>EOO
-        : 1
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        requires: ? vc15; VC 15 or later if targeting Windows.
-        EOI
-        : 1
-        name: foo
-        version: 2.0.0
-        summary: Modern C++ parser
-        license: LGPLv2
-        requires: vc15 ? ; VC 15 or later if targeting Windows.
-        EOO
-
-      #\
       : reflect
       :
       $* <<EOI 2>>EOE != 0
@@ -4144,7 +4121,6 @@
         EOI
         stdin:6:13: error: end of simple requirement expected
         EOE
-      #\
 
       : with-id
       :
@@ -4959,9 +4935,6 @@
     : buildfiles
     :
     {
-      # @@ TMP Uncomment when the missing bootstrap-build value related
-      #    workaround is removed (see manifest.cxx for details).
-      #\
       : no-bootstrap
       :
       $* <<EOI 2>"stdin:10:1: error: no package bootstrap build specified" != 0
@@ -4975,7 +4948,6 @@
         location: foo/foo-2.0.0.tar.gz
         sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         EOI
-      #\
     }
   }
 
