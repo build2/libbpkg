@@ -1,6 +1,9 @@
 # file      : libbpkg/buildfile
 # license   : MIT; see accompanying LICENSE file
 
+
+# test
+
 import int_libs = libbutl%lib{butl}
 
 lib{bpkg}: {hxx ixx txx cxx}{** -version} {hxx}{version} $int_libs
