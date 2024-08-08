@@ -2,7 +2,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 
-# test 3
+# test 4
 
 import int_libs = libbutl%lib{butl}
 
