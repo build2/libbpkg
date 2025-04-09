@@ -3,12 +3,12 @@
 
 : package
 :
-{
+{{
   test.options += -p
 
   : name
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -55,11 +55,11 @@
       : 1
       name: foo'bar
       EOI
-  }
+  }}
 
   : upstream-version
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -100,11 +100,11 @@
       EOI
       stdin:4:1: error: upstream package version specified for a stub
       EOE
-  }
+  }}
 
   : type
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -167,11 +167,11 @@
       summary: Modern C++ parser
       license: LGPLv2
       EOI
-  }
+  }}
 
   : language
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -270,11 +270,11 @@
       summary: Modern C++ parser
       license: LGPLv2
       EOI
-  }
+  }}
 
   : license
   :
-  {
+  {{
     : no-scheme
     :
     $* <<EOF >>EOF
@@ -313,11 +313,11 @@
       EOI
       stdin:2:10: error: invalid package license scheme
       EOE
-  }
+  }}
 
   : topics
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -337,11 +337,11 @@
       EOI
       stdin:2:9: error: up to five topics allowed
       EOE
-  }
+  }}
 
   : keywords
   :
-  {
+  {{
     : valid
     :
     $* <<EOF >>EOF
@@ -380,11 +380,11 @@
       EOI
       stdin:2:10: error: empty package keywords specification
       EOE
-  }
+  }}
 
   : tags
   :
-  {
+  {{
     : truncate
     :
     $* <<EOI >>EOO
@@ -411,11 +411,11 @@
       EOI
       stdin:2:7: error: only single-word tags allowed
       EOE
-  }
+  }}
 
   : description-file
   :
-  {
+  {{
     : absolute-path
     :
     $* <<EOI 2>>~%EOE% != 0
@@ -432,11 +432,11 @@
       stdin:6:19: error: invalid project description file: invalid filesystem path
       %)
       EOE
-  }
+  }}
 
   : description-type
   :
-  {
+  {{
     : absent
     :
     $* <<EOF >>EOF
@@ -477,7 +477,7 @@
 
     : deducing
     :
-    {
+    {{
       : fail
       :
       $* <<EOI 2>>EOE != 0
@@ -501,11 +501,11 @@
         license: LGPLv2
         description-file: README.rtf
         EOF
-    }
+    }}
 
     : unknown
     :
-    {
+    {{
       : fail
       :
       $* <<EOI 2>>EOE != 0
@@ -531,11 +531,11 @@
         description: libfoo is a very modern C++ XML parser.
         description-type: text/markdowns
         EOF
-    }
+    }}
 
     : plain
     :
-    {
+    {{
       : valid
       :
       $* <<EOF >>EOF
@@ -561,11 +561,11 @@
         EOI
         stdin:7:19: error: invalid project description type: missing '='
         EOE
-    }
+    }}
 
     : markdown
     :
-    {
+    {{
       : default
       :
       $* <<EOF >>EOF
@@ -604,7 +604,7 @@
 
       : invalid-variant
       :
-      {
+      {{
         : fail
         :
         $* <<EOI 2>>EOE != 0
@@ -630,11 +630,11 @@
           description: libfoo is a very modern C++ XML parser.
           description-type: text/markdown; variant=Original
           EOF
-      }
+      }}
 
       : invalid-parameter
       :
-      {
+      {{
         : fail
         :
         $* <<EOI 2>>EOE != 0
@@ -660,13 +660,13 @@
           description: libfoo is a very modern C++ XML parser.
           description-type: text/markdown; variants=GFM
           EOF
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : package-description-file
   :
-  {
+  {{
     : absolute-path
     :
     $* <<EOI 2>>~%EOE% != 0
@@ -683,11 +683,11 @@
       stdin:6:27: error: invalid package description file: invalid filesystem path
       %)
       EOE
-  }
+  }}
 
   : package-description-type
   :
-  {
+  {{
     : absent
     :
     $* <<EOF >>EOF
@@ -728,7 +728,7 @@
 
     : deducing
     :
-    {
+    {{
       : fail
       :
       $* <<EOI 2>>EOE != 0
@@ -752,11 +752,11 @@
         license: LGPLv2
         package-description-file: README.rtf
         EOF
-    }
+    }}
 
     : unknown
     :
-    {
+    {{
       : fail
       :
       $* <<EOI 2>>EOE != 0
@@ -782,11 +782,11 @@
         package-description: libfoo is a very modern C++ XML parser.
         package-description-type: text/markdowns
         EOF
-    }
+    }}
 
     : plain
     :
-    {
+    {{
       : valid
       :
       $* <<EOF >>EOF
@@ -812,11 +812,11 @@
         EOI
         stdin:7:27: error: invalid package description type: missing '='
         EOE
-    }
+    }}
 
     : markdown
     :
-    {
+    {{
       : default
       :
       $* <<EOF >>EOF
@@ -855,7 +855,7 @@
 
       : invalid-variant
       :
-      {
+      {{
         : fail
         :
         $* <<EOI 2>>EOE != 0
@@ -881,11 +881,11 @@
           package-description: libfoo is a very modern C++ XML parser.
           package-description-type: text/markdown; variant=Original
           EOF
-      }
+      }}
 
       : invalid-parameter
       :
-      {
+      {{
         : fail
         :
         $* <<EOI 2>>EOE != 0
@@ -911,13 +911,13 @@
           package-description: libfoo is a very modern C++ XML parser.
           package-description-type: text/markdown; variants=GFM
           EOF
-      }
-    }
-  }
+      }}
+    }}
+  }}
 
   : changes-file
   :
-  {
+  {{
     : absolute-path
     :
     $* <<EOI 2>>~%EOE% != 0
@@ -986,11 +986,11 @@
       changes-file: CHANGES2.md
       changes-type: text/plain
       EOF
-  }
+  }}
 
   : src-url
   :
-  {
+  {{
     : no-scheme
     :
     $* <<EOI 2>>EOE != 0
@@ -1035,22 +1035,22 @@
       EOI
       stdin:2:10: error: invalid src url: no authority
       EOE
-  }
+  }}
 
   : builds
   :
-  {
+  {{
     : empty
     :
     $* <<EOI 2>"stdin:2:9: error: invalid package builds: class expression separator ':' expected" != 0
       : 1
       builds: default -gcc
       EOI
-  }
+  }}
 
   : build-auxiliary
   :
-  {
+  {{
     : named
     :
     {
@@ -1095,7 +1095,7 @@
 
     : mixed
     :
-    {
+    {{
       : named-unnamed
       :
       {
@@ -1155,12 +1155,12 @@
           stdin:7:1: error: build auxiliary environment redefinition
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : build-bot
   :
-  {
+  {{
     : basics
     :
     {
@@ -1267,11 +1267,11 @@
         stdin:23:1: error: duplicate custom build bot public key
         EOE
     }
-  }
+  }}
 
   : build-config
   :
-  {
+  {{
     : multiple
     :
     {
@@ -1334,7 +1334,7 @@
     }
 
     : auxiliary
-    {
+    {{
       : named
       :
       {
@@ -1379,7 +1379,7 @@
 
       : mixed
       :
-      {
+      {{
         : named-unnamed
         :
         {
@@ -1439,12 +1439,12 @@
             stdin:7:1: error: build auxiliary environment redefinition
             EOE
         }
-      }
-    }
+      }}
+    }}
 
     : email
     :
-    {
+    {{
       : override
       :
       {
@@ -1515,12 +1515,12 @@
           stdin:8:26: error: empty build configuration warning email
           EOE
       }
-    }
-  }
+    }}
+  }}
 
   : distribution
   :
-  {
+  {{
     : incomplete
     :
     {
@@ -1613,11 +1613,11 @@
         stdin:7:13: error: empty package distribution value
         EOE
     }
-  }
+  }}
 
   : depends
   :
-  {
+  {{
     : short-name
     :
     $* <<EOI 2>'stdin:6:10: error: invalid package name: length is less than two characters' != 0
@@ -1653,7 +1653,7 @@
 
     : complete
     :
-    {
+    {{
       test.options += -c
 
       : final
@@ -1723,7 +1723,7 @@
         depends: bar == 2.0.0-a.0.123 | libbaz [2.0.0-a.0.1 2.0.0-a.1) | libbox\
          [2.0.0-a.0.1 2.0.0-a.1) | libfox [1.0 2.0.0-a.0.123)
         EOO
-    }
+    }}
 
     : incomplete
     :
@@ -1738,10 +1738,10 @@
 
     : single-line
     :
-    {
+    {{
       : curly-braces
       :
-      {
+      {{
         : multiple-dependencies
         :
         $* <<EOF >>EOF
@@ -1755,7 +1755,7 @@
 
         : common-version-constraint
         :
-        {
+        {{
           : valid
           :
           $* <<EOI >>EOO
@@ -1799,7 +1799,7 @@
             EOI
             stdin:6:30: error: invalid version constraint: invalid version: unexpected '-' character position
             EOE
-        }
+        }}
 
         : unterminated
         :
@@ -1826,11 +1826,11 @@
           EOI
           stdin:6:21: error: config.foo.* variable assignment expected instead of <buildfile fragment>
           EOE
-      }
+      }}
 
       : no-curly-braces
       :
-      {
+      {{
         : dependency
         :
         $* <<EOF >>EOF
@@ -1854,11 +1854,11 @@
           EOI
           stdin:6:10: error: invalid package constraint: invalid version: unexpected '-' character position
           EOE
-      }
+      }}
 
       : enable-condition
       :
-      {
+      {{
         : no-version-constraint
         :
         $* <<EOF >>EOF
@@ -1954,11 +1954,11 @@
           EOI
           stdin:6:53: error: unterminated evaluation context
           EOE
-      }
+      }}
 
       : reflect
       :
-      {
+      {{
         : no-version-constraint
         :
         $* <<EOF >>EOF
@@ -2026,7 +2026,7 @@
           EOI
           stdin:6:14: error: config.foo.* variable assignment expected instead of <buildfile fragment>
           EOE
-      }
+      }}
 
       : comments
       :
@@ -2050,11 +2050,11 @@
         EOI
         stdin:15:6: error: invalid package name: length is less than two characters
         EOE
-    }
+    }}
 
     : multi-line
     :
-    {
+    {{
       : surrounding-newlines
       :
       $* <<EOI >>EOO
@@ -2083,7 +2083,7 @@
 
       : enable-clause
       :
-      {
+      {{
         : single-line
         :
         $* <<EOI >>EOO
@@ -2164,11 +2164,11 @@
           EOI
           stdin:10:41: error: unterminated evaluation context
           EOE
-      }
+      }}
 
       : prefer-clause
       :
-      {
+      {{
         : accept-clause
         :
         $* <<EOF >>EOF
@@ -2317,11 +2317,11 @@
           EOI
           stdin:18:3: error: require and prefer clauses are mutually exclusive
           EOE
-      }
+      }}
 
       : require-clause
       :
-      {
+      {{
         : valid
         :
         $* <<EOF >>EOF
@@ -3599,11 +3599,11 @@
           }
           \
           EOF
-      }
+      }}
 
       : reflect-clause
       :
-      {
+      {{
         : valid
         :
         $* <<EOF >>EOF
@@ -3669,11 +3669,11 @@
           EOI
           stdin:9:1: error: multi-line dependency form with inline reflect clause
           EOE
-      }
+      }}
 
       : comments
       :
-      {
+      {{
         : single-line-separate
         :
         $* <<EOI >>EOO
@@ -3837,8 +3837,8 @@
           EOI
           stdin:26:2: error: unterminated multi-line comment
           EOE
-      }
-    }
+      }}
+    }}
 
     : multiple-alternatives
     :
@@ -3930,11 +3930,11 @@
       EOI
       stdin:7:1: error: dependency alternatives expected
       EOE
-  }
+  }}
 
   : requires
   :
-  {
+  {{
     : multiple-requirements
     :
     $* <<EOF >>EOF
@@ -4025,7 +4025,7 @@
 
     : simple
     :
-    {
+    {{
       : comment
       :
       $* <<EOF >>EOF
@@ -4206,12 +4206,12 @@
         license: LGPLv2
         requires: * ? ; VC 15 or later if targeting Windows.
         EOF
-    }
-  }
+    }}
+  }}
 
   : tests
   :
-  {
+  {{
     : short-name
     :
     $* <<EOI 2>'stdin:6:8: error: invalid package name: length is less than two characters' != 0
@@ -4280,7 +4280,7 @@
 
     : complete
     :
-    {
+    {{
       test.options += -c
 
       : final
@@ -4313,7 +4313,7 @@
         EOI
         stdin:6:8: error: invalid package constraint '~$': dependent version is not standard
         EOE
-    }
+    }}
 
     : incomplete
     :
@@ -4328,7 +4328,7 @@
 
     : reflect
     :
-    {
+    {{
       : after-version-constraint
       :
       $* <<EOF >>EOF
@@ -4374,11 +4374,11 @@
         EOI
         stdin:6:8: error: config.bar.* variable assignment expected instead of <buildfile fragment>
         EOE
-    }
+    }}
 
     : enable
     :
-    {
+    {{
       : after-version-constraint
       :
       $* <<EOF >>EOF
@@ -4413,7 +4413,7 @@
         EOI
         stdin:6:8: error: unterminated evaluation context
         EOE
-    }
+    }}
 
     : newline
     :
@@ -4469,11 +4469,11 @@
       EOI
       stdin:6:8: error: only single package allowed
       EOE
-  }
+  }}
 
   : buildfile
   :
-  {
+  {{
     : standard-naming
     :
     $* <<EOF >>EOF
@@ -4684,11 +4684,11 @@
       EOI
       stdin:11:1: error: package buildfile redefinition
       EOE
-  }
+  }}
 
   : buildfile-path
   :
-  {
+  {{
     : standard-naming
     :
     $* <<EOF >>EOF
@@ -4839,15 +4839,15 @@
       EOI
       stdin:6:13: error: bootstrap not allowed
       EOE
-  }
-}
+  }}
+}}
 
 : package-list
 :
-{
+{{
   : pkg
   :
-  {
+  {{
     test.options += -pp
 
     : roundtrip
@@ -4959,7 +4959,7 @@
 
     : dependency
     :
-    {
+    {{
       : incomplete
       :
       $* <<EOI 2>"stdin:8:10: error: invalid package constraint '== \$': \$ not allowed" != 0
@@ -4972,11 +4972,11 @@
         license: LGPLv2
         depends: bar == $
         EOI
-    }
+    }}
 
     : buildfiles
     :
-    {
+    {{
       : no-bootstrap
       :
       $* <<EOI 2>"stdin:10:1: error: no package bootstrap build specified" != 0
@@ -4990,12 +4990,12 @@
         location: foo/foo-2.0.0.tar.gz
         sha256sum: b5b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         EOI
-    }
-  }
+    }}
+  }}
 
   : dir
   :
-  {
+  {{
     test.options += -dp
 
     : empty
@@ -5021,11 +5021,11 @@
       :
       location: mhello/
       EOI
-  }
+  }}
 
   : git
   :
-  {
+  {{
     test.options += -gp
 
     : fragment
@@ -5038,15 +5038,15 @@
       location: mhello/
       fragment: ca602c2d46b0dca7a9ebc856871767b0ba6b74f3
       EOF
-  }
-}
+  }}
+}}
 
 : repository-list
 :
-{
+{{
   : header
   :
-  {
+  {{
     +$* -v | set v
 
     test.options += -pr
@@ -5185,11 +5185,11 @@
     : empty-manifest-list
     :
     $* <'' 2>'stdin:2:1: error: start of repository manifest expected' != 0
-  }
+  }}
 
   : pkg
   :
-  {
+  {{
     test.options += -pr
 
     : roundtrip
@@ -5314,11 +5314,11 @@
       :
       url: http://cppget.org
       EOI
-  }
+  }}
 
   : git
   :
-  {
+  {{
     test.options += -gr
 
     : roundtrip
@@ -5418,11 +5418,11 @@
       :
       url: http://cppget.org
       EOO
-  }
+  }}
 
   : dir
   :
-  {
+  {{
     test.options += -dr
 
     : roundtrip
@@ -5446,12 +5446,12 @@
       EOI
       stdin:2:11: error: unexpected fragment for dir repository
       EOE
-  }
-}
+  }}
+}}
 
 : signature
 :
-{
+{{
   : roundtrip
   :
   $* -s <<EOF >>EOF
@@ -5470,11 +5470,11 @@
     TobGycX7MDf2mbBmR/KmEkMBJ4mziWLAycSAGyE5VRYDwHPJlQE0143wBzT8eNw4VLm/r+88VYw=
     \
     EOF
-}
+}}
 
 : effective-constraints
 :
-{
+{{
   test.options += -ec
 
   : regular
@@ -5497,66 +5497,66 @@
 
   : shortcut
   :
-  {
+  {{
     : final
     :
-    {
+    {{
       $* '1.2.3+1' <'~$' >'~$ ~1.2.0' : tilda
       $* '1.2.3+1' <'^$' >'^$ ^1.0.0' : carrot
-    }
+    }}
 
     : pre-release
     :
-    {
+    {{
       : tilda
       :
-      {
+      {{
         $* '1.2.0-b.2' <'~$' >'~$ ~1.2.0-a.1' : no-final
         $* '1.2.1-a.1' <'~$' >'~$ ~1.2.0'     : final-patch
-      }
+      }}
 
       : carrot
       :
-      {
+      {{
         $* '1.0.0-b.2' <'^$' >'^$ ^1.0.0-a.1' : no-final
         $* '1.0.1-a.1' <'^$' >'^$ ^1.0.0'     : final-patch
         $* '1.1.0-b.2' <'^$' >'^$ ^1.0.0'     : final-minor
-      }
-    }
+      }}
+    }}
 
     : snapshot
     :
-    {
+    {{
       : tilda
       :
-      {
+      {{
         $* '1.2.1-a.2.345' <'~$' >'~$ ~1.2.0'                  : patch
         $* '1.2.0-a.0.345' <'~$' >'~$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
         $* '1.0.0-a.0.345' <'~$' >'~$ [1.0.0-a.0.1 1.0.0-a.1)' : major
-      }
+      }}
 
       : carrot
       :
-      {
+      {{
         $* '1.2.1-a.2.345' <'^$' >'^$ ^1.0.0'                  : patch
         $* '1.2.0-a.0.345' <'^$' >'^$ [1.2.0-a.0.1 1.2.0-a.1)' : minor
         $* '1.0.0-a.0.345' <'^$' >'^$ [1.0.0-a.0.1 1.0.0-a.1)' : major
-      }
-    }
+      }}
+    }}
 
     : invalid
     :
-    {
-      $* '1.2.3-'      <'~$' 2>'dependent version is earliest'                           == 1 : earliest-version
+    {{
+      $* '1.2.3-'      <'~$' 2>'dependent version is earliest'                         == 1 : earliest-version
       $* '1.2.3-a.0.z' <'~$' 2>'invalid version: dependent version is latest snapshot' == 1 : latest-version
       $* '0+1'         <'~$' 2>'invalid version: dependent version is stub'            == 1 : stub-version
-    }
-  }
-}
+    }}
+  }}
+}}
 
 : effective-type
 :
-{
+{{
   test.options += -et
 
   $* ''      libfoo >'lib'   : lib-prefix
@@ -5570,4 +5570,4 @@
     binless
     extras
     EOO
-}
+}}

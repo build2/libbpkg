@@ -3,7 +3,7 @@
 
 : eval
 :
-{
+{{
   test.options += -e
 
   : basic
@@ -117,11 +117,11 @@
   $* <<:EOF >>:EOF
     (foo != "bar(b"a"z)fox")
     EOF
-}
+}}
 
 : line
 :
-{
+{{
   test.options += -l
 
   : assignment
@@ -168,7 +168,7 @@
     stdin:2:1: error: unterminated single-quoted sequence
     EOE
 
- : double-quoted
+  : double-quoted
   :
   $* <<:EOF >>:EOF
     foo = "b'a\"\\)r"
@@ -256,11 +256,11 @@
   $* <<:EOF >>:EOF
     foo = "bar($baz ? b"a"z : 'bar')fox"
     EOF
-}
+}}
 
 : block
 :
-{
+{{
   test.options += -b
 
   : basic
@@ -339,4 +339,4 @@
     EOI
     stdin:13:1: error: unterminated buildfile block
     EOE
-}
+}}

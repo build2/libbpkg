@@ -3,7 +3,7 @@
 
 : valid
 :
-{
+{{
   : build-email
   :
   $* 'build-email: bar@example.com' <<EOI >>EOO
@@ -257,7 +257,7 @@
 
   : build-auxiliary
   :
-  {
+  {{
     : named
     :
     $* 'build-auxiliary-pgsql: *-postgresql**' \
@@ -331,11 +331,11 @@
       bar-build-auxiliary-mysql: *-mysql_8
       bar-build-auxiliary-pgsql: *-postgresql_16
       EOO
-  }
+  }}
 
   : build-bot
   :
-  {
+  {{
     : common
     :
     $* 'build-bot: key3' 'build-bot: key4' <<EOI >>EOO
@@ -400,12 +400,12 @@
       bar-build-bot: key1
       bar-build-bot: key2
       EOO
-  }
-}
+  }}
+}}
 
 : invalid
 :
-{
+{{
   : forbidden
   :
   $* 'name: libbar' <<EOI 2>"cannot override 'name' value" != 0
@@ -439,7 +439,6 @@
     EOI
     args:2:8: error: invalid package builds: unexpected underlying class set
     EOE
-
 
   : no-build-config
   :
@@ -583,7 +582,7 @@
 
   : build-auxiliary
   :
-  {
+  {{
     : named-common
     :
     $* 'build-auxiliary-mysql: *-mysql_*' <<EOI 2>>EOE != 0
@@ -670,5 +669,5 @@
       EOI
       cannot override 'bar-build-auxiliary' value: no build package configuration 'bar'
       EOE
-  }
-}
+  }}
+}}

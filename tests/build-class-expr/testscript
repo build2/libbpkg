@@ -3,7 +3,7 @@
 
 : valid
 :
-{
+{{
   test.options += -p
 
   : roundtrip
@@ -25,11 +25,11 @@
     EOF
 
    $* <'a :' >'a' : no-expr
-}
+}}
 
 : invalid
 :
-{
+{{
   test.options += -p
 
   $* <''          2>"empty class expression"                          != 0 : empty1
@@ -46,14 +46,14 @@
   $* <'+a )'      2>"class term expected instead of ')'"              != 0 : expected-name1
   $* <'+( +b ) )' 2>"class term expected instead of ')'"              != 0 : expected-name2
   $* <'+( -a )'   2>"class term '-a' must start with '+'"             != 0 : first-subtract
-}
+}}
 
 : match
 :
-{
+{{
   : non-empty-class-list
   :
-  {
+  {{
     test.arguments += a b c
 
     $* <'+a'
@@ -80,7 +80,7 @@
 
     $* <'a : +c'
     $* <'a : -x'
-  }
+  }}
 
   : empty-class-list
   :
@@ -95,14 +95,14 @@
 
     $* <'+y'
   }
-}
+}}
 
 : mismatch
 :
-{
+{{
   : non-empty-class-list
   :
-  {
+  {{
     test.arguments += a b c
 
     $* <'+!a'    == 1
@@ -122,7 +122,7 @@
 
     $* <'x : +a' == 1
     $* <'a : -c' == 1
-  }
+  }}
 
   : empty-class-list
   :
@@ -138,4 +138,4 @@
 
     $* <'+z' == 1
   }
-}
+}}
