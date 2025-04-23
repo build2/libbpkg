@@ -827,16 +827,19 @@ namespace bpkg
   {
     none                     = 0x000,
 
-    forbid_file              = 0x001, // Forbid *-file manifest values.
-    forbid_location          = 0x002,
-    forbid_sha256sum         = 0x004,
-    forbid_fragment          = 0x008,
-    forbid_incomplete_values = 0x010, // depends, <distribution>-version, etc.
+    forbid_version_iteration = 0x001,
+    forbid_file              = 0x002, // Forbid *-file manifest values.
+    forbid_location          = 0x004,
+    forbid_sha256sum         = 0x008,
+    forbid_fragment          = 0x010,
+    forbid_incomplete_values = 0x020, // depends, <distribution>-version, etc.
 
-    require_location         = 0x020,
-    require_sha256sum        = 0x040,
-    require_text_type        = 0x080, // description-type, changes-type, etc.
-    require_bootstrap_build  = 0x100
+    require_summary          = 0x040,
+    require_license          = 0x080,
+    require_location         = 0x100,
+    require_sha256sum        = 0x200,
+    require_text_type        = 0x400, // description-type, changes-type, etc.
+    require_bootstrap_build  = 0x800
   };
 
   package_manifest_flags
@@ -1274,7 +1277,7 @@ namespace bpkg
     butl::small_vector<language, 1> languages;    // <name>[=impl][, ...]
     butl::optional<package_name> project;
     butl::optional<priority_type> priority;
-    std::string summary;
+    butl::optional<std::string> summary;
     butl::small_vector<licenses, 1> license_alternatives;
 
     butl::small_vector<std::string, 5> topics;
@@ -1389,9 +1392,12 @@ namespace bpkg
                       bool ignore_unknown = false,
                       bool complete_values = true,
                       package_manifest_flags =
-                        package_manifest_flags::forbid_location  |
-                        package_manifest_flags::forbid_sha256sum |
-                        package_manifest_flags::forbid_fragment);
+                        package_manifest_flags::forbid_version_iteration |
+                        package_manifest_flags::forbid_location          |
+                        package_manifest_flags::forbid_sha256sum         |
+                        package_manifest_flags::forbid_fragment          |
+                        package_manifest_flags::require_summary          |
+                        package_manifest_flags::require_license);
 
     // As above but also call the translate function for the version value
     // passing through any exception it may throw. Throw std::invalid_argument
@@ -1411,9 +1417,12 @@ namespace bpkg
                       bool ignore_unknown = false,
                       bool complete_values = true,
                       package_manifest_flags =
-                        package_manifest_flags::forbid_location  |
-                        package_manifest_flags::forbid_sha256sum |
-                        package_manifest_flags::forbid_fragment);
+                        package_manifest_flags::forbid_version_iteration |
+                        package_manifest_flags::forbid_location          |
+                        package_manifest_flags::forbid_sha256sum         |
+                        package_manifest_flags::forbid_fragment          |
+                        package_manifest_flags::require_summary          |
+                        package_manifest_flags::require_license);
 
     // As above but construct the package manifest from the pre-parsed
     // manifest values list.
@@ -1426,9 +1435,12 @@ namespace bpkg
                       bool ignore_unknown = false,
                       bool complete_values = true,
                       package_manifest_flags =
-                        package_manifest_flags::forbid_location  |
-                        package_manifest_flags::forbid_sha256sum |
-                        package_manifest_flags::forbid_fragment);
+                        package_manifest_flags::forbid_version_iteration |
+                        package_manifest_flags::forbid_location          |
+                        package_manifest_flags::forbid_sha256sum         |
+                        package_manifest_flags::forbid_fragment          |
+                        package_manifest_flags::require_summary          |
+                        package_manifest_flags::require_license);
 
     package_manifest (const std::string& name,
                       std::vector<butl::manifest_name_value>&&,
@@ -1436,9 +1448,12 @@ namespace bpkg
                       bool ignore_unknown = false,
                       bool complete_values = true,
                       package_manifest_flags =
-                        package_manifest_flags::forbid_location  |
-                        package_manifest_flags::forbid_sha256sum |
-                        package_manifest_flags::forbid_fragment);
+                        package_manifest_flags::forbid_version_iteration |
+                        package_manifest_flags::forbid_location          |
+                        package_manifest_flags::forbid_sha256sum         |
+                        package_manifest_flags::forbid_fragment          |
+                        package_manifest_flags::require_summary          |
+                        package_manifest_flags::require_license);
 
     // Create an element of the list manifest.
     //

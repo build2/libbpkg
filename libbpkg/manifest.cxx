@@ -1208,7 +1208,7 @@ namespace bpkg
 
     // Find end of name (ne).
     //
-    // Grep for '=<>([~^' in the bpkg source code and update, if changed.
+    // NOTE: grep for '=<>([~^' in the bpkg source code and update, if changed.
     //
     const string cb ("=<>([~^");
     for (char c; i != e && cb.find (c = *i) == string::npos; ++i)
@@ -3759,7 +3759,11 @@ namespace bpkg
 
         try
         {
-          m.version = version (v);
+          m.version =
+            version (v,
+                     flag (package_manifest_flags::forbid_version_iteration)
+                     ? version::fold_zero_revision
+                     : version::fold_zero_revision | version::allow_iteration);
         }
         catch (const invalid_argument& e)
         {
@@ -3865,7 +3869,7 @@ namespace bpkg
       }
       else if (n == "summary")
       {
-        if (!m.summary.empty ())
+        if (m.summary)
           bad_name ("package summary redefinition");
 
         if (v.empty ())
@@ -4363,10 +4367,6 @@ namespace bpkg
       bad_value ("no package name specified");
     else if (m.version.empty ())
       bad_value ("no package version specified");
-    else if (m.summary.empty ())
-      bad_value ("no package summary specified");
-    else if (m.license_alternatives.empty ())
-      bad_value ("no project license specified");
 
     // Verify that the upstream version is not specified for a stub.
     //
@@ -4713,6 +4713,13 @@ namespace bpkg
       }
     }
 
+    if (!m.summary && flag (package_manifest_flags::require_summary))
+      bad_value ("no package summary specified");
+
+    if (m.license_alternatives.empty () &&
+        flag (package_manifest_flags::require_license))
+      bad_value ("no project license specified");
+
     if (!m.location && flag (package_manifest_flags::require_location))
       bad_name ("no package location specified");
 
@@ -4792,9 +4799,12 @@ namespace bpkg
       move (nv),
       iu,
       false /* complete_values */,
+      package_manifest_flags::forbid_version_iteration |
       package_manifest_flags::forbid_file              |
       package_manifest_flags::forbid_fragment          |
       package_manifest_flags::forbid_incomplete_values |
+      package_manifest_flags::require_summary          |
+      package_manifest_flags::require_license          |
       package_manifest_flags::require_location         |
       package_manifest_flags::require_text_type        |
       package_manifest_flags::require_bootstrap_build);
@@ -5606,6 +5616,9 @@ namespace bpkg
     bool header_only,
     const optional<standard_version>& /* min_ver */ = nullopt)
   {
+    // NOTE: remember to update bpkg's available_package::manifest() function
+    //       if changing anything here.
+    //
     // @@ Should we check that all non-optional values are specified ?
     // @@ Should we check that values are valid: version release is not empty,
     //    sha256sum is a proper string, ...?
@@ -5647,7 +5660,8 @@ namespace bpkg
                                          m.priority->comment));
     }
 
-    s.next ("summary", m.summary);
+    if (m.summary)
+      s.next ("summary", *m.summary);
 
     for (const auto& la: m.license_alternatives)
       s.next ("license",
