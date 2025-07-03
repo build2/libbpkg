@@ -5470,6 +5470,13 @@
     TobGycX7MDf2mbBmR/KmEkMBJ4mziWLAycSAGyE5VRYDwHPJlQE0143wBzT8eNw4VLm/r+88VYw=
     \
     EOF
+
+  : roundtrip-no-signature
+  :
+  $* -s <<EOF >>EOF
+    : 1
+    sha256sum: a2b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    EOF
 }}
 
 : effective-constraints

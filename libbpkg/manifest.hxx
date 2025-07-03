@@ -2206,11 +2206,13 @@ namespace bpkg
     //
     std::string sha256sum;
 
-    // Signature of the corresponding package_manifests. Calculated by
-    // encrypting package_manifests checksum (stored in sha256sum) with the
-    // repository certificate private key.
+    // Signature of the corresponding package_manifests. Should only be
+    // present if the certificate member is present in the corresponding
+    // repository_manifest. Calculated by encrypting package_manifests
+    // checksum (stored in sha256sum) with the repository certificate private
+    // key.
     //
-    std::vector<char> signature;
+    butl::optional<std::vector<char>> signature;
 
   public:
     signature_manifest () = default;

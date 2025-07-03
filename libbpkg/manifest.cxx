@@ -7787,7 +7787,7 @@ namespace bpkg
       }
       else if (n == "signature")
       {
-        if (!signature.empty ())
+        if (signature)
           bad_name ("signature redefinition");
 
         if (v.empty ())
@@ -7812,8 +7812,6 @@ namespace bpkg
     //
     if (sha256sum.empty ())
       bad_value ("no sha256sum specified");
-    else if (signature.empty ())
-      bad_value ("no signature specified");
 
     // Make sure this is the end.
     //
@@ -7831,7 +7829,9 @@ namespace bpkg
     s.next ("", "1"); // Start of manifest.
 
     s.next ("sha256sum", sha256sum);
-    s.next ("signature", base64_encode (signature));
+
+    if (signature)
+      s.next ("signature", base64_encode (*signature));
 
     s.next ("", ""); // End of manifest.
   }
