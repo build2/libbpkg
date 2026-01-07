@@ -1766,14 +1766,21 @@ namespace bpkg
   {
   public:
 
-    // If the requirements flavor is specified, then only enable and reflect
-    // clauses are allowed in the multi-line representation.
-    //
+    enum class flavor
+    {
+      dependencies, // See notes for the dependency_alternatives type.
+      constraint,   // See notes for the dependency_constraint type.
+      requirements  // See notes for the requirement_alternatives type.
+    };
+
     explicit
-    dependency_alternatives_parser (bool requirements = false)
-        : requirements_ (requirements) {}
+    dependency_alternatives_parser (flavor f = flavor::dependencies)
+        : flavor_ (f) {}
 
     // Throw manifest_parsing if representation is invalid.
+    //
+    // Note that the optional leading '*' mark is not expected to be present
+    // in the stream and is supposed to be handled by the caller.
     //
     void
     parse (const package_name& dependent,
@@ -1815,7 +1822,7 @@ namespace bpkg
     [[noreturn]] void
     unexpected_token (const token&, string&& what);
 
-    bool requirements_;
+    flavor flavor_;
 
     const package_name* dependent_;
     const string* name_;
@@ -1857,8 +1864,6 @@ namespace bpkg
     lexer_ = &lexer;
     result_ = &result;
 
-    string what (requirements_ ? "requirement" : "dependency");
-
     token t;
     token_type tt;
     next (t, tt);
@@ -1870,8 +1875,11 @@ namespace bpkg
     //
     if (tt == token_type::eos)
     {
-      if (!requirements_)
-        unexpected_token (t, what + " alternatives");
+      if (flavor_ != flavor::requirements)
+        unexpected_token (t,
+                          flavor_ == flavor::dependencies
+                          ? "dependency alternatives"
+                          : "dependency constraint");
 
       dependency_alternative da;
       da.push_back (dependency ());
@@ -1892,8 +1900,8 @@ namespace bpkg
       // Make sure that the simple requirement has the only alternative in the
       // representation.
       //
-      if (requirements_   &&
-          da.size () == 1 &&
+      if (flavor_ == flavor::requirements &&
+          da.size () == 1                 &&
           (da[0].name.empty () || (da.enable && da.enable->empty ())))
       {
         assert (first);
@@ -1906,12 +1914,25 @@ namespace bpkg
       }
       else
       {
-        if (tt != token_type::eos && tt != token_type::bit_or)
-          unexpected_token (t, "end of " + what + " alternatives or '|'");
+        if (flavor_ == flavor::constraint)
+        {
+          if (tt != token_type::eos)
+            unexpected_token (t, "end of dependency constraint");
+        }
+        else
+        {
+          if (tt != token_type::eos && tt != token_type::bit_or)
+            unexpected_token (t,
+                              flavor_ == flavor::dependencies
+                              ? "end of dependency alternatives or '|'"
+                              : "end of requirement alternatives or '|'");
+        }
       }
 
       if (tt == token_type::bit_or)
       {
+        assert (flavor_ != flavor::constraint); // Wouldn't be here otherwise.
+
         next (t, tt);
 
         // Skip newline after '|', if present.
@@ -1922,7 +1943,12 @@ namespace bpkg
         // Make sure '|' is not followed by eos.
         //
         if (tt == token_type::eos)
-          unexpected_token (t, move (what));
+        {
+          unexpected_token (t,
+                            flavor_ == flavor::dependencies
+                            ? "dependency"
+                            : "requirement");
+        }
       }
 
       result_->push_back (move (da));
@@ -1934,11 +1960,10 @@ namespace bpkg
   dependency_alternative dependency_alternatives_parser::
   parse_alternative (token& t, token_type& tt, bool first)
   {
-    using type  = token_type;
+    using type = token_type;
 
     dependency_alternative r;
 
-    string what (requirements_ ? "requirement" : "dependency");
     string config ("config." + dependent_->variable () + '.');
 
     auto bad_token = [&t, this] (string&& what)
@@ -2063,10 +2088,16 @@ namespace bpkg
 
     const char* vccs ("([<>=!~^");
 
-    bool group (tt == type::lcbrace); // Dependency group.
+    // Dependency group.
+    //
+    bool group (tt == type::lcbrace && flavor_ != flavor::constraint);
 
     if (group)
     {
+      string what (flavor_ == flavor::dependencies
+                   ? "dependency"
+                   : "requirement");
+
       next (t, tt);
 
       if (tt == type::rcbrace)
@@ -2146,7 +2177,7 @@ namespace bpkg
       // mode, then this is a simple requirement. In this case parse the
       // evaluation context, if present, and bail out.
       //
-      if (requirements_ && first && tt == type::question)
+      if (flavor_ == flavor::requirements && first && tt == type::question)
       {
         r.emplace_back (dependency ());
 
@@ -2157,7 +2188,12 @@ namespace bpkg
         return r;
       }
 
-      expect_token (type::word, move (what));
+      // Note: also handles the constraint flavor.
+      //
+      expect_token (type::word,
+                    flavor_ == flavor::requirements
+                    ? "requirement"
+                    : "dependency");
 
       string   d  (move (t.value));
       uint64_t dl (t.line);
@@ -2206,7 +2242,7 @@ namespace bpkg
         //
         c = lexer_->peek_char ();
 
-        if (requirements_ && first && !group && c != '(')
+        if (flavor_ == flavor::requirements && first && !group && c != '(')
         {
           r.enable = "";
 
@@ -2243,6 +2279,10 @@ namespace bpkg
 
     if (tt == type::newline)
     {
+      string what (flavor_ == flavor::dependencies ? "dependency alternative"  :
+                   flavor_ == flavor::requirements ? "requirement alternative" :
+                                                     "dependency constraint");
+
       next (t, tt);
 
       if (tt == type::lcbrace)
@@ -2349,7 +2389,7 @@ namespace bpkg
           }
           else if (v == "prefer")
           {
-            if (requirements_)
+            if (flavor_ == flavor::requirements)
               fail_requirements ();
 
             if (r.prefer)
@@ -2377,7 +2417,7 @@ namespace bpkg
           }
           else if (v == "require")
           {
-            if (requirements_)
+            if (flavor_ == flavor::requirements)
               fail_requirements ();
 
             if (r.require)
@@ -2400,7 +2440,7 @@ namespace bpkg
           }
           else if (v == "accept")
           {
-            if (requirements_)
+            if (flavor_ == flavor::requirements)
               fail_requirements ();
 
             throw parsing (*name_,
@@ -2409,7 +2449,7 @@ namespace bpkg
                            "accept clause should follow prefer clause");
           }
           else
-            bad_token (what + " alternative clause");
+            bad_token (what + " clause");
         }
 
         expect_token (type::rcbrace);
@@ -2503,6 +2543,154 @@ namespace bpkg
 
       r += da.string ();
       prev = &da;
+    }
+
+    return serializer::merge_comment (r, comment);
+  }
+
+  // dependency_constraint
+  //
+  dependency_constraint::
+  dependency_constraint (const std::string& s,
+                         const package_name& dependent,
+                         const std::string& name,
+                         uint64_t line,
+                         uint64_t column)
+  {
+    using std::string;
+
+    auto vc (parser::split_comment (s));
+
+    comment = move (vc.second);
+
+    const string& v (vc.first);
+    buildtime = (v[0] == '*');
+
+    string::const_iterator b (v.begin ());
+    string::const_iterator e (v.end ());
+
+    if (buildtime)
+    {
+      string::size_type p (v.find_first_not_of (spaces, 1));
+      b = (p == string::npos ? e : b + p);
+    }
+
+    // We will use the dependency alternatives parser to parse the
+    // representation into a temporary dependency alternatives in the
+    // constraint mode. Then we will move the alternative into the dependency
+    // constraint.
+    //
+    dependency_alternatives_parser p (
+      dependency_alternatives_parser::flavor::constraint);
+
+    istringstream is (b == v.begin () ? v : string (b, e));
+
+    dependency_alternatives das;
+    p.parse (dependent, is, name, line, column, das);
+
+    // Verify that there is a single dependency alternative.
+    //
+    assert (das.size () == 1); // Enforced by the parser.
+
+    dependency_alternative& da (das[0]);
+
+    // Verify that there is a single dependency in the alternative.
+    //
+    assert (da.size () == 1); // Enforced by the parser.
+
+    // Move the dependency and the buildfile clauses into the being created
+    // dependency constraint object.
+    //
+    static_cast<dependency&> (*this) = move (da[0]);
+
+    enable  = move (da.enable);
+    reflect = move (da.reflect);
+    prefer  = move (da.prefer);
+    accept  = move (da.accept);
+    require = move (da.require);
+  }
+
+  string dependency_constraint::
+  string () const
+  {
+    std::string r (buildtime
+                   ? "* " + dependency::string ()
+                   :        dependency::string ());
+
+    if (single_line ())
+    {
+      if (enable)
+      {
+        r += " ? (";
+        r += *enable;
+        r += ')';
+      }
+
+      if (reflect)
+      {
+        r += ' ';
+        r += *reflect;
+      }
+    }
+    else
+    {
+      // Add an extra newline between the clauses.
+      //
+      bool first (true);
+
+      r += "\n{";
+
+      if (enable)
+      {
+        first = false;
+
+        r += "\n  enable (";
+        r += *enable;
+        r += ')';
+      }
+
+      if (prefer)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  prefer\n  {\n";
+        r += *prefer;
+        r += "  }";
+
+        assert (accept);
+
+        r += "\n\n  accept (";
+        r += *accept;
+        r += ')';
+      }
+      else if (require)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  require\n  {\n";
+        r += *require;
+        r += "  }";
+      }
+
+      if (reflect)
+      {
+        if (!first)
+          r += '\n';
+        else
+          first = false;
+
+        r += "\n  reflect\n  {\n";
+        r += *reflect;
+        r += "  }";
+      }
+
+      r += "\n}";
     }
 
     return serializer::merge_comment (r, comment);
@@ -2616,7 +2804,7 @@ namespace bpkg
     if (buildtime)
     {
       string::size_type p (v.find_first_not_of (spaces, 1));
-      b = p == string::npos ? e : b + p;
+      b = (p == string::npos ? e : b + p);
     }
 
     // We will use the dependency alternatives parser to parse the
@@ -2625,7 +2813,9 @@ namespace bpkg
     // the requirement alternatives using the string representation of the
     // dependencies.
     //
-    dependency_alternatives_parser p (true /* requirements */);
+    dependency_alternatives_parser p (
+      dependency_alternatives_parser::flavor::requirements);
+
     istringstream is (b == v.begin () ? v : string (b, e));
 
     dependency_alternatives das;
@@ -3116,7 +3306,6 @@ namespace bpkg
     else if (t == "benchmarks") return test_dependency_type::benchmarks;
     else throw invalid_argument ("invalid test dependency type '" + t + '\'');
   }
-
 
   // test_dependency
   //
@@ -3702,12 +3891,13 @@ namespace bpkg
     //
     optional<name_value> upstream_version;
 
-    // We will cache the depends and the test dependency manifest values to
-    // parse and, if requested, complete the version constraints later, after
-    // the version value is parsed. We will also cache the requires values to
-    // parse them later, after the package name is parsed.
+    // We will cache the depends, constrains, and the test dependency manifest
+    // values to parse and, if requested, complete the version constraints
+    // later, after the version value is parsed. We will also cache the
+    // requires values to parse them later, after the package name is parsed.
     //
     vector<name_value> dependencies;
+    vector<name_value> constraints;
     vector<name_value> requirements;
     small_vector<name_value, 1> tests;
 
@@ -4102,7 +4292,14 @@ namespace bpkg
       }
       else if (n == "depends")
       {
+        if (!constraints.empty ())
+          bad_name ("dependency specified after dependency constraint");
+
         dependencies.push_back (move (nv));
+      }
+      else if (n == "constrains")
+      {
+        constraints.push_back (move (nv));
       }
       else if (n == "requires")
       {
@@ -4602,7 +4799,8 @@ namespace bpkg
     parse_build_config_emails (move (build_config_error_emails));
 
     // Now, when the version manifest value is parsed, we can parse the
-    // dependencies and complete their constraints, if requested.
+    // dependencies and dependency constraints and complete their version
+    // constraints, if requested.
     //
     auto complete_constraint = [&m, cv, &flag] (auto&& dep)
     {
@@ -4652,6 +4850,30 @@ namespace bpkg
         }
 
         m.dependencies.push_back (move (das));
+      }
+      catch (const invalid_argument& e)
+      {
+        bad_value (e.what ());
+      }
+    }
+
+    // Parse the dependency constraints.
+    //
+    for (name_value& c: constraints)
+    {
+      nv = move (c); // Restore as bad_value() uses its line/column.
+
+      // Parse dependency constraint.
+      //
+      try
+      {
+        m.constraints.push_back (
+          complete_constraint (
+            dependency_constraint (nv.value,
+                                   m.name,
+                                   name,
+                                   nv.value_line,
+                                   nv.value_column)));
       }
       catch (const invalid_argument& e)
       {
@@ -5762,6 +5984,9 @@ namespace bpkg
 
       for (const dependency_alternatives& d: m.dependencies)
         s.next ("depends", d.string ());
+
+      for (const dependency_constraint& c: m.constraints)
+        s.next ("constrains", c.string ());
 
       for (const requirement_alternatives& r: m.requirements)
         s.next ("requires", r.string ());

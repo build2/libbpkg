@@ -459,7 +459,7 @@ namespace bpkg
   std::ostream&
   operator<< (std::ostream&, const dependency&);
 
-  // depends
+  // depends: dependency_alternatives
   //
   // The dependency alternative can be represented in one of the following
   // forms.
@@ -671,7 +671,139 @@ namespace bpkg
     return os << das.string ();
   }
 
-  // requires
+  // constraints: dependency_constraint
+  //
+  // The dependency constraint is similar to dependency_alternatives with the
+  // following differences:
+  //
+  // - Only a single alternative is allowed.
+  // - Only a single dependency in the (single) alternative is allowed.
+  //
+  struct LIBBPKG_EXPORT dependency_constraint: dependency
+  {
+    bool buildtime;
+    butl::optional<std::string> enable;
+    butl::optional<std::string> reflect;
+    butl::optional<std::string> prefer;
+    butl::optional<std::string> accept;
+    butl::optional<std::string> require;
+    std::string comment;
+
+    dependency_constraint () = default;
+    dependency_constraint (package_name n,
+                           bool b,
+                           butl::optional<version_constraint> v,
+                           butl::optional<std::string> e,
+                           butl::optional<std::string> r,
+                           butl::optional<std::string> p,
+                           butl::optional<std::string> a,
+                           butl::optional<std::string> q,
+                           std::string c)
+        : dependency {std::move (n), std::move (v)},
+          buildtime (b),
+          enable (std::move (e)),
+          reflect (std::move (r)),
+          prefer (std::move (p)),
+          accept (std::move (a)),
+          require (std::move (q)),
+          comment (std::move (c)) {}
+
+    // Parse the dependency constraint string representation in the
+    // following forms:
+    //
+    // Single-line form:
+    //
+    //   <dependency> ['?' <enable-condition>] [<reflect-config>]
+    //
+    // Multi-line forms:
+    //
+    //   <dependency>
+    //   {
+    //     enable <enable-condition>
+    //
+    //     prefer
+    //     {
+    //       <prefer-config>
+    //     }
+    //
+    //     accept <accept-condition>
+    //
+    //     reflect
+    //     {
+    //       <reflect-config>
+    //     }
+    //   }
+    //   |
+    //   <dependency>
+    //   {
+    //     enable <enable-condition>
+    //
+    //     require
+    //     {
+    //       <require-config>
+    //     }
+    //
+    //     reflect
+    //     {
+    //       <reflect-config>
+    //     }
+    //   }
+    //
+    // <dependency> = [*] <name> [<version-constraint>]
+    //
+    // See the dependency_alternative type for the format and semantics of the
+    // buildfile clauses.
+    //
+    // Throw manifest_parsing if the value is invalid.
+    //
+    // Use the dependent package name to verify that the reflect clause in the
+    // dependency constraint representations refer to the dependent package
+    // configuration variable.
+    //
+    // Optionally, specify the stream name to use when creating the
+    // manifest_parsing exception. The start line and column arguments can be
+    // used to align the exception information with a containing stream. This
+    // is useful when the dependency constraint representation is a part of
+    // some larger text (manifest, etc).
+    //
+    // Note that semicolons inside the constraint must be escaped with the
+    // backslash (not to be treated as the start of a comment). Backslashes at
+    // the end of buildfile fragment lines need to also be escaped, if
+    // dependency constraint representation comes from the manifest file
+    // (since trailing backslashes in manifest lines has special semantics).
+    //
+    dependency_constraint (const std::string&,
+                           const package_name& dependent,
+                           const std::string& name = std::string (),
+                           std::uint64_t line = 1,
+                           std::uint64_t column = 1);
+
+    // Return the single-line representation if possible (the prefer and
+    // require clauses are absent and the reflect clause either absent or
+    // contains no newlines).
+    //
+    std::string
+    string () const;
+
+    // Return true if the string() function would return the single-line
+    // representation.
+    //
+    bool
+    single_line () const
+    {
+      return !prefer  &&
+             !require &&
+             (!reflect || reflect->find ('\n') == std::string::npos);
+    }
+  };
+
+  inline std::ostream&
+  operator<< (std::ostream& os, const dependency_constraint& dc)
+  {
+    return os << dc.string ();
+  }
+
+  // requires: requirement_alternatives
   //
   // The requirement alternative string representation is similar to that of
   // the dependency alternative with the following differences:
@@ -1295,6 +1427,7 @@ namespace bpkg
     butl::optional<email_type> build_warning_email;
     butl::optional<email_type> build_error_email;
     std::vector<dependency_alternatives> dependencies;
+    std::vector<dependency_constraint> constraints;
     std::vector<requirement_alternatives> requirements;
     butl::small_vector<test_dependency, 1> tests;
 

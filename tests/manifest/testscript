@@ -2143,7 +2143,7 @@
           }
           \
           EOI
-          stdin:9:1: error: multi-line dependency form with inline enable clause
+          stdin:9:1: error: multi-line dependency alternative form with inline enable clause
           EOE
 
         : unterminated
@@ -2191,7 +2191,6 @@
           }
           \
           EOF
-
 
         : empty
         :
@@ -3667,7 +3666,7 @@
           }
           \
           EOI
-          stdin:9:1: error: multi-line dependency form with inline reflect clause
+          stdin:9:1: error: multi-line dependency alternative form with inline reflect clause
           EOE
       }}
 
@@ -3929,6 +3928,865 @@
       \
       EOI
       stdin:7:1: error: dependency alternatives expected
+      EOE
+  }}
+
+  : constrains
+  :
+  {{
+    : short-name
+    :
+    $* <<EOI 2>'stdin:6:13: error: invalid package name: length is less than two characters' != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: b
+      EOI
+
+    : invalid-version-range
+    :
+    $* -c <<EOI 2>"stdin:6:13: error: invalid package constraint '[\$ 1.0.0]': min version is greater than max version" != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: bar [$ 1.0.0]
+      EOI
+
+    : alternatives
+    :
+    $* -c <<EOI 2>"stdin:6:26: error: end of dependency constraint expected instead of '|'" != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: bar == 1.0.0 | baz == 1.0.0
+      EOI
+
+    : multiple-dependencies
+    :
+    $* -c <<EOI 2>"stdin:6:13: error: dependency expected instead of '{'" != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: {bar == 1.0.0 baz == 1.0.0}
+      EOI
+
+    : complete
+    :
+    {{
+      test.options += -c
+
+      : final
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        constrains: bar == $
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        constrains: bar == 2.0.0
+        EOO
+    }}
+
+    : incomplete
+    :
+    $* <<EOF >>EOF
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: bar == $
+      EOF
+
+    : single-line
+    :
+    {{
+      : invalid-constraint
+      :
+      $* <<EOI 2>>EOE != 0
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        constrains: bar == 1-0-0
+        EOI
+        stdin:6:13: error: invalid package constraint: invalid version: unexpected '-' character position
+        EOE
+
+      : enable-condition
+      :
+      {{
+        : no-version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ($cxx.target.class == 'windows')
+          EOF
+
+        : version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar == 1.0.0 ? ($cxx.target.class == 'windows')
+          EOF
+
+        : missed-dependency
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: ? ($cxx.target.class == 'windows')
+          EOI
+          stdin:6:13: error: dependency expected instead of '?'
+          EOE
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ()
+          EOI
+          stdin:6:20: error: condition expected
+          EOE
+
+        : unterminated1
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ($cxx.target.class == 'windows'
+          EOI
+          stdin:6:50: error: unterminated evaluation context
+          EOE
+
+        : unterminated2
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ($cxx.target.class == 'windows' | baz
+          EOI
+          stdin:6:56: error: unterminated evaluation context
+          EOE
+      }}
+
+      : reflect
+      :
+      {{
+        : no-version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar config.foo.bar=true
+          EOF
+
+        : version-constraint
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar == 1.0.0 config.foo.bar=true
+          EOF
+
+        : enable-condition
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ($cxx.target.class == 'windows') config.foo.bar=true
+          EOF
+
+        : expected-config
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar baz config.foo.bar=true
+          EOI
+          stdin:6:17: error: config.foo.* variable assignment expected instead of <buildfile fragment>
+          EOE
+      }}
+    }}
+
+    : multi-line
+    :
+    {{
+      : surrounding-newlines
+      :
+      $* <<EOI >>EOO
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        constrains:
+        \
+        *
+
+        bar
+
+        ;
+        Comment.
+        \
+        EOI
+        : 1
+        name: foo
+        version: 2.0.0
+        summary: Modern C++ parser
+        license: LGPLv2
+        constrains: * bar; Comment.
+        EOO
+
+      : enable-clause
+      :
+      {{
+        : single-line
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains: bar ? ($cxx.target.class == 'windows')
+          EOO
+
+        : empty
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ()
+          }
+          \
+          EOI
+          stdin:10:11: error: condition expected
+          EOE
+
+        : inline-enable
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar ? ($windows)
+          {
+            enable ($windows)
+          }
+          \
+          EOI
+          stdin:9:1: error: multi-line dependency constraint form with inline enable clause
+          EOE
+
+        : unterminated
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows'
+          }
+          \
+          EOI
+          stdin:10:41: error: unterminated evaluation context
+          EOE
+      }}
+
+      : prefer-clause
+      :
+      {{
+        : accept-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOF
+
+        : empty
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            prefer
+            {
+            }
+
+            accept (true)
+          }
+          \
+          EOF
+
+        : no-accept-clause
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:\
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+            }
+          }
+          \
+          EOI
+          stdin:13:1: error: accept clause expected instead of '}'
+          EOE
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOF
+
+        : wrong-order
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+
+            enable ($cxx.target.class == 'windows')
+          }
+          \
+          EOF
+          stdin:18:3: error: enable clause should precede prefer clause
+          EOE
+
+        : require-clause
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          stdin:18:3: error: require and prefer clauses are mutually exclusive
+          EOE
+      }}
+
+      : require-clause
+      :
+      {{
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+
+        : prefer-clause
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOF
+          stdin:16:3: error: prefer and require clauses are mutually exclusive
+          EOE
+
+        : unescaped-semicolon
+        :
+        $* <<EOF 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:\
+          bar
+          {
+            require
+            {
+              config.bar.baz=a
+          ;
+            }
+          }
+          \
+          EOF
+          stdin:11:21: error: unterminated buildfile block
+          EOE
+      }}
+
+      : reflect-clause
+      :
+      {{
+        : valid
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            reflect
+            {
+              config.foo.bar=true
+              config.foo.baz=false
+            }
+          }
+          \
+          EOF
+
+        : enable-clause
+        :
+        $* <<EOF >>EOF
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            enable ($cxx.target.class == 'windows')
+
+            reflect
+            {
+              config.foo.bar=true
+              config.foo.baz=false
+            }
+          }
+          \
+          EOF
+
+        : inline-reflect
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar config.foo.bar=true
+          {
+            reflect
+            {
+              config.foo.bar=true
+            }
+          }
+          \
+          EOI
+          stdin:9:1: error: multi-line dependency constraint form with inline reflect clause
+          EOE
+      }}
+
+      : comments
+      :
+      {{
+        : single-line-separate
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOO
+
+        : single-line-trailing
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            require # Configure bar.
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+          }
+          \
+          EOO
+
+        : multi-line
+        :
+        $* <<EOI >>EOO
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            #\\
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+            #\\
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOI
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOO
+
+        : multi-line-unterm
+        :
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          constrains:
+          \
+          bar
+          {
+            #\\
+            # Configure bar.
+            #
+            require
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            prefer
+            {
+              config.bar.frame=4016
+              config.bar.timeout=10
+            }
+
+            accept ($config.bar.frame >= 1024 && config.bar.timeout < 20)
+          }
+          \
+          EOI
+          stdin:26:2: error: unterminated multi-line comment
+          EOE
+      }}
+    }}
+
+    : missed-dependencies
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains:
+      EOI
+      stdin:6:12: error: dependency constraint expected
+      EOE
+
+    : constrains-before-depends
+    :
+    $* <<EOI 2>>EOE != 0
+      : 1
+      name: foo
+      version: 2.0.0
+      summary: Modern C++ parser
+      license: LGPLv2
+      constrains: bar == 1.0.0
+      depends: baz
+      EOI
+      stdin:7:1: error: dependency specified after dependency constraint
       EOE
   }}
 
