@@ -4960,21 +4960,7 @@ namespace bpkg
       // or have no type.
       //
       if (!m.changes.empty () && !m.changes.front ().type)
-      {
-        // @@ TMP To support older repositories allow absent changes type
-        //        until toolchain 0.16.0 is released. Or maybe wait until
-        //        0.18.0 is released to support some older private
-        //        repositories for a bit longer.
-        //
-        //        Note that for such repositories the packages may not have
-        //        changes values other than plan text. Thus, we can safely set
-        //        this type, if they are absent, so that the caller can always
-        //        be sure that these values are always present for package
-        //        manifest lists.
-        //bad_name ("no package changes type specified");
-        for (typed_text_file& c: m.changes)
-          c.type = "text/plain";
-      }
+        bad_name ("no package changes type specified");
     }
 
     if (!m.bootstrap_build &&
