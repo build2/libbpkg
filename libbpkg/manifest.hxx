@@ -1709,6 +1709,13 @@ namespace bpkg
     // manifest_parsing otherwise. However, the load function may want to
     // recognize such cases itself in order to issue more precise diagnostics.
     //
+    // Also note that the returned file contents is expected to be a valid
+    // UTF-8 encoded byte string, which complies with the manifest
+    // specification. This requirement is not enforced, though, assuming that
+    // the load function can issue more precise description and provide the
+    // error location in manifest_parsing. Also, the potentially repeated
+    // verification (as a part of enforcement) wouldn't be exactly cheap.
+    //
     using load_function =
       butl::optional<std::string> (const std::string& name,
                                    const butl::path& value);

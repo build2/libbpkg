@@ -5752,7 +5752,6 @@ namespace bpkg
         }
       }
 
-
       assert (t || iu); // Can only be absent if we ignore unknown.
 
       if (!text.type && t)
