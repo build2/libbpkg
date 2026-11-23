@@ -3862,10 +3862,18 @@ namespace bpkg
                                        const string& desc = "")
       -> build_package_config&
     {
+      assert (!nm.empty ()); // Wouldn't be here otherwise.
+
       // The error description must only be specified if the creation of the
       // package build configuration is not allowed.
       //
       assert (desc.empty () == create);
+
+      if (nm.find ('+') != string::npos)
+        bad_name ("package build configuration name contains plus");
+
+      if (nm[0] == '.')
+        bad_name ("package build configuration name starts with dot");
 
       small_vector<build_package_config, 1>& cs (m.build_configs);
 
@@ -5220,7 +5228,19 @@ namespace bpkg
       auto build_conf =
         [&nv, &bad_name, &m] (size_t n, bool create) -> build_package_config&
       {
+        assert (n != 0); // Wouldn't be here otherwise.
+
         const string& nm (nv.name);
+
+        size_t p;
+        if ((p = nm.find ('+')) != string::npos && p < n)
+          bad_name ("cannot override '" + nm + "' value: package build " +
+                    "configuration name contains plus");
+
+        if (nm[0] == '.')
+          bad_name ("cannot override '" + nm + "' value: package build " +
+                    "configuration name starts with dot");
+
         small_vector<build_package_config, 1>& cs (m.build_configs);
 
         // Find the build package configuration. If no configuration is found,
@@ -5240,8 +5260,8 @@ namespace bpkg
             return cs.back ();
           }
           else
-            bad_name ("cannot override '" + nm + "' value: no build " +
-                      "package configuration '" + cn + '\'');
+            bad_name ("cannot override '" + nm + "' value: no package " +
+                      "build configuration '" + cn + '\'');
         }
 
         return *i;

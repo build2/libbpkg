@@ -449,7 +449,19 @@
     summary: Modern C++ parser
     license: LGPLv2
     EOI
-    cannot override 'network-builds' value: no build package configuration 'network'
+    cannot override 'network-builds' value: no package build configuration 'network'
+    EOE
+
+  : plus-in-name
+  :
+  $* 'net+work-builds: default' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    cannot override 'net+work-builds' value: package build configuration name contains plus
     EOE
 
   : config-builds-after-builds
@@ -513,7 +525,19 @@
     summary: Modern C++ parser
     license: LGPLv2
     EOI
-    cannot override 'deprecated-api-builds' value: no build package configuration 'deprecated-api'
+    cannot override 'deprecated-api-builds' value: no package build configuration 'deprecated-api'
+    EOE
+
+  : build-config-name-start-dot
+  :
+  $* '.deprecated-api-build-config: config.libfoo.deprecated-api=true' <<EOI 2>>EOE != 0
+    : 1
+    name: libfoo
+    version: 2.0.0
+    summary: Modern C++ parser
+    license: LGPLv2
+    EOI
+    cannot override '.deprecated-api-build-config' value: package build configuration name starts with dot
     EOE
 
   : config-bot-after-built-bot
@@ -551,7 +575,7 @@
     summary: Modern C++ parser
     license: LGPLv2
     EOI
-    cannot override 'foo-build-bot' value: no build package configuration 'foo'
+    cannot override 'foo-build-bot' value: no package build configuration 'foo'
     EOE
 
   : config-email-after-email
@@ -625,7 +649,7 @@
       foo-build-auxiliary-mssql: *-mssql_*
       foo-build-auxiliary-oracle: *-oracle_*
       EOI
-      cannot override 'bar-build-auxiliary-oracle' value: no build package configuration 'bar'
+      cannot override 'bar-build-auxiliary-oracle' value: no package build configuration 'bar'
       EOE
 
     : unnamed-common
@@ -667,7 +691,7 @@
       build-auxiliary: *-postgresql_*
       foo-build-auxiliary: *-oracle_*
       EOI
-      cannot override 'bar-build-auxiliary' value: no build package configuration 'bar'
+      cannot override 'bar-build-auxiliary' value: no package build configuration 'bar'
       EOE
   }}
 }}

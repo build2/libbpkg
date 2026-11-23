@@ -1333,6 +1333,24 @@
         EOI
     }
 
+    : name-plus
+    :
+    {
+      $* <<EOI 2>"stdin:2:1: error: package build configuration name contains plus" != 0
+        : 1
+        bar+baz-build-config: config.foo.bar = true
+        EOI
+    }
+
+    : name-dot
+    :
+    {
+      $* <<EOI 2>"stdin:2:1: error: package build configuration name starts with dot" != 0
+        : 1
+        .bar-build-config: config.foo.bar = true
+        EOI
+    }
+
     : auxiliary
     {{
       : named
@@ -1513,6 +1531,23 @@
           bar-build-warning-email: ; Empty
           EOI
           stdin:8:26: error: empty build configuration warning email
+          EOE
+      }
+
+      : plus
+      :
+      {
+        $* <<EOI 2>>EOE != 0
+          : 1
+          name: foo
+          version: 2.0.0
+          summary: Modern C++ parser
+          license: LGPLv2
+          build-error-email: build-error@example.com
+          bar-build-config: config.foo.bar = true; Bar.
+          bar+baz-build-warning-email: bar-build@example.com
+          EOI
+          stdin:8:1: error: package build configuration name contains plus
           EOE
       }
     }}
